@@ -1,0 +1,55 @@
+[package]
+name = "weather-backend"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+# Web framework
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower = "0.4"
+tower-http = { version = "0.5", features = ["cors", "fs", "compression-gzip"] }
+
+# HTTP client
+reqwest = { version = "0.11", features = ["json", "gzip"] }
+
+# Serialization
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# Templates
+askama = "0.12"
+
+# Cache
+moka = { version = "0.12", features = ["future"] }
+
+# Configuration
+dotenvy = "0.15"
+
+# Error handling
+anyhow = "1.0"
+thiserror = "1.0"
+
+# Time handling
+chrono = { version = "0.4", features = ["serde"] }
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+# Environment
+env_logger = "0.10"
+
+# WebSocket support (for future implementation)
+axum-extra = { version = "0.9", features = ["typed-header"] }
+tokio-tungstenite = "0.20"
+
+# Async trait
+async-trait = "0.1"
+
+# Lazy static
+lazy_static = "1.4"
+
+[[bin]]
+name = "weather-server"
+path = "src/main.rs"
