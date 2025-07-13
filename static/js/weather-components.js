@@ -183,6 +183,34 @@ class WeatherWidget extends HTMLElement {
                     display: none !important;
                 }
                 
+                .connection-status {
+                    position: fixed;
+                    top: 1rem;
+                    right: 1rem;
+                    padding: 0.5rem 0.75rem;
+                    border-radius: 0.5rem;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                    z-index: 1000;
+                    opacity: 0.9;
+                    transition: all 0.3s ease;
+                }
+                
+                .connection-status.connected {
+                    background-color: #10b981;
+                    color: white;
+                }
+                
+                .connection-status.disconnected {
+                    background-color: #ef4444;
+                    color: white;
+                }
+                
+                .connection-status.polling {
+                    background-color: #f59e0b;
+                    color: white;
+                }
+                
                 /* Responsive utilities */
                 
                 @media (max-width: 640px) {
@@ -556,7 +584,10 @@ class HourlyForecastWidget extends WeatherWidget {
         hourlyContainer.innerHTML = '';
         hourlyTimesContainer.innerHTML = '';
         
-        hourlyData.forEach((hour, index) => {
+        // Show only next 12 hours for better readability
+        const displayHours = hourlyData.slice(0, 12);
+        
+        displayHours.forEach((hour, index) => {
             const hourDiv = document.createElement('div');
             hourDiv.className = 'hour-temp';
             hourDiv.innerHTML = `
@@ -576,8 +607,8 @@ class HourlyForecastWidget extends WeatherWidget {
             hourlyTimesContainer.appendChild(timeSpan);
         });
         
-        // Draw temperature chart
-        this.drawTemperatureChart(hourlyData);
+        // Draw temperature chart with 12-hour data
+        this.drawTemperatureChart(displayHours);
         
         this.hideError();
         this.hideLoading();
@@ -997,8 +1028,58 @@ class WeatherApp {
     async init() {
         await this.fetchWeatherData();
         
-        // Refresh weather data every 10 minutes
+        // Create connection status indicator
+        this.createConnectionStatus();
+        
+        // Refresh weather data every 10 minutes (fallback if real-time fails)
         setInterval(() => this.fetchWeatherData(), 600000);
+    }
+    
+    createConnectionStatus() {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'connection-status';
+        statusDiv.className = 'connection-status disconnected';
+        statusDiv.textContent = 'Connecting...';
+        document.body.appendChild(statusDiv);
+        
+        // Auto-hide after 3 seconds when connected
+        let hideTimeout = null;
+        
+        // Listen for connection status changes
+        this.broadcastEvent('connection-status', { connected: false, type: 'disconnected' });
+        
+        document.addEventListener('connection-status', (e) => {
+            const status = e.detail;
+            const statusEl = document.getElementById('connection-status');
+            
+            if (statusEl) {
+                statusEl.className = 'connection-status';
+                
+                if (status.connected) {
+                    if (status.type === 'websocket') {
+                        statusEl.classList.add('connected');
+                        statusEl.textContent = '🔗 Real-time';
+                    } else if (status.type === 'polling') {
+                        statusEl.classList.add('polling');
+                        statusEl.textContent = '📡 Polling';
+                    }
+                    
+                    // Auto-hide after 3 seconds
+                    if (hideTimeout) clearTimeout(hideTimeout);
+                    hideTimeout = setTimeout(() => {
+                        statusEl.style.opacity = '0';
+                        setTimeout(() => statusEl.style.display = 'none', 300);
+                    }, 3000);
+                } else {
+                    statusEl.classList.add('disconnected');
+                    statusEl.textContent = '❌ Disconnected';
+                    statusEl.style.opacity = '0.9';
+                    statusEl.style.display = 'block';
+                    
+                    if (hideTimeout) clearTimeout(hideTimeout);
+                }
+            }
+        });
     }
 
     async fetchWeatherData() {
@@ -1116,4 +1197,29 @@ customElements.define('hourly-timeline', HourlyTimelineWidget);
 const weatherApp = new WeatherApp();
 document.addEventListener('DOMContentLoaded', () => {
     weatherApp.init();
+    
+    // Set up real-time weather updates
+    if (window.realTimeWeather) {
+        // Subscribe to real-time weather updates
+        window.realTimeWeather.on('weather_update', (data) => {
+            console.log('🌤️  Real-time weather update received');
+            weatherApp.broadcastWeatherData(data);
+        });
+        
+        // Subscribe to provider switch notifications
+        window.realTimeWeather.on('provider_switched', (data) => {
+            console.log('🔄 Provider switched notification received');
+            weatherApp.broadcastEvent('provider-switched', data);
+        });
+        
+        // Subscribe to connection status changes
+        window.realTimeWeather.on('connection_status', (status) => {
+            console.log('📡 Connection status:', status);
+            weatherApp.broadcastEvent('connection-status', status);
+        });
+        
+        // Request initial weather data
+        const { lat, lon, location } = weatherApp.parseLocationParams();
+        window.realTimeWeather.requestWeatherUpdate({ lat, lon, location });
+    }
 });

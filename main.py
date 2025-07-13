@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_compress import Compress
+from flask_socketio import SocketIO, emit
 import os
 from dotenv import load_dotenv
 from cachetools import TTLCache
@@ -12,9 +13,13 @@ from weather_providers import WeatherProviderManager, OpenMeteoProvider, PirateW
 load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Enable gzip compression for all responses
 Compress(app)
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Primary weather API: Open-Meteo (free and accurate)
 OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -412,10 +417,18 @@ def switch_provider():
     if success:
         # Clear cache when switching providers
         weather_cache.clear()
+        
+        # Notify all connected clients via WebSocket
+        provider_info = weather_manager.get_provider_info()
+        socketio.emit('provider_switched', {
+            'provider': provider_name,
+            'provider_info': provider_info
+        })
+        
         return jsonify({
             'success': True,
             'message': f'Switched to {provider_name} provider',
-            'provider_info': weather_manager.get_provider_info()
+            'provider_info': provider_info
         })
     else:
         return jsonify({
@@ -424,10 +437,52 @@ def switch_provider():
             'available_providers': list(weather_manager.providers.keys())
         }), 400
 
+# WebSocket event handlers
+@socketio.on('connect')
+def handle_connect():
+    """Handle client connection"""
+    print(f"🔗 Client connected: {request.sid}")
+    
+    # Send current provider info to the newly connected client
+    provider_info = weather_manager.get_provider_info()
+    emit('provider_info', provider_info)
+
+@socketio.on('disconnect')
+def handle_disconnect():
+    """Handle client disconnection"""
+    print(f"📡 Client disconnected: {request.sid}")
+
+@socketio.on('request_weather_update')
+def handle_weather_update_request(data):
+    """Handle weather update request from client"""
+    lat = data.get('lat', CHICAGO_LAT)
+    lon = data.get('lon', CHICAGO_LON)
+    location = data.get('location', 'Chicago')
+    
+    print(f"🌤️  Weather update requested for {location}")
+    
+    # Get fresh weather data
+    weather_data = weather_manager.get_weather(lat, lon, location)
+    
+    if weather_data:
+        # Send updated weather data to requesting client
+        emit('weather_update', weather_data)
+        
+        # Update cache
+        cache_key = f"{lat:.4f},{lon:.4f}"
+        weather_cache[cache_key] = weather_data
+    else:
+        emit('weather_error', {'error': 'Failed to fetch weather data'})
+
+@socketio.on('ping')
+def handle_ping():
+    """Handle ping from client to check connection"""
+    emit('pong', {'timestamp': time.time()})
+
 @app.route('/static/<path:filename>')
 def static_files(filename):
     """Serve static files"""
     return send_from_directory('static', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    socketio.run(app, debug=True, port=5001, allow_unsafe_werkzeug=True)

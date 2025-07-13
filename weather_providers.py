@@ -103,10 +103,21 @@ class OpenMeteoProvider(WeatherProvider):
                 'summary': self._get_weather_description(current.get('weather_code', 0))
             }
             
-            # Process hourly forecast (next 24 hours)
+            # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
             if hourly.get('time'):
-                for i in range(min(24, len(hourly['time']))):
+                current_time = datetime.now()
+                
+                # Find the starting index (current hour or next hour)
+                start_index = 0
+                for i, time_str in enumerate(hourly['time']):
+                    hour_time = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+                    if hour_time.replace(tzinfo=None) >= current_time.replace(minute=0, second=0, microsecond=0):
+                        start_index = i
+                        break
+                
+                # Get next 24 hours starting from current/next hour
+                for i in range(start_index, min(start_index + 24, len(hourly['time']))):
                     hour_data = {
                         'temp': round(hourly['temperature_2m'][i]),
                         'icon': self._map_weather_code(hourly['weather_code'][i]),
@@ -250,17 +261,30 @@ class PirateWeatherProvider(WeatherProvider):
                 'summary': current.get('summary', 'Unknown')
             }
             
-            # Process hourly forecast (next 24 hours)
+            # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
-            for i, hour in enumerate(hourly[:24]):
-                hour_data = {
-                    'temp': round(hour.get('temperature', 0)),
-                    'icon': self._map_icon_code(hour.get('icon', 'clear-day')),
-                    'rain': round(hour.get('precipProbability', 0) * 100),
-                    't': datetime.fromtimestamp(hour.get('time', 0)).strftime('%I%p').lower().replace('0', ''),
-                    'desc': hour.get('summary', 'Unknown')
-                }
-                hourly_forecast.append(hour_data)
+            if hourly:
+                current_time = datetime.now()
+                
+                # Find the starting index (current hour or next hour)
+                start_index = 0
+                for i, hour in enumerate(hourly):
+                    hour_time = datetime.fromtimestamp(hour.get('time', 0))
+                    if hour_time >= current_time.replace(minute=0, second=0, microsecond=0):
+                        start_index = i
+                        break
+                
+                # Get next 24 hours starting from current/next hour
+                for i in range(start_index, min(start_index + 24, len(hourly))):
+                    hour = hourly[i]
+                    hour_data = {
+                        'temp': round(hour.get('temperature', 0)),
+                        'icon': self._map_icon_code(hour.get('icon', 'clear-day')),
+                        'rain': round(hour.get('precipProbability', 0) * 100),
+                        't': datetime.fromtimestamp(hour.get('time', 0)).strftime('%I%p').lower().replace('0', ''),
+                        'desc': hour.get('summary', 'Unknown')
+                    }
+                    hourly_forecast.append(hour_data)
             
             # Process daily forecast
             daily_forecast = []
