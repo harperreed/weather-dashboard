@@ -1,5 +1,41 @@
 // ABOUTME: Web Components for weather app using native Custom Elements API
-// ABOUTME: Modular, reusable widgets with Shadow DOM encapsulation
+// ABOUTME: Modular, reusable widgets with Shadow DOM encapsulation and weather-icons library
+
+// Weather icon mapping using weather-icons library
+const WEATHER_ICONS = {
+    'clear-day': 'clear-day.svg',
+    'clear-night': 'clear-night.svg',
+    'rain': 'rainy-2.svg',
+    'heavy-rain': 'rainy-3.svg',
+    'light-rain': 'rainy-1.svg',
+    'snow': 'snowy-1.svg',
+    'heavy-snow': 'snowy-3.svg',
+    'light-snow': 'snowy-1.svg',
+    'sleet': 'snowy-2.svg',
+    'wind': 'windy.svg',
+    'fog': 'fog.svg',
+    'cloudy': 'cloudy.svg',
+    'partly-cloudy-day': 'partly-cloudy-day.svg',
+    'partly-cloudy-night': 'partly-cloudy-night.svg',
+    'thunderstorm': 'thunderstorms.svg',
+    'hail': 'hail.svg'
+};
+
+// Icon base URL for weather-icons library
+const WEATHER_ICON_BASE_URL = 'https://raw.githubusercontent.com/Makin-Things/weather-icons/main/animated/';
+
+// Helper function to get weather icon HTML
+function getWeatherIcon(iconCode, size = '2rem') {
+    const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
+    const iconUrl = WEATHER_ICON_BASE_URL + iconFile;
+    
+    return `<img src="${iconUrl}" alt="${iconCode}" style="width: ${size}; height: ${size}; display: inline-block; vertical-align: middle;">`;
+}
+
+// Helper function to get weather icon for smaller displays
+function getWeatherIconSmall(iconCode) {
+    return getWeatherIcon(iconCode, '1.5rem');
+}
 
 // Base WeatherWidget class with shared functionality
 class WeatherWidget extends HTMLElement {
@@ -186,7 +222,13 @@ class CurrentWeatherWidget extends WeatherWidget {
                 }
                 
                 .weather-icon {
-                    font-size: 1.5rem;
+                    display: inline-block;
+                    vertical-align: middle;
+                }
+                
+                .weather-icon img {
+                    width: 2rem;
+                    height: 2rem;
                 }
                 
                 .feels-like {
@@ -239,8 +281,9 @@ class CurrentWeatherWidget extends WeatherWidget {
                         font-size: 3rem;
                     }
                     
-                    .weather-icon {
-                        font-size: 2rem;
+                    .weather-icon img {
+                        width: 2.5rem;
+                        height: 2.5rem;
                     }
                     
                     .feels-like {
@@ -262,8 +305,9 @@ class CurrentWeatherWidget extends WeatherWidget {
                         font-size: 4rem;
                     }
                     
-                    .weather-icon {
-                        font-size: 2.5rem;
+                    .weather-icon img {
+                        width: 3rem;
+                        height: 3rem;
                     }
                     
                     .weather-details {
@@ -317,7 +361,7 @@ class CurrentWeatherWidget extends WeatherWidget {
         const current = this.data.current;
         
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
-        this.shadowRoot.getElementById('icon').textContent = current.icon;
+        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon);
         this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}°`;
         
         // Enhance summary with precipitation info
@@ -403,8 +447,12 @@ class HourlyForecastWidget extends WeatherWidget {
                 }
                 
                 .hour-icon {
-                    font-size: 0.75rem;
                     margin-top: 0.25rem;
+                }
+                
+                .hour-icon img {
+                    width: 1.25rem;
+                    height: 1.25rem;
                 }
                 
                 .hourly-times {
@@ -485,7 +533,7 @@ class HourlyForecastWidget extends WeatherWidget {
             hourDiv.className = 'hour-temp';
             hourDiv.innerHTML = `
                 <div class="hour-temp-value">${hour.temp}°</div>
-                <div class="hour-icon">${hour.icon}</div>
+                <div class="hour-icon">${getWeatherIconSmall(hour.icon)}</div>
             `;
             hourlyContainer.appendChild(hourDiv);
             
@@ -583,8 +631,12 @@ class DailyForecastWidget extends WeatherWidget {
                 }
                 
                 .day-icon {
-                    font-size: 0.875rem;
                     margin: 0.25rem 0;
+                }
+                
+                .day-icon img {
+                    width: 1.5rem;
+                    height: 1.5rem;
                 }
                 
                 .day-high {
@@ -615,8 +667,9 @@ class DailyForecastWidget extends WeatherWidget {
                         padding: 0.5rem;
                     }
                     
-                    .day-icon {
-                        font-size: 1rem;
+                    .day-icon img {
+                        width: 1.75rem;
+                        height: 1.75rem;
                     }
                     
                     .day-high {
@@ -676,7 +729,7 @@ class DailyForecastWidget extends WeatherWidget {
             
             dayDiv.innerHTML = `
                 <div class="day-name">${day.d}</div>
-                <div class="day-icon">${day.icon}</div>
+                <div class="day-icon">${getWeatherIconSmall(day.icon)}</div>
                 <div class="day-high">${day.h}°</div>
                 <div class="day-low">${day.l}°</div>
             `;

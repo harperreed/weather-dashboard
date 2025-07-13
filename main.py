@@ -30,26 +30,27 @@ CHICAGO_LON = -87.6298
 weather_cache = TTLCache(maxsize=100, ttl=600)  # 600 seconds = 10 minutes
 
 def get_weather_icon(icon_code):
-    """Convert weather icon codes to emoji or icon classes"""
+    """Return weather icon code for use with weather-icons library"""
+    # Map some common variations to standard icon codes
     icon_map = {
-        'clear-day': '☀️',
-        'clear-night': '🌙',
-        'rain': '🌧️',
-        'heavy-rain': '🌧️',
-        'light-rain': '🌦️',
-        'snow': '❄️',
-        'heavy-snow': '🌨️',
-        'light-snow': '🌨️',
-        'sleet': '🌨️',
-        'wind': '💨',
-        'fog': '🌫️',
-        'cloudy': '☁️',
-        'partly-cloudy-day': '⛅',
-        'partly-cloudy-night': '☁️',
-        'thunderstorm': '⛈️',
-        'hail': '🌨️'
+        'clear-day': 'clear-day',
+        'clear-night': 'clear-night',
+        'rain': 'rain',
+        'heavy-rain': 'heavy-rain',
+        'light-rain': 'light-rain',
+        'snow': 'snow',
+        'heavy-snow': 'heavy-snow',
+        'light-snow': 'light-snow',
+        'sleet': 'sleet',
+        'wind': 'wind',
+        'fog': 'fog',
+        'cloudy': 'cloudy',
+        'partly-cloudy-day': 'partly-cloudy-day',
+        'partly-cloudy-night': 'partly-cloudy-night',
+        'thunderstorm': 'thunderstorm',
+        'hail': 'hail'
     }
-    return icon_map.get(icon_code, '☀️')
+    return icon_map.get(icon_code, 'clear-day')
 
 def get_weather_data(lat=None, lon=None):
     """Fetch weather data from Pirate Weather API with caching"""
