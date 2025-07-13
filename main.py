@@ -3,6 +3,7 @@ import json
 from datetime import datetime, timedelta
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_compress import Compress
+from flask_socketio import SocketIO, emit
 import os
 from dotenv import load_dotenv
 from cachetools import TTLCache
@@ -12,9 +13,13 @@ from weather_providers import WeatherProviderManager, OpenMeteoProvider, PirateW
 load_dotenv()
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
 
 # Enable gzip compression for all responses
 Compress(app)
+
+# Initialize SocketIO
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Primary weather API: Open-Meteo (free and accurate)
 OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast"
@@ -303,21 +308,6 @@ def process_weather_data(data, location_name=None):
         'last_updated': datetime.now().strftime('%I:%M %p')
     }
 
-@app.route('/')
-def index():
-    """Main weather page"""
-    return render_template('weather.html')
-
-@app.route('/<float:lat>,<float:lon>')
-def weather_by_coords(lat, lon):
-    """Weather page for specific coordinates"""
-    return render_template('weather.html')
-
-@app.route('/<float:lat>,<float:lon>/<location>')
-def weather_by_coords_and_location(lat, lon, location):
-    """Weather page for specific coordinates and location name"""
-    return render_template('weather.html')
-
 # Common city shortcuts
 CITY_COORDS = {
     'chicago': (41.8781, -87.6298, 'Chicago'),
@@ -331,6 +321,21 @@ CITY_COORDS = {
     'rome': (41.9028, 12.4964, 'Rome'),
     'madrid': (40.4168, -3.7038, 'Madrid'),
 }
+
+@app.route('/')
+def index():
+    """Main weather page"""
+    return render_template('weather.html')
+
+@app.route('/<float:lat>,<float:lon>', methods=['GET'])
+def weather_by_coords(lat, lon):
+    """Weather page for specific coordinates"""
+    return render_template('weather.html')
+
+@app.route('/<float:lat>,<float:lon>/<location>')
+def weather_by_coords_and_location(lat, lon, location):
+    """Weather page for specific coordinates and location name"""
+    return render_template('weather.html')
 
 @app.route('/<city>')
 def weather_by_city(city):
@@ -430,4 +435,4 @@ def static_files(filename):
     return send_from_directory('static', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5001)
+    socketio.run(app, debug=True, port=5001, allow_unsafe_werkzeug=True)

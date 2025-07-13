@@ -1,0 +1,91 @@
+# ABOUTME: GitHub Actions workflow for code quality checks and linting
+# ABOUTME: Runs formatting checks, linting, and security scans on every push and PR
+
+name: Code Quality
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+    
+    - name: Set up Python 3.12
+      run: uv python install 3.12
+    
+    - name: Install dependencies with linting tools
+      run: |
+        uv sync --all-extras --dev
+        uv add --dev ruff black isort mypy bandit
+    
+    - name: Run Ruff linter
+      run: |
+        uv run ruff check . --output-format=github
+    
+    - name: Run Ruff formatter check
+      run: |
+        uv run ruff format --check .
+    
+    - name: Run Black formatter check
+      run: |
+        uv run black --check --diff .
+    
+    - name: Run isort import sorting check
+      run: |
+        uv run isort --check-only --diff .
+    
+    - name: Run MyPy type checking
+      run: |
+        uv run mypy . --ignore-missing-imports --no-strict-optional
+      continue-on-error: true  # Type checking is informational for now
+    
+    - name: Run Bandit security linter
+      run: |
+        uv run bandit -r . -f json -o bandit-report.json
+      continue-on-error: true  # Security scanning is informational for now
+    
+    - name: Upload Bandit report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: bandit-security-report
+        path: bandit-report.json
+
+  complexity:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Install uv
+      uses: astral-sh/setup-uv@v5
+    
+    - name: Set up Python 3.12
+      run: uv python install 3.12
+    
+    - name: Install dependencies
+      run: |
+        uv sync --all-extras --dev
+        uv add --dev radon xenon
+    
+    - name: Run Radon complexity analysis
+      run: |
+        uv run radon cc . --min B
+      continue-on-error: true
+    
+    - name: Run Xenon complexity analysis
+      run: |
+        uv run xenon --max-absolute B --max-modules A --max-average A .
+      continue-on-error: true

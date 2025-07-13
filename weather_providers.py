@@ -325,7 +325,14 @@ class WeatherProviderManager:
     def set_primary_provider(self, provider_name: str):
         """Set the primary weather provider"""
         if provider_name in self.providers:
+            # Move current primary to fallbacks if it exists
+            if self.primary_provider and self.primary_provider != provider_name:
+                if self.primary_provider not in self.fallback_providers:
+                    self.fallback_providers.append(self.primary_provider)
+            
+            # Set new primary
             self.primary_provider = provider_name
+            
             # Remove from fallbacks if it was there
             if provider_name in self.fallback_providers:
                 self.fallback_providers.remove(provider_name)

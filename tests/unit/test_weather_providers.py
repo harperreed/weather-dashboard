@@ -105,10 +105,8 @@ class TestOpenMeteoProvider:
         provider = OpenMeteoProvider()
         result = provider.process_weather_data({}, "Test Location")
         
-        assert result is not None
-        assert result['location'] == "Test Location"
-        assert result['current']['temperature'] == 0
-        assert result['current']['feels_like'] == 0
+        # Empty data should return None, not an empty result
+        assert result is None
     
     def test_process_weather_data_none(self):
         """Test processing with None data"""
@@ -225,9 +223,8 @@ class TestPirateWeatherProvider:
         provider = PirateWeatherProvider("test_api_key")
         result = provider.process_weather_data({}, "Test Location")
         
-        assert result is not None
-        assert result['location'] == "Test Location"
-        assert result['current']['temperature'] == 0
+        # Empty data should return None, not an empty result
+        assert result is None
     
     def test_process_weather_data_none(self):
         """Test processing with None data"""

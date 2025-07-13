@@ -204,6 +204,10 @@ class TestFrontendErrorHandling:
     
     def test_api_error_handling(self, client):
         """Test API error handling"""
+        # Clear cache to ensure we test error conditions
+        from main import weather_cache
+        weather_cache.clear()
+        
         with patch('main.weather_manager.get_weather') as mock_get_weather:
             mock_get_weather.return_value = None
             
