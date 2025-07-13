@@ -59,4 +59,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 5000
 
 # Run the application
-CMD ["python", "main.py"]
+CMD ["uv", "run", "python", "main.py"]
