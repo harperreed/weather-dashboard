@@ -22,7 +22,7 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --frozen --no-cache --no-dev
 
 # Production stage - minimal runtime
-FROM python:3.12-slim-bookworm
+FROM python:3.13-slim-bookworm
 
 # Install uv for runtime
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv

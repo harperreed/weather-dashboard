@@ -10,3 +10,9 @@ wheels/
 .venv
 output.txt
 .env
+
+# Test artifacts
+tests/report.html
+htmlcov/
+.coverage
+.pytest_cache/
