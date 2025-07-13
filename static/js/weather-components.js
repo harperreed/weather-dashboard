@@ -1,7 +1,7 @@
 // ABOUTME: Web Components for weather app using native Custom Elements API
 // ABOUTME: Modular, reusable widgets with Shadow DOM encapsulation and weather-icons library
 
-// Weather icon mapping using weather-icons library
+// Weather icon mapping using local weather-icons library
 const WEATHER_ICONS = {
     'clear-day': 'clear-day.svg',
     'clear-night': 'clear-night.svg',
@@ -12,17 +12,17 @@ const WEATHER_ICONS = {
     'heavy-snow': 'snowy-3.svg',
     'light-snow': 'snowy-1.svg',
     'sleet': 'snowy-2.svg',
-    'wind': 'windy.svg',
+    'wind': 'wind.svg',
     'fog': 'fog.svg',
     'cloudy': 'cloudy.svg',
-    'partly-cloudy-day': 'partly-cloudy-day.svg',
-    'partly-cloudy-night': 'partly-cloudy-night.svg',
+    'partly-cloudy-day': 'cloudy-1-day.svg',
+    'partly-cloudy-night': 'cloudy-1-night.svg',
     'thunderstorm': 'thunderstorms.svg',
     'hail': 'hail.svg'
 };
 
-// Icon base URL for weather-icons library
-const WEATHER_ICON_BASE_URL = 'https://raw.githubusercontent.com/Makin-Things/weather-icons/main/animated/';
+// Local icon base URL for weather-icons
+const WEATHER_ICON_BASE_URL = '/static/icons/weather/animated/';
 
 // Helper function to get weather icon HTML
 function getWeatherIcon(iconCode, size = '2rem') {
