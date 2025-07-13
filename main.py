@@ -13,27 +13,29 @@ from weather_providers import WeatherProviderManager, OpenMeteoProvider, PirateW
 load_dotenv()
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
+secret_key = os.getenv('SECRET_KEY')
+if not secret_key:
+    import secrets
+    secret_key = secrets.token_hex(16)
+    print("Warning: No SECRET_KEY environment variable set. Generated temporary key for this session.")
+app.config['SECRET_KEY'] = secret_key
 
 # Enable gzip compression for all responses
 Compress(app)
 
-# Initialize SocketIO
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Initialize SocketIO with secure CORS settings
+cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', 'http://localhost:5001,http://127.0.0.1:5001').split(',')
+socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
 # Primary weather API: Open-Meteo (free and accurate)
 OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast"
 
 # Fallback API: PirateWeather (if needed)
-PIRATE_WEATHER_API_KEY = os.getenv("PIRATE_WEATHER_API_KEY", "YOUR_API_KEY_HERE")
 PIRATE_WEATHER_BASE_URL = "https://api.pirateweather.net/forecast"
 
-# Chicago coordinates (as shown in the image)
+# Chicago coordinates
 CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
-
-# CHICAGO_LAT = 37.773972
-# CHICAGO_LON = -122.431297
 
 # Cache for weather API responses (10 minutes TTL, max 100 entries)
 weather_cache = TTLCache(maxsize=100, ttl=600)  # 600 seconds = 10 minutes
@@ -308,21 +310,6 @@ def process_weather_data(data, location_name=None):
         'last_updated': datetime.now().strftime('%I:%M %p')
     }
 
-@app.route('/')
-def index():
-    """Main weather page"""
-    return render_template('weather.html')
-
-@app.route('/<float:lat>,<float:lon>')
-def weather_by_coords(lat, lon):
-    """Weather page for specific coordinates"""
-    return render_template('weather.html')
-
-@app.route('/<float:lat>,<float:lon>/<location>')
-def weather_by_coords_and_location(lat, lon, location):
-    """Weather page for specific coordinates and location name"""
-    return render_template('weather.html')
-
 # Common city shortcuts
 CITY_COORDS = {
     'chicago': (41.8781, -87.6298, 'Chicago'),
@@ -336,6 +323,21 @@ CITY_COORDS = {
     'rome': (41.9028, 12.4964, 'Rome'),
     'madrid': (40.4168, -3.7038, 'Madrid'),
 }
+
+@app.route('/')
+def index():
+    """Main weather page"""
+    return render_template('weather.html')
+
+@app.route('/<float:lat>,<float:lon>', methods=['GET'])
+def weather_by_coords(lat, lon):
+    """Weather page for specific coordinates"""
+    return render_template('weather.html')
+
+@app.route('/<float:lat>,<float:lon>/<location>')
+def weather_by_coords_and_location(lat, lon, location):
+    """Weather page for specific coordinates and location name"""
+    return render_template('weather.html')
 
 @app.route('/<city>')
 def weather_by_city(city):
