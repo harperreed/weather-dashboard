@@ -30,9 +30,7 @@ repos:
     rev: 1.7.7
     hooks:
       - id: bandit
-        args: ['-r', '.']
         exclude: ^tests/
-
   # Python import sorting (as backup/complement to ruff)
   - repo: https://github.com/pycqa/isort
     rev: 5.13.2
