@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .weather-gradient {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+        }
+        .chart-line {
+            stroke: #ef4444;
+            stroke-width: 2;
+            fill: none;
+        }
+        .chart-area {
+            fill: rgba(34, 197, 94, 0.3);
+        }
+        .precipitation-bar {
+            background: linear-gradient(to top, #3b82f6, #60a5fa);
+        }
+        .temperature-line {
+            stroke: #f59e0b;
+            stroke-width: 2;
+            fill: none;
+        }
+    </style>
+</head>
+<body class="weather-gradient min-h-screen text-white font-sans">
+    <div class="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8 w-full max-w-xs sm:max-w-sm md:max-w-md lg:max-w-lg xl:max-w-xl 2xl:max-w-2xl">
+
+        <!-- Current Weather -->
+        <div class="mb-6 sm:mb-8" id="current-widget">
+            <div class="flex items-center space-x-2 sm:space-x-4 mb-4">
+                <div class="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-thin" id="current-temp">--°</div>
+                <div class="text-2xl sm:text-3xl md:text-4xl lg:text-5xl" id="current-icon">--</div>
+            </div>
+            <div class="text-sm sm:text-base lg:text-lg opacity-80 mb-2" id="feels-like">FEELS LIKE --°</div>
+            <div class="text-lg sm:text-xl md:text-2xl lg:text-3xl font-light mb-4 leading-relaxed" id="current-summary">Loading weather data...</div>
+            
+            <!-- Additional weather details -->
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 text-xs sm:text-sm lg:text-base">
+                <div class="flex justify-between lg:flex-col lg:items-center p-2 sm:p-3 bg-white/10 rounded-lg">
+                    <span class="opacity-80">Humidity</span>
+                    <span id="humidity" class="font-medium">--%</span>
+                </div>
+                <div class="flex justify-between lg:flex-col lg:items-center p-2 sm:p-3 bg-white/10 rounded-lg">
+                    <span class="opacity-80">Wind</span>
+                    <span id="wind-speed" class="font-medium">-- mph</span>
+                </div>
+                <div class="flex justify-between lg:flex-col lg:items-center p-2 sm:p-3 bg-white/10 rounded-lg">
+                    <span class="opacity-80">Rain</span>
+                    <span id="precipitation" class="font-medium">--%</span>
+                </div>
+                <div class="flex justify-between lg:flex-col lg:items-center p-2 sm:p-3 bg-white/10 rounded-lg">
+                    <span class="opacity-80">UV Index</span>
+                    <span id="uv-index" class="font-medium">--</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hourly Chart -->
+        <div class="mb-6 sm:mb-8" id="hourly-widget">
+            <div class="relative h-28 sm:h-36 md:h-44 lg:h-48 mb-4">
+                <svg class="w-full h-full" id="hourly-chart">
+                    <!-- Temperature line will be drawn here -->
+                </svg>
+                <div class="absolute bottom-0 left-0 w-full h-16 sm:h-20 flex items-end space-x-1 sm:space-x-2" id="precipitation-bars">
+                    <!-- Precipitation bars will be added here -->
+                </div>
+            </div>
+            
+            <!-- Hourly temperatures -->
+            <div class="flex justify-between items-center mb-3 sm:mb-4 overflow-x-auto" id="hourly-temps">
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+                <div class="text-center min-w-0 flex-shrink-0">
+                    <div class="text-xs sm:text-sm opacity-80">--°</div>
+                    <div class="text-xs">--</div>
+                </div>
+            </div>
+            
+            <!-- Time labels -->
+            <div class="flex justify-between text-xs opacity-60 overflow-x-auto" id="hourly-times">
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+                <span class="min-w-0 flex-shrink-0">--</span>
+            </div>
+        </div>
+
+        <!-- Daily Forecast Chart -->
+        <div class="mb-6 sm:mb-8" id="daily-widget">
+            <div class="relative h-20 sm:h-28 md:h-36 lg:h-40 mb-4">
+                <svg class="w-full h-full" id="daily-chart">
+                    <!-- Daily temperature ranges will be drawn here -->
+                </svg>
+            </div>
+            
+            <!-- Daily forecast -->
+            <div class="grid grid-cols-4 sm:grid-cols-7 gap-1 sm:gap-2 mb-4" id="daily-forecast">
+                <div class="text-center p-1 sm:p-2">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2 hidden sm:block">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2 hidden sm:block">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+                <div class="text-center p-1 sm:p-2 hidden sm:block">
+                    <div class="text-xs opacity-60 truncate">---</div>
+                    <div class="text-sm sm:text-base my-1">--</div>
+                    <div class="text-xs sm:text-sm font-medium">--°</div>
+                    <div class="text-xs opacity-60">--°</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Hourly Timeline -->
+        <div class="space-y-2 sm:space-y-3" id="timeline-widget">
+            <div class="text-center text-sm opacity-60">
+                Loading hourly forecast...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Request deduplication - prevent multiple concurrent requests for same location
+        let activeRequests = new Map();
+        
+        // Widget visibility configuration
+        let widgetConfig = {
+            current: true,
+            hourly: true,
+            daily: true,
+            timeline: true
+        };
+        
+        // Parse URL parameters for widget visibility
+        function parseWidgetParams() {
+            const urlParams = new URLSearchParams(window.location.search);
+            
+            // Check for 'widgets' parameter with comma-separated values
+            const widgetsParam = urlParams.get('widgets');
+            if (widgetsParam) {
+                // If widgets param exists, hide all first, then show specified ones
+                widgetConfig = {
+                    current: false,
+                    hourly: false,
+                    daily: false,
+                    timeline: false
+                };
+                
+                const requestedWidgets = widgetsParam.split(',').map(w => w.trim().toLowerCase());
+                requestedWidgets.forEach(widget => {
+                    switch (widget) {
+                        case 'current':
+                        case 'now':
+                            widgetConfig.current = true;
+                            break;
+                        case 'hourly':
+                        case 'hours':
+                            widgetConfig.hourly = true;
+                            break;
+                        case 'daily':
+                        case 'week':
+                        case 'days':
+                            widgetConfig.daily = true;
+                            break;
+                        case 'timeline':
+                        case 'list':
+                            widgetConfig.timeline = true;
+                            break;
+                    }
+                });
+            }
+            
+            // Individual widget parameters (for backward compatibility)
+            if (urlParams.has('current')) widgetConfig.current = urlParams.get('current') !== 'false';
+            if (urlParams.has('hourly')) widgetConfig.hourly = urlParams.get('hourly') !== 'false';
+            if (urlParams.has('daily')) widgetConfig.daily = urlParams.get('daily') !== 'false';
+            if (urlParams.has('timeline')) widgetConfig.timeline = urlParams.get('timeline') !== 'false';
+        }
+        
+        // Apply widget visibility
+        function applyWidgetVisibility() {
+            document.getElementById('current-widget').style.display = widgetConfig.current ? 'block' : 'none';
+            document.getElementById('hourly-widget').style.display = widgetConfig.hourly ? 'block' : 'none';
+            document.getElementById('daily-widget').style.display = widgetConfig.daily ? 'block' : 'none';
+            document.getElementById('timeline-widget').style.display = widgetConfig.timeline ? 'block' : 'none';
+        }
+        
+        // JavaScript to fetch and update weather data
+        async function fetchWeatherData() {
+            try {
+                showLoadingState();
+                
+                // Get lat/lon from URL - support pretty URLs, city names, and query params
+                let lat, lon, location;
+                
+                // City coordinates lookup
+                const cityCoords = {
+                    'chicago': [41.8781, -87.6298, 'Chicago'],
+                    'nyc': [40.7128, -74.0060, 'New York City'],
+                    'sf': [37.7749, -122.4194, 'San Francisco'],
+                    'london': [51.5074, -0.1278, 'London'],
+                    'paris': [48.8566, 2.3522, 'Paris'],
+                    'tokyo': [35.6762, 139.6503, 'Tokyo'],
+                    'sydney': [-33.8688, 151.2093, 'Sydney'],
+                    'berlin': [52.5200, 13.4050, 'Berlin'],
+                    'rome': [41.9028, 12.4964, 'Rome'],
+                    'madrid': [40.4168, -3.7038, 'Madrid'],
+                };
+                
+                // Check URL format
+                const pathParts = window.location.pathname.split('/').filter(part => part);
+                if (pathParts.length >= 1 && pathParts[0].includes(',')) {
+                    // Format: /lat,lon/location or /lat,lon
+                    const [latStr, lonStr] = pathParts[0].split(',');
+                    lat = latStr;
+                    lon = lonStr;
+                    if (pathParts.length >= 2) {
+                        location = pathParts[1].replace(/-/g, ' ');
+                    }
+                } else if (pathParts.length >= 1 && cityCoords[pathParts[0].toLowerCase()]) {
+                    // Format: /city
+                    const cityData = cityCoords[pathParts[0].toLowerCase()];
+                    lat = cityData[0];
+                    lon = cityData[1];
+                    location = cityData[2];
+                } else {
+                    // Fallback to query parameters
+                    const urlParams = new URLSearchParams(window.location.search);
+                    lat = urlParams.get('lat');
+                    lon = urlParams.get('lon');
+                    location = urlParams.get('location');
+                }
+                
+                // Default to Chicago if no location provided
+                if (!lat && !lon && !location) {
+                    const defaultCity = cityCoords['chicago'];
+                    lat = defaultCity[0];
+                    lon = defaultCity[1];
+                    location = defaultCity[2];
+                }
+                
+                // Build API URL with parameters
+                let apiUrl = '/api/weather';
+                const params = new URLSearchParams();
+                if (lat && lon) {
+                    params.append('lat', lat);
+                    params.append('lon', lon);
+                }
+                if (location) {
+                    params.append('location', location);
+                }
+                if (params.toString()) {
+                    apiUrl += '?' + params.toString();
+                }
+                
+                // Check if we already have a request in flight for this URL
+                if (activeRequests.has(apiUrl)) {
+                    console.log('Request deduplication: reusing existing request for', apiUrl);
+                    const data = await activeRequests.get(apiUrl);
+                    updateWeatherDisplay(data);
+                    return;
+                }
+                
+                // Create and cache the request promise
+                const requestPromise = fetch(apiUrl).then(response => response.json());
+                activeRequests.set(apiUrl, requestPromise);
+                
+                const data = await requestPromise;
+                // Remove from active requests when done
+                activeRequests.delete(apiUrl);
+                
+                if (data.error) {
+                    console.error('Weather API error:', data.error);
+                    showErrorState(data.error);
+                    return;
+                }
+                
+                updateWeatherDisplay(data);
+            } catch (error) {
+                console.error('Error fetching weather:', error);
+                showErrorState('Failed to load weather data. Please check your internet connection.');
+            }
+        }
+        
+        function showLoadingState() {
+            document.getElementById('current-temp').textContent = '--°';
+            document.getElementById('current-icon').textContent = '⏳';
+            document.getElementById('feels-like').textContent = 'LOADING...';
+            document.getElementById('current-summary').textContent = 'Loading weather data...';
+        }
+        
+        function showErrorState(message) {
+            document.getElementById('current-temp').textContent = '--°';
+            document.getElementById('current-icon').textContent = '⚠️';
+            document.getElementById('feels-like').textContent = 'ERROR';
+            document.getElementById('current-summary').textContent = message;
+            
+            // Clear other sections (only if widgets are visible)
+            if (widgetConfig.hourly) {
+                document.getElementById('hourly-temps').innerHTML = '<div class="text-center text-sm opacity-60">Unable to load forecast</div>';
+            }
+            if (widgetConfig.daily) {
+                document.getElementById('daily-forecast').innerHTML = '<div class="text-center text-sm opacity-60">Unable to load forecast</div>';
+            }
+            if (widgetConfig.timeline) {
+                document.getElementById('timeline-widget').innerHTML = '<div class="text-center text-sm opacity-60">Unable to load forecast</div>';
+            }
+        }
+        
+        function updateWeatherDisplay(data) {
+            
+            // Update current weather
+            document.getElementById('current-temp').textContent = `${data.current.temperature}°F`;
+            document.getElementById('current-icon').textContent = data.current.icon;
+            document.getElementById('feels-like').textContent = `FEELS LIKE ${data.current.feels_like}°`;
+            
+            // Enhance summary with precipitation info
+            let summary = data.current.summary;
+            if (data.current.precipitation_rate > 0) {
+                const precipType = data.current.precipitation_type === 'snow' ? 'snowing' : 'raining';
+                summary = `Currently ${precipType} - ${summary}`;
+            }
+            document.getElementById('current-summary').textContent = summary;
+            
+            // Update additional weather details
+            document.getElementById('humidity').textContent = `${data.current.humidity}%`;
+            document.getElementById('wind-speed').textContent = `${data.current.wind_speed} mph`;
+            document.getElementById('uv-index').textContent = data.current.uv_index;
+            
+            // Update precipitation - show rate if actively raining, otherwise probability
+            const precipElement = document.getElementById('precipitation');
+            if (data.current.precipitation_rate > 0) {
+                precipElement.textContent = `${data.current.precipitation_rate}" now`;
+                precipElement.style.color = '#60a5fa'; // blue for active rain
+            } else if (data.current.precipitation_prob > 0) {
+                precipElement.textContent = `${data.current.precipitation_prob}%`;
+                precipElement.style.color = 'inherit';
+            } else {
+                precipElement.textContent = '0%';
+                precipElement.style.color = 'inherit';
+            }
+            
+            // Update hourly forecast (only if widget is visible)
+            if (widgetConfig.hourly) {
+                const hourlyContainer = document.getElementById('hourly-temps');
+                const hourlyTimesContainer = document.getElementById('hourly-times');
+                hourlyContainer.innerHTML = '';
+                hourlyTimesContainer.innerHTML = '';
+                
+                data.hourly.forEach(hour => {
+                    const hourDiv = document.createElement('div');
+                    hourDiv.className = 'text-center min-w-0 flex-shrink-0';
+                    hourDiv.innerHTML = `
+                        <div class="text-xs sm:text-sm opacity-80">${hour.temp}°</div>
+                        <div class="text-xs">${hour.icon}</div>
+                    `;
+                    hourlyContainer.appendChild(hourDiv);
+                    
+                    const timeDiv = document.createElement('span');
+                    timeDiv.className = 'min-w-0 flex-shrink-0';
+                    timeDiv.textContent = hour.t;
+                    hourlyTimesContainer.appendChild(timeDiv);
+                });
+                
+                // Draw hourly temperature chart
+                drawTemperatureChart('hourly-chart', data.hourly);
+            }
+            
+            // Update daily forecast (only if widget is visible)
+            if (widgetConfig.daily) {
+                const dailyContainer = document.getElementById('daily-forecast');
+                dailyContainer.innerHTML = '';
+                
+                data.daily.forEach(day => {
+                    const dayDiv = document.createElement('div');
+                    dayDiv.className = 'text-center p-1 sm:p-2';
+                    dayDiv.innerHTML = `
+                        <div class="text-xs opacity-60 truncate">${day.d}</div>
+                        <div class="text-sm sm:text-base my-1">${day.icon}</div>
+                        <div class="text-xs sm:text-sm font-medium">${day.h}°</div>
+                        <div class="text-xs opacity-60">${day.l}°</div>
+                    `;
+                    dailyContainer.appendChild(dayDiv);
+                });
+                
+                // Draw daily temperature chart
+                drawDailyChart('daily-chart', data.daily);
+            }
+            
+            // Update hourly timeline (only if widget is visible)
+            if (widgetConfig.timeline) {
+                const timelineContainer = document.getElementById('timeline-widget');
+                timelineContainer.innerHTML = '';
+                
+                data.hourly.slice(0, 8).forEach((hour, index) => {
+                    const timelineDiv = document.createElement('div');
+                    timelineDiv.className = 'flex items-center justify-between';
+                    
+                    const isCurrentHour = index === 0;
+                    const dotColor = isCurrentHour ? 'bg-yellow-400' : 'bg-gray-400';
+                    
+                    timelineDiv.innerHTML = `
+                        <div class="w-2 h-6 sm:h-8 ${dotColor} rounded-full flex-shrink-0"></div>
+                        <div class="flex-1 ml-3 sm:ml-4 min-w-0">
+                            <div class="flex justify-between items-center">
+                                <div class="min-w-0 flex-1">
+                                    <div class="font-medium text-sm sm:text-base">${isCurrentHour ? 'NOW' : hour.t}</div>
+                                    ${hour.desc ? `<div class="text-xs sm:text-sm opacity-80 truncate">${hour.desc}</div>` : ''}
+                                </div>
+                                <div class="text-right flex-shrink-0 ml-2">
+                                    <div class="text-sm sm:text-base">${hour.temp}°</div>
+                                    ${hour.rain > 0 ? `<div class="text-xs opacity-60">${hour.rain}% rain</div>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    timelineContainer.appendChild(timelineDiv);
+                });
+            }
+        }
+        
+        function drawTemperatureChart(containerId, hourlyData) {
+            const svg = document.getElementById(containerId);
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+            
+            // Clear previous content
+            svg.innerHTML = '';
+            
+            // Create temperature line
+            const temps = hourlyData.map(h => h.temp);
+            const maxTemp = Math.max(...temps);
+            const minTemp = Math.min(...temps);
+            const tempRange = maxTemp - minTemp || 1;
+            
+            let pathData = '';
+            temps.forEach((temp, index) => {
+                const x = (index / (temps.length - 1)) * width;
+                const y = height - ((temp - minTemp) / tempRange) * height;
+                pathData += (index === 0 ? 'M' : 'L') + x + ',' + y;
+            });
+            
+            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            path.setAttribute('d', pathData);
+            path.setAttribute('class', 'chart-line');
+            svg.appendChild(path);
+        }
+        
+        function drawDailyChart(containerId, dailyData) {
+            const svg = document.getElementById(containerId);
+            const width = svg.clientWidth;
+            const height = svg.clientHeight;
+            
+            // Clear previous content
+            svg.innerHTML = '';
+            
+            const highs = dailyData.map(d => d.h);
+            const lows = dailyData.map(d => d.l);
+            const allTemps = [...highs, ...lows];
+            const maxTemp = Math.max(...allTemps);
+            const minTemp = Math.min(...allTemps);
+            const tempRange = maxTemp - minTemp || 1;
+            
+            // Draw temperature ranges
+            dailyData.forEach((day, index) => {
+                const x = (index / (dailyData.length - 1)) * width;
+                const highY = height - ((day.h - minTemp) / tempRange) * height;
+                const lowY = height - ((day.l - minTemp) / tempRange) * height;
+                
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', x);
+                line.setAttribute('y1', highY);
+                line.setAttribute('x2', x);
+                line.setAttribute('y2', lowY);
+                line.setAttribute('stroke', '#f59e0b');
+                line.setAttribute('stroke-width', '3');
+                svg.appendChild(line);
+                
+                // High temp circle
+                const highCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                highCircle.setAttribute('cx', x);
+                highCircle.setAttribute('cy', highY);
+                highCircle.setAttribute('r', '4');
+                highCircle.setAttribute('fill', '#f59e0b');
+                svg.appendChild(highCircle);
+                
+                // Low temp circle
+                const lowCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                lowCircle.setAttribute('cx', x);
+                lowCircle.setAttribute('cy', lowY);
+                lowCircle.setAttribute('r', '4');
+                lowCircle.setAttribute('fill', '#3b82f6');
+                svg.appendChild(lowCircle);
+            });
+        }
+        
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', function() {
+            // Parse widget parameters and apply visibility
+            parseWidgetParams();
+            applyWidgetVisibility();
+            
+            // Fetch weather data
+            fetchWeatherData();
+            
+            // Refresh weather data every 10 minutes
+            setInterval(fetchWeatherData, 600000);
+        });
+    </script>
+</body>
+</html>
