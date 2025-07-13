@@ -11,3 +11,53 @@ dependencies = [
     "cachetools>=5.3.0",
     "flask-compress>=1.15",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest>=7.4.0",
+    "pytest-flask>=1.2.0",
+    "pytest-cov>=4.1.0",
+    "pytest-mock>=3.11.0",
+    "requests-mock>=1.11.0",
+    "pytest-html>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--cov=.",
+    "--cov-report=html",
+    "--cov-report=term-missing",
+    "--cov-exclude=tests/*",
+    "--html=tests/report.html",
+    "--self-contained-html",
+    "-v"
+]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+]
+
+[tool.coverage.run]
+source = ["."]
+omit = [
+    "tests/*",
+    "venv/*",
+    ".venv/*",
+    "*/venv/*",
+    "*/.venv/*",
+    "setup.py",
+    "conftest.py",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]
