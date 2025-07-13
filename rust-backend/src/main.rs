@@ -23,7 +23,7 @@ mod cache;
 mod config;
 mod templates;
 
-use weather::{WeatherProvider, WeatherProviderManager};
+use weather::WeatherProviderManager;
 use cache::WeatherCache;
 use config::Config;
 use templates::WeatherTemplate;
@@ -83,19 +83,19 @@ const DEFAULT_LON: f64 = -87.6298;
 #[tokio::main]
 async fn main() -> Result<()> {
     // Initialize logging
-    tracing_subscriber::init();
+    tracing_subscriber::fmt::init();
 
     // Load configuration
     let config = Arc::new(Config::load()?);
     
     // Initialize weather providers
     let mut weather_manager = WeatherProviderManager::new();
-    weather_manager.add_openmeteo_provider()?;
+    weather_manager.add_openmeteo_provider().await?;
     
     // Add PirateWeather provider if API key is available
     if let Some(api_key) = &config.pirate_weather_api_key {
         if !api_key.is_empty() && api_key != "YOUR_API_KEY_HERE" {
-            weather_manager.add_pirate_weather_provider(api_key.clone())?;
+            weather_manager.add_pirate_weather_provider(api_key.clone()).await?;
         }
     }
     
@@ -114,8 +114,8 @@ async fn main() -> Result<()> {
     // Build application router
     let app = Router::new()
         .route("/", get(index))
-        .route("/:lat,:lon", get(weather_by_coords))
-        .route("/:lat,:lon/:location", get(weather_by_coords_and_location))
+        .route("/:lat/:lon", get(weather_by_coords))
+        .route("/:lat/:lon/:location", get(weather_by_coords_and_location))
         .route("/:city", get(weather_by_city))
         .route("/api/weather", get(weather_api))
         .route("/api/cache/stats", get(cache_stats))
@@ -145,7 +145,7 @@ async fn weather_by_coords(Path((lat, lon)): Path<(f64, f64)>) -> impl IntoRespo
 }
 
 async fn weather_by_coords_and_location(
-    Path((lat, lon, location)): Path<(f64, f64, String)>
+    Path((_lat, _lon, location)): Path<(f64, f64, String)>
 ) -> impl IntoResponse {
     Html(WeatherTemplate::render(Some(location)))
 }
@@ -154,7 +154,7 @@ async fn weather_by_city(Path(city): Path<String>) -> impl IntoResponse {
     let city_lower = city.to_lowercase();
     
     if let Some((_, _, name)) = CITY_COORDS.get(city_lower.as_str()) {
-        Html(WeatherTemplate::render(Some(name.to_string())))
+        Html(WeatherTemplate::render(Some(name.to_string()))).into_response()
     } else {
         let available_cities: Vec<&str> = CITY_COORDS.keys().cloned().collect();
         (
@@ -238,7 +238,7 @@ async fn switch_provider(
                 "provider_info": provider_info
             })).into_response()
         }
-        Err(e) => {
+        Err(_e) => {
             let available_providers = state.weather_manager.get_available_providers().await;
             (
                 StatusCode::BAD_REQUEST,

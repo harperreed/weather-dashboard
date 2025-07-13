@@ -1,5 +1,5 @@
 use anyhow::{anyhow, Result};
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -216,9 +216,10 @@ impl WeatherProvider for OpenMeteoProvider {
         // Process hourly forecast
         let mut hourly_forecast = Vec::new();
         if let Some(times) = hourly["time"].as_array() {
-            let temperatures = hourly["temperature_2m"].as_array().unwrap_or(&vec![]);
-            let weather_codes = hourly["weather_code"].as_array().unwrap_or(&vec![]);
-            let precipitation_probs = hourly["precipitation_probability"].as_array().unwrap_or(&vec![]);
+            let empty_vec = vec![];
+            let temperatures = hourly["temperature_2m"].as_array().unwrap_or(&empty_vec);
+            let weather_codes = hourly["weather_code"].as_array().unwrap_or(&empty_vec);
+            let precipitation_probs = hourly["precipitation_probability"].as_array().unwrap_or(&empty_vec);
             
             for (i, time_str) in times.iter().enumerate().take(24) {
                 if let Some(time_str) = time_str.as_str() {
@@ -242,9 +243,10 @@ impl WeatherProvider for OpenMeteoProvider {
         // Process daily forecast
         let mut daily_forecast = Vec::new();
         if let Some(times) = daily["time"].as_array() {
-            let temp_max = daily["temperature_2m_max"].as_array().unwrap_or(&vec![]);
-            let temp_min = daily["temperature_2m_min"].as_array().unwrap_or(&vec![]);
-            let weather_codes = daily["weather_code"].as_array().unwrap_or(&vec![]);
+            let empty_vec = vec![];
+            let temp_max = daily["temperature_2m_max"].as_array().unwrap_or(&empty_vec);
+            let temp_min = daily["temperature_2m_min"].as_array().unwrap_or(&empty_vec);
+            let weather_codes = daily["weather_code"].as_array().unwrap_or(&empty_vec);
             
             for (i, time_str) in times.iter().enumerate().take(7) {
                 if let Some(time_str) = time_str.as_str() {
@@ -368,7 +370,7 @@ impl WeatherProvider for PirateWeatherProvider {
         let mut hourly_forecast = Vec::new();
         let now = chrono::Utc::now().timestamp();
         
-        for (i, hour) in hourly_data.iter().enumerate().take(24) {
+        for (_i, hour) in hourly_data.iter().enumerate().take(24) {
             let time = hour["time"].as_i64().unwrap_or(0);
             if time >= now {
                 let temp = hour["temperature"].as_f64().unwrap_or(0.0) as i32;

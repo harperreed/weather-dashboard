@@ -1,5 +1,5 @@
 use moka::future::Cache;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::Duration;
 use crate::weather::WeatherData;
 
@@ -14,6 +14,7 @@ pub struct CacheStats {
 pub struct WeatherCache {
     cache: Cache<String, WeatherData>,
     ttl_seconds: u64,
+    max_capacity: u64,
 }
 
 impl WeatherCache {
@@ -26,6 +27,7 @@ impl WeatherCache {
         Self {
             cache,
             ttl_seconds,
+            max_capacity: max_size,
         }
     }
     
@@ -43,10 +45,10 @@ impl WeatherCache {
     
     pub async fn stats(&self) -> CacheStats {
         let entry_count = self.cache.entry_count();
-        let max_capacity = self.cache.max_capacity().unwrap_or(0);
+        let max_capacity = self.max_capacity;
         
         // Get all keys (this is not efficient for large caches, but OK for this use case)
-        let mut keys = Vec::new();
+        let keys = Vec::new();
         // Note: moka doesn't provide direct access to keys, so we'll simulate this
         // In production, you might want to maintain a separate key tracking mechanism
         
