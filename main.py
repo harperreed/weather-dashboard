@@ -7,6 +7,7 @@ import os
 from dotenv import load_dotenv
 from cachetools import TTLCache
 import time
+from weather_providers import WeatherProviderManager, OpenMeteoProvider, PirateWeatherProvider
 
 load_dotenv()
 
@@ -31,6 +32,19 @@ CHICAGO_LON = -87.6298
 
 # Cache for weather API responses (10 minutes TTL, max 100 entries)
 weather_cache = TTLCache(maxsize=100, ttl=600)  # 600 seconds = 10 minutes
+
+# Initialize weather provider manager
+weather_manager = WeatherProviderManager()
+
+# Add OpenMeteo as primary provider
+open_meteo = OpenMeteoProvider()
+weather_manager.add_provider(open_meteo, is_primary=True)
+
+# Add PirateWeather as fallback provider
+pirate_weather_api_key = os.getenv("PIRATE_WEATHER_API_KEY", "YOUR_API_KEY_HERE")
+if pirate_weather_api_key and pirate_weather_api_key != "YOUR_API_KEY_HERE":
+    pirate_weather = PirateWeatherProvider(pirate_weather_api_key)
+    weather_manager.add_provider(pirate_weather)
 
 def get_weather_from_open_meteo(lat, lon):
     """Fetch weather data from Open-Meteo API"""
@@ -353,16 +367,9 @@ def weather_api():
         response.headers['ETag'] = f'"{hash(str(lat) + str(lon) + str(int(time.time() // 300)))}"'
         return response
     
-    # Try Open-Meteo first (primary source)
-    print(f"🌤️  Fetching weather from Open-Meteo for {location_name}")
-    raw_data = get_weather_from_open_meteo(lat, lon)
-    processed_data = process_open_meteo_data(raw_data, location_name)
-    
-    # Fallback to PirateWeather if Open-Meteo fails
-    if not processed_data:
-        print(f"⚠️  Open-Meteo failed, trying PirateWeather as fallback")
-        raw_data = get_weather_data(lat, lon)
-        processed_data = process_weather_data(raw_data, location_name)
+    # Use weather provider manager to get data
+    print(f"🌤️  Fetching weather for {location_name} using provider system")
+    processed_data = weather_manager.get_weather(lat, lon, location_name)
     
     if processed_data:
         # Cache the result
@@ -385,6 +392,37 @@ def cache_stats():
         'ttl_seconds': weather_cache.ttl,
         'cached_locations': list(weather_cache.keys())
     })
+
+@app.route('/api/providers')
+def get_providers():
+    """API endpoint to get weather provider information"""
+    return jsonify(weather_manager.get_provider_info())
+
+@app.route('/api/providers/switch', methods=['POST'])
+def switch_provider():
+    """API endpoint to switch weather provider"""
+    data = request.get_json()
+    provider_name = data.get('provider')
+    
+    if not provider_name:
+        return jsonify({'error': 'Provider name is required'}), 400
+    
+    success = weather_manager.switch_provider(provider_name)
+    
+    if success:
+        # Clear cache when switching providers
+        weather_cache.clear()
+        return jsonify({
+            'success': True,
+            'message': f'Switched to {provider_name} provider',
+            'provider_info': weather_manager.get_provider_info()
+        })
+    else:
+        return jsonify({
+            'success': False,
+            'error': f'Provider {provider_name} not found',
+            'available_providers': list(weather_manager.providers.keys())
+        }), 400
 
 @app.route('/static/<path:filename>')
 def static_files(filename):
