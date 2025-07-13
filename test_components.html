@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Components Test</title>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+            color: white;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        
+        .test-container {
+            max-width: 32rem;
+            margin: 0 auto;
+        }
+        
+        .test-section {
+            margin-bottom: 2rem;
+            padding: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 0.5rem;
+        }
+        
+        .test-title {
+            font-size: 1.25rem;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        
+        .test-controls {
+            margin-bottom: 1rem;
+        }
+        
+        button {
+            background: rgba(255, 255, 255, 0.2);
+            border: none;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            margin-right: 0.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Weather Components Test</h1>
+        
+        <div class="test-section">
+            <div class="test-title">Test Data</div>
+            <div class="test-controls">
+                <button onclick="loadTestData()">Load Test Data</button>
+                <button onclick="testError()">Test Error State</button>
+                <button onclick="testWidgetVisibility()">Test Widget Visibility</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">Current Weather</div>
+            <current-weather></current-weather>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">Hourly Forecast</div>
+            <hourly-forecast></hourly-forecast>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">Daily Forecast</div>
+            <daily-forecast></daily-forecast>
+        </div>
+        
+        <div class="test-section">
+            <div class="test-title">Hourly Timeline</div>
+            <hourly-timeline></hourly-timeline>
+        </div>
+    </div>
+    
+    <script src="static/js/weather-components.js"></script>
+    <script>
+        // Test data
+        const testData = {
+            current: {
+                temperature: 72,
+                feels_like: 75,
+                icon: '☀️',
+                summary: 'Sunny and warm',
+                humidity: 65,
+                wind_speed: 8,
+                uv_index: 6,
+                precipitation_prob: 10,
+                precipitation_rate: 0,
+                precipitation_type: 'none'
+            },
+            hourly: [
+                { t: '12p', temp: 72, icon: '☀️', rain: 0, desc: 'Sunny' },
+                { t: '1p', temp: 75, icon: '☀️', rain: 0, desc: 'Sunny' },
+                { t: '2p', temp: 77, icon: '⛅', rain: 10, desc: 'Partly cloudy' },
+                { t: '3p', temp: 76, icon: '⛅', rain: 15, desc: 'Partly cloudy' },
+                { t: '4p', temp: 74, icon: '🌧️', rain: 60, desc: 'Light rain' },
+                { t: '5p', temp: 71, icon: '🌧️', rain: 80, desc: 'Rain' },
+                { t: '6p', temp: 69, icon: '🌧️', rain: 70, desc: 'Rain' },
+                { t: '7p', temp: 67, icon: '⛅', rain: 30, desc: 'Partly cloudy' }
+            ],
+            daily: [
+                { d: 'TODAY', h: 77, l: 65, icon: '☀️', rain: 20 },
+                { d: 'TUE', h: 75, l: 63, icon: '⛅', rain: 40 },
+                { d: 'WED', h: 71, l: 59, icon: '🌧️', rain: 80 },
+                { d: 'THU', h: 73, l: 61, icon: '⛅', rain: 30 },
+                { d: 'FRI', h: 76, l: 64, icon: '☀️', rain: 10 },
+                { d: 'SAT', h: 78, l: 66, icon: '☀️', rain: 5 },
+                { d: 'SUN', h: 79, l: 67, icon: '☀️', rain: 0 }
+            ]
+        };
+        
+        function loadTestData() {
+            const event = new CustomEvent('weather-data-updated', { detail: testData });
+            document.dispatchEvent(event);
+        }
+        
+        function testError() {
+            const event = new CustomEvent('weather-error', { 
+                detail: { error: 'Test error message' }
+            });
+            document.dispatchEvent(event);
+        }
+        
+        function testWidgetVisibility() {
+            const config = {
+                current: Math.random() > 0.5,
+                hourly: Math.random() > 0.5,
+                daily: Math.random() > 0.5,
+                timeline: Math.random() > 0.5
+            };
+            
+            const event = new CustomEvent('weather-config-changed', { detail: config });
+            document.dispatchEvent(event);
+            
+            console.log('Widget visibility changed:', config);
+        }
+        
+        // Load test data on page load
+        setTimeout(loadTestData, 500);
+    </script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+# ABOUTME: Docker Compose configuration for weather app with UV-based Python environment
+# ABOUTME: Includes development and production configurations with proper networking and secrets
+
+version: '3.8'
+
+services:
+  weather-app:
+    build: .
+    container_name: weather-app
+    ports:
+      - "5000:5000"
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+    env_file:
+      - .env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/api/cache/stats"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - weather-network
+    
+  # Optional: Redis for enhanced caching (uncomment to enable)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: weather-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis-data:/data
+  #   restart: unless-stopped
+  #   networks:
+  #     - weather-network
+
+  # Optional: Nginx reverse proxy (uncomment to enable)
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: weather-nginx
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - weather-app
+  #   restart: unless-stopped
+  #   networks:
+  #     - weather-network
+
+networks:
+  weather-network:
+    driver: bridge
+
+# volumes:
+#   redis-data:
+#     driver: local
+
+# Development override file usage:
+# docker-compose -f docker-compose.yml -f docker-compose.dev.yml up

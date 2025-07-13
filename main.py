@@ -1,7 +1,7 @@
 import requests
 import json
 from datetime import datetime, timedelta
-from flask import Flask, render_template, jsonify, request
+from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_compress import Compress
 import os
 from dotenv import load_dotenv
@@ -211,6 +211,11 @@ def cache_stats():
         'ttl_seconds': weather_cache.ttl,
         'cached_locations': list(weather_cache.keys())
     })
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    """Serve static files"""
+    return send_from_directory('static', filename)
 
 if __name__ == '__main__':
     app.run(debug=True)
