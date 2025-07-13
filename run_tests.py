@@ -50,13 +50,13 @@ def main():
     # Install dependencies if requested
     if args.install:
         success = run_command([
-            sys.executable, '-m', 'pip', 'install', '-e', '.[test]'
+            'uv', 'sync', '--all-extras', '--dev'
         ], "Installing test dependencies")
         if not success:
             return 1
     
-    # Build pytest command
-    cmd = [sys.executable, '-m', 'pytest']
+    # Build pytest command using uv
+    cmd = ['uv', 'run', 'pytest']
     
     # Add test selection
     if args.unit:
