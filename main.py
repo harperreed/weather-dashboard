@@ -15,9 +15,12 @@ app = Flask(__name__)
 # Enable gzip compression for all responses
 Compress(app)
 
-# You'll need to get your API key from https://pirateweather.net/
+# Primary weather API: Open-Meteo (free and accurate)
+OPEN_METEO_BASE_URL = "https://api.open-meteo.com/v1/forecast"
+
+# Fallback API: PirateWeather (if needed)
 PIRATE_WEATHER_API_KEY = os.getenv("PIRATE_WEATHER_API_KEY", "YOUR_API_KEY_HERE")
-BASE_URL = "https://api.pirateweather.net/forecast"
+PIRATE_WEATHER_BASE_URL = "https://api.pirateweather.net/forecast"
 
 # Chicago coordinates (as shown in the image)
 CHICAGO_LAT = 41.8781
@@ -28,6 +31,58 @@ CHICAGO_LON = -87.6298
 
 # Cache for weather API responses (10 minutes TTL, max 100 entries)
 weather_cache = TTLCache(maxsize=100, ttl=600)  # 600 seconds = 10 minutes
+
+def get_weather_from_open_meteo(lat, lon):
+    """Fetch weather data from Open-Meteo API"""
+    try:
+        # Build URL with comprehensive weather parameters
+        url = f"{OPEN_METEO_BASE_URL}?latitude={lat}&longitude={lon}"
+        url += "&current=temperature_2m,relative_humidity_2m,apparent_temperature,precipitation,weather_code,cloud_cover,wind_speed_10m,wind_direction_10m,uv_index"
+        url += "&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,cloud_cover,wind_speed_10m"
+        url += "&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,wind_speed_10m_max,uv_index_max"
+        url += "&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch"
+        url += "&timezone=auto&forecast_days=7"
+        
+        print(f"🌤️  Fetching Open-Meteo data from: {url}")
+        
+        response = requests.get(url, timeout=10)
+        response.raise_for_status()
+        
+        return response.json()
+    except Exception as e:
+        print(f"❌ Open-Meteo API error: {str(e)}")
+        return None
+
+def map_open_meteo_weather_code(code):
+    """Map Open-Meteo weather codes to our icon codes"""
+    # WMO Weather interpretation codes
+    code_map = {
+        0: 'clear-day',           # Clear sky
+        1: 'clear-day',           # Mainly clear
+        2: 'partly-cloudy-day',   # Partly cloudy
+        3: 'cloudy',              # Overcast
+        45: 'fog',                # Fog
+        48: 'fog',                # Depositing rime fog
+        51: 'light-rain',         # Light drizzle
+        53: 'rain',               # Moderate drizzle
+        55: 'heavy-rain',         # Dense drizzle
+        61: 'light-rain',         # Slight rain
+        63: 'rain',               # Moderate rain
+        65: 'heavy-rain',         # Heavy rain
+        71: 'light-snow',         # Slight snow fall
+        73: 'snow',               # Moderate snow fall
+        75: 'heavy-snow',         # Heavy snow fall
+        80: 'light-rain',         # Slight rain showers
+        81: 'rain',               # Moderate rain showers
+        82: 'heavy-rain',         # Violent rain showers
+        85: 'light-snow',         # Slight snow showers
+        86: 'heavy-snow',         # Heavy snow showers
+        95: 'thunderstorm',       # Thunderstorm
+        96: 'thunderstorm',       # Thunderstorm with slight hail
+        99: 'thunderstorm',       # Thunderstorm with heavy hail
+    }
+    
+    return code_map.get(code, 'clear-day')
 
 def get_weather_icon(icon_code):
     """Return weather icon code for use with weather-icons library"""
@@ -86,6 +141,95 @@ def get_weather_data(lat=None, lon=None):
     except requests.exceptions.RequestException as e:
         print(f"Error fetching weather data: {e}")
         return None
+
+def process_open_meteo_data(data, location_name=None):
+    """Process Open-Meteo weather data into our expected format"""
+    if not data:
+        return None
+    
+    try:
+        current = data.get('current', {})
+        hourly = data.get('hourly', {})
+        daily = data.get('daily', {})
+        
+        # Process current weather
+        current_weather = {
+            'temperature': round(current.get('temperature_2m', 0)),
+            'feels_like': round(current.get('apparent_temperature', 0)),
+            'humidity': current.get('relative_humidity_2m', 0),
+            'wind_speed': round(current.get('wind_speed_10m', 0)),
+            'uv_index': current.get('uv_index', 0),
+            'precipitation_rate': current.get('precipitation', 0),
+            'precipitation_prob': 0,  # Current doesn't have probability
+            'precipitation_type': 'rain' if current.get('precipitation', 0) > 0 else None,
+            'icon': map_open_meteo_weather_code(current.get('weather_code', 0)),
+            'summary': get_weather_description(current.get('weather_code', 0))
+        }
+        
+        # Process hourly forecast (next 24 hours)
+        hourly_forecast = []
+        if hourly.get('time'):
+            for i in range(min(24, len(hourly['time']))):
+                hour_data = {
+                    'temp': round(hourly['temperature_2m'][i]),
+                    'icon': map_open_meteo_weather_code(hourly['weather_code'][i]),
+                    'rain': hourly['precipitation_probability'][i] if i < len(hourly.get('precipitation_probability', [])) else 0,
+                    't': datetime.fromisoformat(hourly['time'][i].replace('Z', '+00:00')).strftime('%I%p').lower().replace('0', ''),
+                    'desc': get_weather_description(hourly['weather_code'][i])
+                }
+                hourly_forecast.append(hour_data)
+        
+        # Process daily forecast
+        daily_forecast = []
+        if daily.get('time'):
+            for i in range(min(7, len(daily['time']))):
+                day_data = {
+                    'h': round(daily['temperature_2m_max'][i]),
+                    'l': round(daily['temperature_2m_min'][i]),
+                    'icon': map_open_meteo_weather_code(daily['weather_code'][i]),
+                    'd': datetime.fromisoformat(daily['time'][i]).strftime('%a')
+                }
+                daily_forecast.append(day_data)
+        
+        return {
+            'current': current_weather,
+            'hourly': hourly_forecast,
+            'daily': daily_forecast,
+            'location': location_name or 'Unknown Location'
+        }
+        
+    except Exception as e:
+        print(f"❌ Error processing Open-Meteo data: {str(e)}")
+        return None
+
+def get_weather_description(weather_code):
+    """Get human-readable weather description from WMO code"""
+    descriptions = {
+        0: 'Clear sky',
+        1: 'Mainly clear',
+        2: 'Partly cloudy',
+        3: 'Overcast',
+        45: 'Foggy',
+        48: 'Depositing rime fog',
+        51: 'Light drizzle',
+        53: 'Moderate drizzle',
+        55: 'Dense drizzle',
+        61: 'Slight rain',
+        63: 'Moderate rain',
+        65: 'Heavy rain',
+        71: 'Slight snow',
+        73: 'Moderate snow',
+        75: 'Heavy snow',
+        80: 'Slight rain showers',
+        81: 'Moderate rain showers',
+        82: 'Violent rain showers',
+        85: 'Slight snow showers',
+        86: 'Heavy snow showers',
+        95: 'Thunderstorm',
+        96: 'Thunderstorm with slight hail',
+        99: 'Thunderstorm with heavy hail'
+    }
+    return descriptions.get(weather_code, 'Unknown')
 
 def process_weather_data(data, location_name=None):
     """Process raw weather data into format needed for the UI"""
@@ -191,17 +335,46 @@ def weather_api():
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Chicago')
     
-    raw_data = get_weather_data(lat, lon)
-    processed_data = process_weather_data(raw_data, location_name)
+    # Default to Chicago if no coordinates provided
+    if not lat or not lon:
+        lat = CHICAGO_LAT
+        lon = CHICAGO_LON
+    
+    # Create cache key
+    cache_key = f"{lat:.4f},{lon:.4f}"
+    
+    # Check cache first
+    if cache_key in weather_cache:
+        print(f"📦 Returning cached data for {cache_key}")
+        cached_data = weather_cache[cache_key]
+        cached_data['location'] = location_name  # Update location name
+        response = jsonify(cached_data)
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        response.headers['ETag'] = f'"{hash(str(lat) + str(lon) + str(int(time.time() // 300)))}"'
+        return response
+    
+    # Try Open-Meteo first (primary source)
+    print(f"🌤️  Fetching weather from Open-Meteo for {location_name}")
+    raw_data = get_weather_from_open_meteo(lat, lon)
+    processed_data = process_open_meteo_data(raw_data, location_name)
+    
+    # Fallback to PirateWeather if Open-Meteo fails
+    if not processed_data:
+        print(f"⚠️  Open-Meteo failed, trying PirateWeather as fallback")
+        raw_data = get_weather_data(lat, lon)
+        processed_data = process_weather_data(raw_data, location_name)
     
     if processed_data:
+        # Cache the result
+        weather_cache[cache_key] = processed_data
+        print(f"💾 Cached weather data for {cache_key}")
+        
         response = jsonify(processed_data)
-        # Cache for 5 minutes on client side
         response.headers['Cache-Control'] = 'public, max-age=300'
         response.headers['ETag'] = f'"{hash(str(lat) + str(lon) + str(int(time.time() // 300)))}"'
         return response
     else:
-        return jsonify({'error': 'Failed to fetch weather data'}), 500
+        return jsonify({'error': 'Failed to fetch weather data from all sources'}), 500
 
 @app.route('/api/cache/stats')
 def cache_stats():
@@ -219,4 +392,4 @@ def static_files(filename):
     return send_from_directory('static', filename)
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True, port=5001)

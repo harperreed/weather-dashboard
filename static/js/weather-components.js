@@ -21,20 +21,65 @@ const WEATHER_ICONS = {
     'hail': 'hail.svg'
 };
 
-// Local icon base URL for weather-icons
-const WEATHER_ICON_BASE_URL = '/static/icons/weather/animated/';
-
-// Helper function to get weather icon HTML
-function getWeatherIcon(iconCode, size = '2rem') {
-    const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
-    const iconUrl = WEATHER_ICON_BASE_URL + iconFile;
+// Weather Icon Web Component
+class WeatherIcon extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+    }
     
-    return `<img src="${iconUrl}" alt="${iconCode}" style="width: ${size}; height: ${size}; display: inline-block; vertical-align: middle;">`;
+    static get observedAttributes() {
+        return ['icon', 'size', 'alt'];
+    }
+    
+    connectedCallback() {
+        this.render();
+    }
+    
+    attributeChangedCallback() {
+        this.render();
+    }
+    
+    render() {
+        const iconCode = this.getAttribute('icon') || 'clear-day';
+        const size = this.getAttribute('size') || '2.5rem';
+        const alt = this.getAttribute('alt') || iconCode;
+        
+        // Check URL parameter for animation preference
+        const urlParams = new URLSearchParams(window.location.search);
+        const useAnimated = urlParams.get('animated') !== 'false';
+        const iconType = useAnimated ? 'animated' : 'static';
+        
+        const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
+        const iconUrl = `/static/icons/weather/${iconType}/${iconFile}`;
+        
+        this.shadowRoot.innerHTML = `
+            <style>
+                :host {
+                    display: inline-block;
+                    vertical-align: middle;
+                }
+                
+                .weather-icon {
+                    width: ${size};
+                    height: ${size};
+                    display: block;
+                    object-fit: contain;
+                }
+            </style>
+            <img class="weather-icon" src="${iconUrl}" alt="${alt}" />
+        `;
+    }
 }
 
-// Helper function to get weather icon for smaller displays
+// Helper function to create weather icon element
+function getWeatherIcon(iconCode, size = '2.5rem') {
+    return `<weather-icon icon="${iconCode}" size="${size}"></weather-icon>`;
+}
+
+// Helper function to get weather icon for smaller displays  
 function getWeatherIconSmall(iconCode) {
-    return getWeatherIcon(iconCode, '1.5rem');
+    return getWeatherIcon(iconCode, '2.25rem');
 }
 
 // Base WeatherWidget class with shared functionality
@@ -226,11 +271,6 @@ class CurrentWeatherWidget extends WeatherWidget {
                     vertical-align: middle;
                 }
                 
-                .weather-icon img {
-                    width: 2rem;
-                    height: 2rem;
-                }
-                
                 .feels-like {
                     font-size: 0.875rem;
                     opacity: 0.8;
@@ -281,10 +321,6 @@ class CurrentWeatherWidget extends WeatherWidget {
                         font-size: 3rem;
                     }
                     
-                    .weather-icon img {
-                        width: 2.5rem;
-                        height: 2.5rem;
-                    }
                     
                     .feels-like {
                         font-size: 1rem;
@@ -305,10 +341,6 @@ class CurrentWeatherWidget extends WeatherWidget {
                         font-size: 4rem;
                     }
                     
-                    .weather-icon img {
-                        width: 3rem;
-                        height: 3rem;
-                    }
                     
                     .weather-details {
                         grid-template-columns: repeat(4, 1fr);
@@ -361,7 +393,7 @@ class CurrentWeatherWidget extends WeatherWidget {
         const current = this.data.current;
         
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
-        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon);
+        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '3rem');
         this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}°`;
         
         // Enhance summary with precipitation info
@@ -450,10 +482,6 @@ class HourlyForecastWidget extends WeatherWidget {
                     margin-top: 0.25rem;
                 }
                 
-                .hour-icon img {
-                    width: 1.25rem;
-                    height: 1.25rem;
-                }
                 
                 .hourly-times {
                     display: flex;
@@ -533,7 +561,7 @@ class HourlyForecastWidget extends WeatherWidget {
             hourDiv.className = 'hour-temp';
             hourDiv.innerHTML = `
                 <div class="hour-temp-value">${hour.temp}°</div>
-                <div class="hour-icon">${getWeatherIconSmall(hour.icon)}</div>
+                <div class="hour-icon">${getWeatherIcon(hour.icon, '1.75rem')}</div>
             `;
             hourlyContainer.appendChild(hourDiv);
             
@@ -634,10 +662,6 @@ class DailyForecastWidget extends WeatherWidget {
                     margin: 0.25rem 0;
                 }
                 
-                .day-icon img {
-                    width: 1.5rem;
-                    height: 1.5rem;
-                }
                 
                 .day-high {
                     font-size: 0.75rem;
@@ -667,10 +691,6 @@ class DailyForecastWidget extends WeatherWidget {
                         padding: 0.5rem;
                     }
                     
-                    .day-icon img {
-                        width: 1.75rem;
-                        height: 1.75rem;
-                    }
                     
                     .day-high {
                         font-size: 0.875rem;
@@ -729,7 +749,7 @@ class DailyForecastWidget extends WeatherWidget {
             
             dayDiv.innerHTML = `
                 <div class="day-name">${day.d}</div>
-                <div class="day-icon">${getWeatherIconSmall(day.icon)}</div>
+                <div class="day-icon">${getWeatherIcon(day.icon, '2rem')}</div>
                 <div class="day-high">${day.h}°</div>
                 <div class="day-low">${day.l}°</div>
             `;
@@ -1086,6 +1106,7 @@ class WeatherApp {
 }
 
 // Register all components
+customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
 customElements.define('hourly-forecast', HourlyForecastWidget);
 customElements.define('daily-forecast', DailyForecastWidget);
