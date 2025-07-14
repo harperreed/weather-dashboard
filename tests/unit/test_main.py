@@ -3,6 +3,8 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 from main import (
+    CHICAGO_LAT,
+    CHICAGO_LON,
     CITY_COORDS,
     get_weather_description,
     get_weather_from_open_meteo,
@@ -26,10 +28,8 @@ MOCK_WIND_SPEED = 8
 MOCK_UV_INDEX = 6
 CACHE_MAX_SIZE = 100
 CACHE_TTL_SECONDS = 600
-CHICAGO_LAT = 41.8781
 EXPECTED_COORDS_COUNT = 3
 EXPECTED_KEY_PARTS = 2
-CHICAGO_LON = -87.6298
 MIN_LAT = -90
 MAX_LAT = 90
 MIN_LON = -180
@@ -417,8 +417,6 @@ class TestCacheIntegration:
 
     def test_cache_key_format(self) -> None:
         """Test cache key format"""
-        from main import CHICAGO_LAT, CHICAGO_LON
-
         # Test key format matches expected pattern
         lat = round(CHICAGO_LAT, 4)
         lon = round(CHICAGO_LON, 4)

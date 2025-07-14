@@ -1,7 +1,10 @@
+import json
 import os
 from unittest.mock import patch
 
 from flask.testing import FlaskClient
+
+from main import weather_cache
 
 
 # Test constants
@@ -231,8 +234,6 @@ class TestFrontendErrorHandling:
     def test_api_error_handling(self, client: FlaskClient) -> None:
         """Test API error handling"""
         # Clear cache to ensure we test error conditions
-        from main import weather_cache
-
         weather_cache.clear()
 
         with patch("main.weather_manager.get_weather") as mock_get_weather:
@@ -241,8 +242,6 @@ class TestFrontendErrorHandling:
             response = client.get("/api/weather?lat=41.8781&lon=-87.6298")
             assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
             assert response.content_type == "application/json"
-
-            import json
 
             data = json.loads(response.data)
             assert "error" in data

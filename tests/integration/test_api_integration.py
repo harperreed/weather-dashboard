@@ -1,11 +1,13 @@
 import json
+import os
 import time
 from unittest.mock import MagicMock, patch
 
 import pytest
 from flask.testing import FlaskClient
 
-from main import app, weather_cache
+from main import app, get_weather_from_open_meteo, weather_cache
+from weather_providers import PirateWeatherProvider
 
 
 # Test constants
@@ -247,8 +249,6 @@ class TestExternalAPIIntegration:
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
 
-            from main import get_weather_from_open_meteo
-
             result = get_weather_from_open_meteo(41.8781, -87.6298)
 
             assert result is not None
@@ -298,8 +298,6 @@ class TestExternalAPIIntegration:
             }
             mock_response.raise_for_status.return_value = None
             mock_get.return_value = mock_response
-
-            from weather_providers import PirateWeatherProvider
 
             provider = PirateWeatherProvider("test_key")
             result = provider.fetch_weather_data(41.8781, -87.6298)
@@ -355,8 +353,6 @@ class TestApplicationConfiguration:
 
     def test_environment_variables(self) -> None:
         """Test environment variable handling"""
-        import os
-
         # Test that environment variables can be loaded
         pirate_weather_key = os.getenv("PIRATE_WEATHER_API_KEY", "YOUR_API_KEY_HERE")
         assert pirate_weather_key is not None
