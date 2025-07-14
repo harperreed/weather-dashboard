@@ -11,80 +11,80 @@ jobs:
   dependabot:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]'
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        token: ${{ secrets.GITHUB_TOKEN }}
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-    
-    - name: Set up Python 3.12
-      run: uv python install 3.12
-    
-    - name: Install dependencies
-      run: |
-        uv sync --all-extras --dev
-    
-    - name: Run tests
-      run: |
-        uv run pytest tests/ -v --tb=short
-    
-    - name: Auto-approve minor and patch updates
-      if: success()
-      run: |
-        # Get PR info
-        PR_TITLE="${{ github.event.pull_request.title }}"
-        
-        # Check if it's a minor or patch update
-        if [[ "$PR_TITLE" =~ "bump.*from.*to.*" ]]; then
-          # Extract version info (this is a simplified check)
-          if [[ "$PR_TITLE" =~ "bump.*from.*[0-9]+\.[0-9]+\.[0-9]+" ]]; then
-            echo "✅ Patch/minor update detected, will auto-approve"
-            echo "auto_approve=true" >> $GITHUB_ENV
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run tests
+        run: |
+          uv run pytest tests/ -v --tb=short
+
+      - name: Auto-approve minor and patch updates
+        if: success()
+        run: |
+          # Get PR info
+          PR_TITLE="${{ github.event.pull_request.title }}"
+
+          # Check if it's a minor or patch update
+          if [[ "$PR_TITLE" =~ "bump.*from.*to.*" ]]; then
+            # Extract version info (this is a simplified check)
+            if [[ "$PR_TITLE" =~ "bump.*from.*[0-9]+\.[0-9]+\.[0-9]+" ]]; then
+              echo "✅ Patch/minor update detected, will auto-approve"
+              echo "auto_approve=true" >> $GITHUB_ENV
+            fi
           fi
-        fi
-    
-    - name: Enable auto-merge for Dependabot PRs
-      if: env.auto_approve == 'true'
-      run: |
-        gh pr review --approve "${{ github.event.pull_request.number }}"
-        gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Enable auto-merge for Dependabot PRs
+        if: env.auto_approve == 'true'
+        run: |
+          gh pr review --approve "${{ github.event.pull_request.number }}"
+          gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   security-update:
     runs-on: ubuntu-latest
     if: github.actor == 'dependabot[bot]' && contains(github.event.pull_request.title, 'security')
-    
+
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-    
-    - name: Set up Python 3.12
-      run: uv python install 3.12
-    
-    - name: Install dependencies
-      run: |
-        uv sync --all-extras --dev
-    
-    - name: Run security tests
-      run: |
-        uv run pytest tests/ -v
-        # Run additional security checks
-        uv add --dev safety
-        uv run safety check
-    
-    - name: Auto-approve security updates
-      if: success()
-      run: |
-        echo "🔒 Security update - auto-approving after tests pass"
-        gh pr review --approve "${{ github.event.pull_request.number }}"
-        gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run security tests
+        run: |
+          uv run pytest tests/ -v
+          # Run additional security checks
+          uv add --dev safety
+          uv run safety check
+
+      - name: Auto-approve security updates
+        if: success()
+        run: |
+          echo "🔒 Security update - auto-approving after tests pass"
+          gh pr review --approve "${{ github.event.pull_request.number }}"
+          gh pr merge --auto --merge "${{ github.event.pull_request.number }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

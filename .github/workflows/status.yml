@@ -5,140 +5,140 @@ name: Status & Metrics
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [main, develop]
   schedule:
     # Run weekly on Sunday at 3 AM UTC
-    - cron: '0 3 * * 0'
+    - cron: "0 3 * * 0"
 
 jobs:
   generate-badges:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0  # Needed for git history analysis
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-    
-    - name: Set up Python 3.12
-      run: uv python install 3.12
-    
-    - name: Install dependencies
-      run: |
-        uv sync --all-extras --dev
-    
-    - name: Run tests with coverage
-      run: |
-        uv run pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
-    
-    - name: Generate coverage badge
-      uses: py-cov-action/python-coverage-comment-action@v3
-      with:
-        GITHUB_TOKEN: ${{ github.token }}
-        MINIMUM_GREEN: 80
-        MINIMUM_ORANGE: 70
-    
-    - name: Analyze code metrics
-      run: |
-        # Generate code metrics
-        uv add --dev radon
-        uv run radon cc . --json > complexity.json
-        uv run radon mi . --json > maintainability.json
-        uv run radon raw . --json > raw_metrics.json
-    
-    - name: Count lines of code
-      run: |
-        echo "## Code Statistics" > metrics.md
-        echo "" >> metrics.md
-        echo "| Metric | Value |" >> metrics.md
-        echo "|--------|-------|" >> metrics.md
-        echo "| Python Files | $(find . -name '*.py' -not -path './.*' | wc -l) |" >> metrics.md
-        echo "| JavaScript Files | $(find . -name '*.js' -not -path './.*' | wc -l) |" >> metrics.md
-        echo "| HTML Files | $(find . -name '*.html' -not -path './.*' | wc -l) |" >> metrics.md
-        echo "| Total Lines (Python) | $(find . -name '*.py' -not -path './.*' -exec wc -l {} \; | awk '{sum += $1} END {print sum}') |" >> metrics.md
-        echo "| Total Lines (JS) | $(find . -name '*.js' -not -path './.*' -exec wc -l {} \; | awk '{sum += $1} END {print sum}') |" >> metrics.md
-        echo "| Test Files | $(find tests/ -name '*.py' | wc -l) |" >> metrics.md
-    
-    - name: Upload metrics
-      uses: actions/upload-artifact@v4
-      with:
-        name: code-metrics
-        path: |
-          complexity.json
-          maintainability.json
-          raw_metrics.json
-          metrics.md
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Needed for git history analysis
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Install dependencies
+        run: |
+          uv sync --all-extras --dev
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest tests/ --cov=. --cov-report=xml --cov-report=term-missing
+
+      - name: Generate coverage badge
+        uses: py-cov-action/python-coverage-comment-action@v3
+        with:
+          GITHUB_TOKEN: ${{ github.token }}
+          MINIMUM_GREEN: 80
+          MINIMUM_ORANGE: 70
+
+      - name: Analyze code metrics
+        run: |
+          # Generate code metrics
+          uv add --dev radon
+          uv run radon cc . --json > complexity.json
+          uv run radon mi . --json > maintainability.json
+          uv run radon raw . --json > raw_metrics.json
+
+      - name: Count lines of code
+        run: |
+          echo "## Code Statistics" > metrics.md
+          echo "" >> metrics.md
+          echo "| Metric | Value |" >> metrics.md
+          echo "|--------|-------|" >> metrics.md
+          echo "| Python Files | $(find . -name '*.py' -not -path './.*' | wc -l) |" >> metrics.md
+          echo "| JavaScript Files | $(find . -name '*.js' -not -path './.*' | wc -l) |" >> metrics.md
+          echo "| HTML Files | $(find . -name '*.html' -not -path './.*' | wc -l) |" >> metrics.md
+          echo "| Total Lines (Python) | $(find . -name '*.py' -not -path './.*' -exec wc -l {} \; | awk '{sum += $1} END {print sum}') |" >> metrics.md
+          echo "| Total Lines (JS) | $(find . -name '*.js' -not -path './.*' -exec wc -l {} \; | awk '{sum += $1} END {print sum}') |" >> metrics.md
+          echo "| Test Files | $(find tests/ -name '*.py' | wc -l) |" >> metrics.md
+
+      - name: Upload metrics
+        uses: actions/upload-artifact@v4
+        with:
+          name: code-metrics
+          path: |
+            complexity.json
+            maintainability.json
+            raw_metrics.json
+            metrics.md
 
   health-check:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Check repository health
-      run: |
-        echo "## Repository Health Check" > health.md
-        echo "" >> health.md
-        
-        # Check for required files
-        echo "### Required Files" >> health.md
-        echo "| File | Status |" >> health.md
-        echo "|------|--------|" >> health.md
-        
-        files=("README.md" "pyproject.toml" "Dockerfile" "docker-compose.yml" ".gitignore")
-        for file in "${files[@]}"; do
-          if [ -f "$file" ]; then
-            echo "| $file | ✅ Present |" >> health.md
-          else
-            echo "| $file | ❌ Missing |" >> health.md
-          fi
-        done
-        
-        echo "" >> health.md
-        echo "### Test Coverage" >> health.md
-        echo "- Tests are present: $([ -d tests/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        echo "- Unit tests: $([ -d tests/unit/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        echo "- Integration tests: $([ -d tests/integration/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        
-        echo "" >> health.md
-        echo "### Documentation" >> health.md
-        echo "- README exists: $([ -f README.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        echo "- Docker docs: $([ -f DOCKER.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        echo "- Testing docs: $([ -f TESTING.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
-        
-        cat health.md >> $GITHUB_STEP_SUMMARY
-    
-    - name: Upload health report
-      uses: actions/upload-artifact@v4
-      with:
-        name: health-report
-        path: health.md
+      - uses: actions/checkout@v4
+
+      - name: Check repository health
+        run: |
+          echo "## Repository Health Check" > health.md
+          echo "" >> health.md
+
+          # Check for required files
+          echo "### Required Files" >> health.md
+          echo "| File | Status |" >> health.md
+          echo "|------|--------|" >> health.md
+
+          files=("README.md" "pyproject.toml" "Dockerfile" "docker-compose.yml" ".gitignore")
+          for file in "${files[@]}"; do
+            if [ -f "$file" ]; then
+              echo "| $file | ✅ Present |" >> health.md
+            else
+              echo "| $file | ❌ Missing |" >> health.md
+            fi
+          done
+
+          echo "" >> health.md
+          echo "### Test Coverage" >> health.md
+          echo "- Tests are present: $([ -d tests/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+          echo "- Unit tests: $([ -d tests/unit/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+          echo "- Integration tests: $([ -d tests/integration/ ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+
+          echo "" >> health.md
+          echo "### Documentation" >> health.md
+          echo "- README exists: $([ -f README.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+          echo "- Docker docs: $([ -f DOCKER.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+          echo "- Testing docs: $([ -f TESTING.md ] && echo '✅ Yes' || echo '❌ No')" >> health.md
+
+          cat health.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload health report
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-report
+          path: health.md
 
   dependency-graph:
     runs-on: ubuntu-latest
-    
+
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install uv
-      uses: astral-sh/setup-uv@v6
-    
-    - name: Set up Python 3.12
-      run: uv python install 3.12
-    
-    - name: Generate dependency graph
-      run: |
-        uv sync --all-extras --dev
-        uv add --dev pipdeptree
-        uv run pipdeptree --json > dependencies.json
-        uv run pipdeptree --graph-output png > dependencies.png
-    
-    - name: Upload dependency graph
-      uses: actions/upload-artifact@v4
-      with:
-        name: dependency-graph
-        path: |
-          dependencies.json
-          dependencies.png
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+
+      - name: Set up Python 3.12
+        run: uv python install 3.12
+
+      - name: Generate dependency graph
+        run: |
+          uv sync --all-extras --dev
+          uv add --dev pipdeptree
+          uv run pipdeptree --json > dependencies.json
+          uv run pipdeptree --graph-output png > dependencies.png
+
+      - name: Upload dependency graph
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-graph
+          path: |
+            dependencies.json
+            dependencies.png
