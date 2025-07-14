@@ -216,14 +216,14 @@ def mock_requests_get():
 def test_weather_provider_functionality(mock_weather_data):
     """Test weather provider functionality"""
     provider = OpenMeteoProvider()
-    
+
     with patch('requests.get') as mock_get:
         mock_response = MagicMock()
         mock_response.json.return_value = mock_weather_data
         mock_get.return_value = mock_response
-        
+
         result = provider.get_weather(41.8781, -87.6298, "Chicago")
-        
+
         assert result is not None
         assert result['location'] == 'Chicago'
         assert 'current' in result
@@ -237,9 +237,9 @@ def test_weather_api_integration(client, mock_weather_data):
     """Test complete weather API integration"""
     with patch('main.weather_manager.get_weather') as mock_get_weather:
         mock_get_weather.return_value = mock_weather_data
-        
+
         response = client.get('/api/weather?lat=41.8781&lon=-87.6298&location=Chicago')
-        
+
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['location'] == 'Chicago'

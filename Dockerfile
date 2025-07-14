@@ -34,8 +34,8 @@ RUN groupadd --gid 1000 app && \
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder stage
-COPY --from=builder /app/.venv /app/.venv
+# Copy virtual environment from builder stage with proper ownership
+COPY --from=builder --chown=app:app /app/.venv /app/.venv
 
 # Copy application code
 COPY --chown=app:app . .
@@ -53,10 +53,10 @@ ENV PYTHONDONTWRITEBYTECODE=1
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:5000/api/cache/stats || exit 1
+    CMD curl -f http://localhost:5001/api/cache/stats || exit 1
 
 # Expose port
-EXPOSE 5000
+EXPOSE 5001
 
 # Run the application
-CMD ["uv", "run", "python", "main.py"]
+CMD ["uv", "run", "main.py"]

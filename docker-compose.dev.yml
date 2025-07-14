@@ -1,16 +1,16 @@
 # ABOUTME: Development override for docker-compose with live reloading and debugging
 # ABOUTME: Use with: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 
-version: '3.8'
+version: "3.8"
 
 services:
   weather-app:
     build:
       context: .
-      target: builder  # Use builder stage for development
+      target: builder # Use builder stage for development
     volumes:
       - .:/app
-      - /app/.venv  # Exclude .venv from volume mount to preserve dependencies
+      - /app/.venv # Exclude .venv from volume mount to preserve dependencies
     environment:
       - FLASK_ENV=development
       - FLASK_DEBUG=1

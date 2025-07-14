@@ -5,12 +5,14 @@ This weather app is containerized using Docker with UV for fast Python dependenc
 ## Quick Start
 
 1. **Set up environment variables:**
+
    ```bash
    cp .env.example .env
    # Edit .env and add your PIRATE_WEATHER_API_KEY
    ```
 
 2. **Build and run with Docker Compose:**
+
    ```bash
    # Production
    docker-compose up --build
@@ -20,16 +22,18 @@ This weather app is containerized using Docker with UV for fast Python dependenc
    ```
 
 3. **Access the app:**
-   - Production: http://localhost:5000
-   - Development: http://localhost:5000 (with live reloading)
+   - Production: <http://localhost:5000>
+   - Development: <http://localhost:5000> (with live reloading)
 
 ## Docker Architecture
 
 ### Multi-Stage Build
+
 - **Builder stage**: Uses `ghcr.io/astral-sh/uv:python3.12-bookworm-slim` for fast dependency installation
 - **Runtime stage**: Minimal `python:3.12-slim-bookworm` with only necessary components
 
 ### Key Features
+
 - **UV Integration**: Fast dependency resolution and installation
 - **Security**: Non-root user for container execution
 - **Performance**: Optimized layer caching and minimal final image size
@@ -39,6 +43,7 @@ This weather app is containerized using Docker with UV for fast Python dependenc
 ## Commands
 
 ### Docker Compose
+
 ```bash
 # Production
 docker-compose up -d                    # Run in background
@@ -50,6 +55,7 @@ docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
 ```
 
 ### Direct Docker Commands
+
 ```bash
 # Build image
 docker build -t weather-app .
@@ -62,6 +68,7 @@ docker run -it --entrypoint /bin/bash weather-app
 ```
 
 ### UV Commands in Container
+
 ```bash
 # Add new dependency
 docker-compose exec weather-app uv add requests
@@ -76,11 +83,13 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 ## Configuration
 
 ### Environment Variables
+
 - `PIRATE_WEATHER_API_KEY`: Required API key from pirateweather.net
 - `FLASK_ENV`: Set to `production` or `development`
 - `FLASK_DEBUG`: Enable/disable debug mode
 
 ### Docker Compose Services
+
 - **weather-app**: Main application container
 - **redis**: (Optional) Enhanced caching layer
 - **nginx**: (Optional) Reverse proxy and SSL termination
@@ -88,6 +97,7 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 ## Development Workflow
 
 1. **Start development environment:**
+
    ```bash
    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
    ```
@@ -95,11 +105,13 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 2. **Make changes to code** - automatically reloaded via Docker Compose watch
 
 3. **Add new dependencies:**
+
    ```bash
    docker-compose exec weather-app uv add package-name
    ```
 
 4. **Rebuild on dependency changes:**
+
    ```bash
    docker-compose -f docker-compose.yml -f docker-compose.dev.yml up --build
    ```
@@ -108,9 +120,11 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 
 1. **Set production environment variables in .env**
 2. **Build and run:**
+
    ```bash
    docker-compose up -d
    ```
+
 3. **Enable optional services** (uncomment in docker-compose.yml):
    - Redis for enhanced caching
    - Nginx for reverse proxy
@@ -124,6 +138,7 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 3. **Port conflicts**: Change port mapping in docker-compose.yml if 5000 is in use
 
 ### Debug Commands
+
 ```bash
 # Check container logs
 docker-compose logs weather-app
