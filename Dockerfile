@@ -27,6 +27,11 @@ FROM python:3.13-slim-bookworm
 # Install uv for runtime
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
+# Install timezone data and configure timezone
+RUN apt-get update && apt-get install -y \
+    tzdata \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN groupadd --gid 1000 app && \
     useradd --uid 1000 --gid app --shell /bin/bash --create-home app
