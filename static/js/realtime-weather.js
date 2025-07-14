@@ -13,18 +13,18 @@ class RealTimeWeatherManager {
         this.usePolling = false;
         this.currentLocation = null;
         this.eventHandlers = new Map();
-        
+
         this.init();
     }
-    
+
     init() {
         // Try WebSocket first
         this.connectWebSocket();
-        
+
         // Setup polling as fallback
         this.setupPolling();
     }
-    
+
     connectWebSocket() {
         try {
             // Only try WebSocket if Socket.IO is available
@@ -34,10 +34,10 @@ class RealTimeWeatherManager {
                 this.startPolling();
                 return;
             }
-            
+
             console.log('🔗 Attempting WebSocket connection...');
             this.socket = io();
-            
+
             // Connection event handlers
             this.socket.on('connect', () => {
                 console.log('✅ WebSocket connected');
@@ -47,61 +47,61 @@ class RealTimeWeatherManager {
                 this.stopPolling();
                 this.broadcastEvent('connection_status', { connected: true, type: 'websocket' });
             });
-            
+
             this.socket.on('disconnect', () => {
                 console.log('❌ WebSocket disconnected');
                 this.isConnected = false;
                 this.broadcastEvent('connection_status', { connected: false, type: 'websocket' });
                 this.handleDisconnection();
             });
-            
+
             this.socket.on('connect_error', (error) => {
                 console.log('❌ WebSocket connection error:', error);
                 this.handleConnectionError();
             });
-            
+
             // Weather-specific event handlers
             this.socket.on('weather_update', (data) => {
                 console.log('🌤️  Received weather update via WebSocket');
                 this.broadcastEvent('weather_update', data);
             });
-            
+
             this.socket.on('weather_error', (data) => {
                 console.log('❌ Weather error:', data);
                 this.broadcastEvent('weather_error', data);
             });
-            
+
             this.socket.on('provider_switched', (data) => {
                 console.log('🔄 Provider switched to:', data.provider);
                 this.broadcastEvent('provider_switched', data);
-                
+
                 // Request fresh weather data with new provider
                 if (this.currentLocation) {
                     this.requestWeatherUpdate(this.currentLocation);
                 }
             });
-            
+
             this.socket.on('provider_info', (data) => {
                 console.log('📋 Provider info received:', data);
                 this.broadcastEvent('provider_info', data);
             });
-            
+
             this.socket.on('pong', (data) => {
                 console.log('🏓 Pong received:', data);
             });
-            
+
         } catch (error) {
             console.log('❌ WebSocket setup failed:', error);
             this.handleConnectionError();
         }
     }
-    
+
     handleDisconnection() {
         if (this.retryCount < this.maxRetries) {
             this.retryCount++;
             const delay = this.retryDelay * Math.pow(2, this.retryCount - 1); // Exponential backoff
             console.log(`🔄 Retrying WebSocket connection in ${delay}ms (attempt ${this.retryCount}/${this.maxRetries})`);
-            
+
             setTimeout(() => {
                 this.connectWebSocket();
             }, delay);
@@ -111,7 +111,7 @@ class RealTimeWeatherManager {
             this.startPolling();
         }
     }
-    
+
     handleConnectionError() {
         if (!this.usePolling) {
             console.log('❌ WebSocket failed, falling back to polling');
@@ -119,32 +119,32 @@ class RealTimeWeatherManager {
             this.startPolling();
         }
     }
-    
+
     setupPolling() {
         // Polling is setup but not started initially
         console.log('📡 Polling system initialized');
     }
-    
+
     startPolling() {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
         }
-        
+
         console.log('🔄 Starting weather polling every', this.pollingDelay / 1000, 'seconds');
         this.broadcastEvent('connection_status', { connected: true, type: 'polling' });
-        
+
         this.pollingInterval = setInterval(() => {
             if (this.currentLocation) {
                 this.fetchWeatherData(this.currentLocation);
             }
         }, this.pollingDelay);
-        
+
         // Also poll immediately
         if (this.currentLocation) {
             this.fetchWeatherData(this.currentLocation);
         }
     }
-    
+
     stopPolling() {
         if (this.pollingInterval) {
             clearInterval(this.pollingInterval);
@@ -152,14 +152,14 @@ class RealTimeWeatherManager {
             console.log('⏹️  Polling stopped');
         }
     }
-    
+
     async fetchWeatherData(location) {
         try {
             const params = new URLSearchParams();
             if (location.lat) params.append('lat', location.lat);
             if (location.lon) params.append('lon', location.lon);
             if (location.location) params.append('location', location.location);
-            
+
             const response = await fetch(`/api/weather?${params}`);
             if (response.ok) {
                 const data = await response.json();
@@ -174,10 +174,10 @@ class RealTimeWeatherManager {
             this.broadcastEvent('weather_error', { error: error.message });
         }
     }
-    
+
     requestWeatherUpdate(location) {
         this.currentLocation = location;
-        
+
         if (this.isConnected && this.socket) {
             console.log('📡 Requesting weather update via WebSocket');
             this.socket.emit('request_weather_update', location);
@@ -186,7 +186,7 @@ class RealTimeWeatherManager {
             this.fetchWeatherData(location);
         }
     }
-    
+
     switchProvider(providerName) {
         if (this.isConnected && this.socket) {
             console.log('🔄 Switching provider via WebSocket');
@@ -217,13 +217,13 @@ class RealTimeWeatherManager {
             });
         }
     }
-    
+
     ping() {
         if (this.isConnected && this.socket) {
             this.socket.emit('ping');
         }
     }
-    
+
     // Event system for components to subscribe to updates
     on(event, handler) {
         if (!this.eventHandlers.has(event)) {
@@ -231,13 +231,13 @@ class RealTimeWeatherManager {
         }
         this.eventHandlers.get(event).add(handler);
     }
-    
+
     off(event, handler) {
         if (this.eventHandlers.has(event)) {
             this.eventHandlers.get(event).delete(handler);
         }
     }
-    
+
     broadcastEvent(event, data) {
         if (this.eventHandlers.has(event)) {
             this.eventHandlers.get(event).forEach(handler => {
@@ -249,7 +249,7 @@ class RealTimeWeatherManager {
             });
         }
     }
-    
+
     getConnectionStatus() {
         return {
             connected: this.isConnected || this.usePolling,
@@ -257,7 +257,7 @@ class RealTimeWeatherManager {
             retryCount: this.retryCount
         };
     }
-    
+
     destroy() {
         if (this.socket) {
             this.socket.disconnect();

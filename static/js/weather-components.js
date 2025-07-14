@@ -27,39 +27,39 @@ class WeatherIcon extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
     }
-    
+
     static get observedAttributes() {
         return ['icon', 'size', 'alt'];
     }
-    
+
     connectedCallback() {
         this.render();
     }
-    
+
     attributeChangedCallback() {
         this.render();
     }
-    
+
     render() {
         const iconCode = this.getAttribute('icon') || 'clear-day';
         const size = this.getAttribute('size') || '2.5rem';
         const alt = this.getAttribute('alt') || iconCode;
-        
+
         // Check URL parameter for animation preference
         const urlParams = new URLSearchParams(window.location.search);
         const useAnimated = urlParams.get('animated') !== 'false';
         const iconType = useAnimated ? 'animated' : 'static';
-        
+
         const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
         const iconUrl = `/static/icons/weather/${iconType}/${iconFile}`;
-        
+
         this.shadowRoot.innerHTML = `
             <style>
                 :host {
                     display: inline-block;
                     vertical-align: middle;
                 }
-                
+
                 .weather-icon {
                     width: ${size};
                     height: ${size};
@@ -77,7 +77,7 @@ function getWeatherIcon(iconCode, size = '2.5rem') {
     return `<weather-icon icon="${iconCode}" size="${size}"></weather-icon>`;
 }
 
-// Helper function to get weather icon for smaller displays  
+// Helper function to get weather icon for smaller displays
 function getWeatherIconSmall(iconCode) {
     return getWeatherIcon(iconCode, '2.25rem');
 }
@@ -104,7 +104,7 @@ class WeatherWidget extends HTMLElement {
 
     parseConfig() {
         const urlParams = new URLSearchParams(window.location.search);
-        
+
         // Parse widgets parameter
         const widgetsParam = urlParams.get('widgets');
         if (widgetsParam) {
@@ -114,7 +114,7 @@ class WeatherWidget extends HTMLElement {
                 daily: false,
                 timeline: false
             };
-            
+
             const requestedWidgets = widgetsParam.split(',').map(w => w.trim().toLowerCase());
             requestedWidgets.forEach(widget => {
                 switch (widget) {
@@ -169,20 +169,20 @@ class WeatherWidget extends HTMLElement {
                     color: white;
                     font-family: system-ui, -apple-system, sans-serif;
                 }
-                
+
                 .loading {
                     opacity: 0.6;
                     pointer-events: none;
                 }
-                
+
                 .error {
                     color: #fca5a5;
                 }
-                
+
                 .hidden {
                     display: none !important;
                 }
-                
+
                 .connection-status {
                     position: fixed;
                     top: 1rem;
@@ -195,24 +195,24 @@ class WeatherWidget extends HTMLElement {
                     opacity: 0.9;
                     transition: all 0.3s ease;
                 }
-                
+
                 .connection-status.connected {
                     background-color: #10b981;
                     color: white;
                 }
-                
+
                 .connection-status.disconnected {
                     background-color: #ef4444;
                     color: white;
                 }
-                
+
                 .connection-status.polling {
                     background-color: #f59e0b;
                     color: white;
                 }
-                
+
                 /* Responsive utilities */
-                
+
                 @media (max-width: 640px) {
                     .sm\\:hidden { display: none !important; }
                     .text-xs { font-size: 0.75rem; }
@@ -220,7 +220,7 @@ class WeatherWidget extends HTMLElement {
                     .text-base { font-size: 1rem; }
                     .text-lg { font-size: 1.125rem; }
                 }
-                
+
                 @media (min-width: 641px) {
                     .sm\\:block { display: block !important; }
                     .sm\\:inline { display: inline !important; }
@@ -280,44 +280,44 @@ class CurrentWeatherWidget extends WeatherWidget {
                 .current-widget {
                     margin-bottom: 1.5rem;
                 }
-                
+
                 .temp-display {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
                     margin-bottom: 1rem;
                 }
-                
+
                 .temperature {
                     font-size: 2.5rem;
                     font-weight: 100;
                     line-height: 1;
                 }
-                
+
                 .weather-icon {
                     display: inline-block;
                     vertical-align: middle;
                 }
-                
+
                 .feels-like {
                     font-size: 0.875rem;
                     opacity: 0.8;
                     margin-bottom: 0.5rem;
                 }
-                
+
                 .summary {
                     font-size: 1.125rem;
                     font-weight: 300;
                     margin-bottom: 1rem;
                     line-height: 1.4;
                 }
-                
+
                 .weather-details {
                     display: grid;
                     grid-template-columns: repeat(2, 1fr);
                     gap: 0.75rem;
                 }
-                
+
                 .detail-card {
                     display: flex;
                     justify-content: space-between;
@@ -327,53 +327,53 @@ class CurrentWeatherWidget extends WeatherWidget {
                     border-radius: 0.5rem;
                     font-size: 0.75rem;
                 }
-                
+
                 .detail-label {
                     opacity: 0.8;
                 }
-                
+
                 .detail-value {
                     font-weight: 500;
                 }
-                
+
                 @media (min-width: 641px) {
                     .current-widget {
                         margin-bottom: 2rem;
                     }
-                    
+
                     .temp-display {
                         gap: 1rem;
                     }
-                    
+
                     .temperature {
                         font-size: 3rem;
                     }
-                    
-                    
+
+
                     .feels-like {
                         font-size: 1rem;
                     }
-                    
+
                     .summary {
                         font-size: 1.25rem;
                     }
-                    
+
                     .detail-card {
                         padding: 0.75rem 1rem;
                         font-size: 0.875rem;
                     }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .temperature {
                         font-size: 4rem;
                     }
-                    
-                    
+
+
                     .weather-details {
                         grid-template-columns: repeat(4, 1fr);
                     }
-                    
+
                     .detail-card {
                         flex-direction: column;
                         text-align: center;
@@ -381,16 +381,16 @@ class CurrentWeatherWidget extends WeatherWidget {
                     }
                 }
             </style>
-            
+
             <div class="current-widget widget-content">
                 <div class="temp-display">
                     <div class="temperature" id="temp">--°</div>
                     <div class="weather-icon" id="icon">⏳</div>
                 </div>
-                
+
                 <div class="feels-like" id="feels-like">LOADING...</div>
                 <div class="summary" id="summary">Loading weather data...</div>
-                
+
                 <div class="weather-details">
                     <div class="detail-card">
                         <span class="detail-label">Humidity</span>
@@ -409,7 +409,7 @@ class CurrentWeatherWidget extends WeatherWidget {
                         <span class="detail-value" id="uv">--</span>
                     </div>
                 </div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -419,11 +419,11 @@ class CurrentWeatherWidget extends WeatherWidget {
         if (!this.data || !this.config.current) return;
 
         const current = this.data.current;
-        
+
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
         this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '3rem');
         this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}°`;
-        
+
         // Enhance summary with precipitation info
         let summary = current.summary;
         if (current.precipitation_rate > 0) {
@@ -431,11 +431,11 @@ class CurrentWeatherWidget extends WeatherWidget {
             summary = `Currently ${precipType} - ${summary}`;
         }
         this.shadowRoot.getElementById('summary').textContent = summary;
-        
+
         this.shadowRoot.getElementById('humidity').textContent = `${current.humidity}%`;
         this.shadowRoot.getElementById('wind').textContent = `${current.wind_speed} mph`;
         this.shadowRoot.getElementById('uv').textContent = current.uv_index;
-        
+
         // Update precipitation display
         const rainEl = this.shadowRoot.getElementById('rain');
         if (current.precipitation_rate > 0) {
@@ -448,7 +448,7 @@ class CurrentWeatherWidget extends WeatherWidget {
             rainEl.textContent = '0%';
             rainEl.style.color = 'inherit';
         }
-        
+
         this.hideError();
         this.hideLoading();
     }
@@ -469,24 +469,24 @@ class HourlyForecastWidget extends WeatherWidget {
                 .hourly-widget {
                     margin-bottom: 1.5rem;
                 }
-                
+
                 .chart-container {
                     position: relative;
                     height: 7rem;
                     margin-bottom: 1rem;
                 }
-                
+
                 .temperature-chart {
                     width: 100%;
                     height: 100%;
                 }
-                
+
                 .chart-line {
                     stroke: #ef4444;
                     stroke-width: 2;
                     fill: none;
                 }
-                
+
                 .hourly-temps {
                     display: flex;
                     justify-content: space-between;
@@ -494,23 +494,23 @@ class HourlyForecastWidget extends WeatherWidget {
                     margin-bottom: 0.75rem;
                     overflow-x: auto;
                 }
-                
+
                 .hour-temp {
                     text-align: center;
                     flex-shrink: 0;
                     min-width: 0;
                 }
-                
+
                 .hour-temp-value {
                     font-size: 0.75rem;
                     opacity: 0.8;
                 }
-                
+
                 .hour-icon {
                     margin-top: 0.25rem;
                 }
-                
-                
+
+
                 .hourly-times {
                     display: flex;
                     justify-content: space-between;
@@ -518,55 +518,55 @@ class HourlyForecastWidget extends WeatherWidget {
                     opacity: 0.6;
                     overflow-x: auto;
                 }
-                
+
                 .hour-time {
                     flex-shrink: 0;
                     min-width: 0;
                 }
-                
+
                 @media (min-width: 641px) {
                     .hourly-widget {
                         margin-bottom: 2rem;
                     }
-                    
+
                     .chart-container {
                         height: 9rem;
                     }
-                    
+
                     .hour-temp-value {
                         font-size: 0.875rem;
                     }
                 }
-                
+
                 @media (min-width: 768px) {
                     .chart-container {
                         height: 11rem;
                     }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .chart-container {
                         height: 12rem;
                     }
                 }
             </style>
-            
+
             <div class="hourly-widget widget-content">
                 <div class="chart-container">
                     <svg class="temperature-chart" id="hourly-chart"></svg>
                 </div>
-                
+
                 <div class="hourly-temps" id="hourly-temps">
                     <div class="hour-temp">
                         <div class="hour-temp-value">--°</div>
                         <div class="hour-icon">--</div>
                     </div>
                 </div>
-                
+
                 <div class="hourly-times" id="hourly-times">
                     <span class="hour-time">--</span>
                 </div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -576,17 +576,17 @@ class HourlyForecastWidget extends WeatherWidget {
         if (!this.data || !this.config.hourly) return;
 
         const hourlyData = this.data.hourly;
-        
+
         // Update hourly temperatures
         const hourlyContainer = this.shadowRoot.getElementById('hourly-temps');
         const hourlyTimesContainer = this.shadowRoot.getElementById('hourly-times');
-        
+
         hourlyContainer.innerHTML = '';
         hourlyTimesContainer.innerHTML = '';
-        
+
         // Show only next 12 hours for better readability
         const displayHours = hourlyData.slice(0, 12);
-        
+
         displayHours.forEach((hour, index) => {
             const hourDiv = document.createElement('div');
             hourDiv.className = 'hour-temp';
@@ -595,7 +595,7 @@ class HourlyForecastWidget extends WeatherWidget {
                 <div class="hour-icon">${getWeatherIcon(hour.icon, '1.75rem')}</div>
             `;
             hourlyContainer.appendChild(hourDiv);
-            
+
             const timeSpan = document.createElement('span');
             timeSpan.className = 'hour-time';
             // Show every other hour on small screens, all hours on larger screens
@@ -606,10 +606,10 @@ class HourlyForecastWidget extends WeatherWidget {
             }
             hourlyTimesContainer.appendChild(timeSpan);
         });
-        
+
         // Draw temperature chart with 12-hour data
         this.drawTemperatureChart(displayHours);
-        
+
         this.hideError();
         this.hideLoading();
     }
@@ -619,23 +619,23 @@ class HourlyForecastWidget extends WeatherWidget {
         const rect = svg.getBoundingClientRect();
         const width = rect.width;
         const height = rect.height;
-        
+
         svg.innerHTML = '';
-        
+
         if (width === 0 || height === 0) return;
-        
+
         const temps = hourlyData.map(h => h.temp);
         const maxTemp = Math.max(...temps);
         const minTemp = Math.min(...temps);
         const tempRange = maxTemp - minTemp || 1;
-        
+
         let pathData = '';
         temps.forEach((temp, index) => {
             const x = (index / (temps.length - 1)) * width;
             const y = height - ((temp - minTemp) / tempRange) * height;
             pathData += (index === 0 ? 'M' : 'L') + x + ',' + y;
         });
-        
+
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', pathData);
         path.setAttribute('class', 'chart-line');
@@ -658,94 +658,94 @@ class DailyForecastWidget extends WeatherWidget {
                 .daily-widget {
                     margin-bottom: 1.5rem;
                 }
-                
+
                 .daily-chart-container {
                     position: relative;
                     height: 5rem;
                     margin-bottom: 1rem;
                 }
-                
+
                 .daily-chart {
                     width: 100%;
                     height: 100%;
                 }
-                
+
                 .daily-forecast {
                     display: grid;
                     grid-template-columns: repeat(4, 1fr);
                     gap: 0.25rem;
                     margin-bottom: 1rem;
                 }
-                
+
                 .day-forecast {
                     text-align: center;
                     padding: 0.25rem 0.5rem;
                 }
-                
+
                 .day-name {
                     font-size: 0.75rem;
                     opacity: 0.6;
                     overflow: hidden;
                     text-overflow: ellipsis;
                 }
-                
+
                 .day-icon {
                     margin: 0.25rem 0;
                 }
-                
-                
+
+
                 .day-high {
                     font-size: 0.75rem;
                     font-weight: 500;
                 }
-                
+
                 .day-low {
                     font-size: 0.75rem;
                     opacity: 0.6;
                 }
-                
+
                 @media (min-width: 641px) {
                     .daily-widget {
                         margin-bottom: 2rem;
                     }
-                    
+
                     .daily-chart-container {
                         height: 7rem;
                     }
-                    
+
                     .daily-forecast {
                         grid-template-columns: repeat(7, 1fr);
                         gap: 0.5rem;
                     }
-                    
+
                     .day-forecast {
                         padding: 0.5rem;
                     }
-                    
-                    
+
+
                     .day-high {
                         font-size: 0.875rem;
                     }
                 }
-                
+
                 @media (min-width: 768px) {
                     .daily-chart-container {
                         height: 9rem;
                     }
                 }
-                
+
                 @media (min-width: 1024px) {
                     .daily-chart-container {
                         height: 10rem;
                     }
                 }
             </style>
-            
+
             <div class="daily-widget widget-content">
                 <div class="daily-chart-container">
                     <svg class="daily-chart" id="daily-chart"></svg>
                 </div>
-                
+
                 <div class="daily-forecast" id="daily-forecast">
                     <div class="day-forecast">
                         <div class="day-name">---</div>
@@ -754,7 +754,7 @@ class DailyForecastWidget extends WeatherWidget {
                         <div class="day-low">--°</div>
                     </div>
                 </div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -764,11 +764,11 @@ class DailyForecastWidget extends WeatherWidget {
         if (!this.data || !this.config.daily) return;
 
         const dailyData = this.data.daily;
-        
+
         // Update daily forecast
         const dailyContainer = this.shadowRoot.getElementById('daily-forecast');
         dailyContainer.innerHTML = '';
-        
+
         dailyData.forEach((day, index) => {
             // Show first 4 days on mobile, all 7 on larger screens
             const dayDiv = document.createElement('div');
@@ -777,7 +777,7 @@ class DailyForecastWidget extends WeatherWidget {
                 dayDiv.classList.add('sm:block');
                 dayDiv.style.display = 'none';
             }
-            
+
             dayDiv.innerHTML = `
                 <div class="day-name">${day.d}</div>
                 <div class="day-icon">${getWeatherIcon(day.icon, '2rem')}</div>
@@ -786,10 +786,10 @@ class DailyForecastWidget extends WeatherWidget {
             `;
             dailyContainer.appendChild(dayDiv);
         });
-        
+
         // Draw daily chart
         this.drawDailyChart(dailyData);
-        
+
         this.hideError();
         this.hideLoading();
     }
@@ -799,23 +799,23 @@ class DailyForecastWidget extends WeatherWidget {
         const rect = svg.getBoundingClientRect();
         const width = rect.width;
         const height = rect.height;
-        
+
         svg.innerHTML = '';
-        
+
         if (width === 0 || height === 0) return;
-        
+
         const highs = dailyData.map(d => d.h);
         const lows = dailyData.map(d => d.l);
         const allTemps = [...highs, ...lows];
         const maxTemp = Math.max(...allTemps);
         const minTemp = Math.min(...allTemps);
         const tempRange = maxTemp - minTemp || 1;
-        
+
         dailyData.forEach((day, index) => {
             const x = (index / (dailyData.length - 1)) * width;
             const highY = height - ((day.h - minTemp) / tempRange) * height;
             const lowY = height - ((day.l - minTemp) / tempRange) * height;
-            
+
             // Temperature range line
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', x);
@@ -825,7 +825,7 @@ class DailyForecastWidget extends WeatherWidget {
             line.setAttribute('stroke', '#f59e0b');
             line.setAttribute('stroke-width', '3');
             svg.appendChild(line);
-            
+
             // High temp circle
             const highCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             highCircle.setAttribute('cx', x);
@@ -833,7 +833,7 @@ class DailyForecastWidget extends WeatherWidget {
             highCircle.setAttribute('r', '4');
             highCircle.setAttribute('fill', '#f59e0b');
             svg.appendChild(highCircle);
-            
+
             // Low temp circle
             const lowCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             lowCircle.setAttribute('cx', x);
@@ -860,57 +860,57 @@ class HourlyTimelineWidget extends WeatherWidget {
                 .timeline-widget {
                     margin-bottom: 1.5rem;
                 }
-                
+
                 .timeline-container {
                     display: flex;
                     flex-direction: column;
                     gap: 0.5rem;
                 }
-                
+
                 .timeline-item {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                 }
-                
+
                 .timeline-dot {
                     width: 0.5rem;
                     height: 1.5rem;
                     border-radius: 9999px;
                     flex-shrink: 0;
                 }
-                
+
                 .timeline-dot.current {
                     background-color: #fbbf24;
                 }
-                
+
                 .timeline-dot.future {
                     background-color: #9ca3af;
                 }
-                
+
                 .timeline-content {
                     flex: 1;
                     margin-left: 0.75rem;
                     min-width: 0;
                 }
-                
+
                 .timeline-header {
                     display: flex;
                     justify-content: space-between;
                     align-items: center;
                 }
-                
+
                 .timeline-time {
                     font-weight: 500;
                     font-size: 0.875rem;
                 }
-                
+
                 .timeline-temp {
                     font-size: 0.875rem;
                     flex-shrink: 0;
                     margin-left: 0.5rem;
                 }
-                
+
                 .timeline-desc {
                     font-size: 0.75rem;
                     opacity: 0.8;
@@ -918,55 +918,55 @@ class HourlyTimelineWidget extends WeatherWidget {
                     text-overflow: ellipsis;
                     white-space: nowrap;
                 }
-                
+
                 .timeline-rain {
                     font-size: 0.75rem;
                     opacity: 0.6;
                 }
-                
+
                 .loading-message {
                     text-align: center;
                     font-size: 0.875rem;
                     opacity: 0.6;
                 }
-                
+
                 @media (min-width: 641px) {
                     .timeline-widget {
                         margin-bottom: 2rem;
                     }
-                    
+
                     .timeline-container {
                         gap: 0.75rem;
                     }
-                    
+
                     .timeline-dot {
                         height: 2rem;
                         margin-left: 0.25rem;
                     }
-                    
+
                     .timeline-content {
                         margin-left: 1rem;
                     }
-                    
+
                     .timeline-time {
                         font-size: 1rem;
                     }
-                    
+
                     .timeline-temp {
                         font-size: 1rem;
                     }
-                    
+
                     .timeline-desc {
                         font-size: 0.875rem;
                     }
                 }
             </style>
-            
+
             <div class="timeline-widget widget-content">
                 <div class="timeline-container" id="timeline-container">
                     <div class="loading-message">Loading hourly forecast...</div>
                 </div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -977,16 +977,16 @@ class HourlyTimelineWidget extends WeatherWidget {
 
         const hourlyData = this.data.hourly.slice(0, 8);
         const timelineContainer = this.shadowRoot.getElementById('timeline-container');
-        
+
         timelineContainer.innerHTML = '';
-        
+
         hourlyData.forEach((hour, index) => {
             const timelineItem = document.createElement('div');
             timelineItem.className = 'timeline-item';
-            
+
             const isCurrentHour = index === 0;
             const dotClass = isCurrentHour ? 'current' : 'future';
-            
+
             timelineItem.innerHTML = `
                 <div class="timeline-dot ${dotClass}"></div>
                 <div class="timeline-content">
@@ -998,10 +998,10 @@ class HourlyTimelineWidget extends WeatherWidget {
                     ${hour.rain > 0 ? `<div class="timeline-rain">${hour.rain}% rain</div>` : ''}
                 </div>
             `;
-            
+
             timelineContainer.appendChild(timelineItem);
         });
-        
+
         this.hideError();
         this.hideLoading();
     }
@@ -1027,34 +1027,34 @@ class WeatherApp {
 
     async init() {
         await this.fetchWeatherData();
-        
+
         // Create connection status indicator
         this.createConnectionStatus();
-        
+
         // Refresh weather data every 10 minutes (fallback if real-time fails)
         setInterval(() => this.fetchWeatherData(), 600000);
     }
-    
+
     createConnectionStatus() {
         const statusDiv = document.createElement('div');
         statusDiv.id = 'connection-status';
         statusDiv.className = 'connection-status disconnected';
         statusDiv.textContent = 'Connecting...';
         document.body.appendChild(statusDiv);
-        
+
         // Auto-hide after 3 seconds when connected
         let hideTimeout = null;
-        
+
         // Listen for connection status changes
         this.broadcastEvent('connection-status', { connected: false, type: 'disconnected' });
-        
+
         document.addEventListener('connection-status', (e) => {
             const status = e.detail;
             const statusEl = document.getElementById('connection-status');
-            
+
             if (statusEl) {
                 statusEl.className = 'connection-status';
-                
+
                 if (status.connected) {
                     if (status.type === 'websocket') {
                         statusEl.classList.add('connected');
@@ -1063,7 +1063,7 @@ class WeatherApp {
                         statusEl.classList.add('polling');
                         statusEl.textContent = '📡 Polling';
                     }
-                    
+
                     // Auto-hide after 3 seconds
                     if (hideTimeout) clearTimeout(hideTimeout);
                     hideTimeout = setTimeout(() => {
@@ -1075,7 +1075,7 @@ class WeatherApp {
                     statusEl.textContent = '❌ Disconnected';
                     statusEl.style.opacity = '0.9';
                     statusEl.style.display = 'block';
-                    
+
                     if (hideTimeout) clearTimeout(hideTimeout);
                 }
             }
@@ -1085,10 +1085,10 @@ class WeatherApp {
     async fetchWeatherData() {
         try {
             this.broadcastEvent('weather-loading', { loading: true });
-            
+
             const { lat, lon, location } = this.parseLocationParams();
             const apiUrl = this.buildApiUrl(lat, lon, location);
-            
+
             // Request deduplication
             if (this.activeRequests.has(apiUrl)) {
                 console.log('Request deduplication: reusing existing request for', apiUrl);
@@ -1096,32 +1096,32 @@ class WeatherApp {
                 this.broadcastWeatherData(data);
                 return;
             }
-            
+
             // Create and cache the request promise
             const requestPromise = fetch(apiUrl).then(response => response.json());
             this.activeRequests.set(apiUrl, requestPromise);
-            
+
             const data = await requestPromise;
             this.activeRequests.delete(apiUrl);
-            
+
             if (data.error) {
                 console.error('Weather API error:', data.error);
                 this.broadcastEvent('weather-error', { error: data.error });
                 return;
             }
-            
+
             this.broadcastWeatherData(data);
         } catch (error) {
             console.error('Error fetching weather:', error);
-            this.broadcastEvent('weather-error', { 
-                error: 'Failed to load weather data. Please check your internet connection.' 
+            this.broadcastEvent('weather-error', {
+                error: 'Failed to load weather data. Please check your internet connection.'
             });
         }
     }
 
     parseLocationParams() {
         let lat, lon, location;
-        
+
         // Check URL format
         const pathParts = window.location.pathname.split('/').filter(part => part);
         if (pathParts.length >= 1 && pathParts[0].includes(',')) {
@@ -1145,7 +1145,7 @@ class WeatherApp {
             lon = urlParams.get('lon');
             location = urlParams.get('location');
         }
-        
+
         // Default to Chicago if no location provided
         if (!lat && !lon && !location) {
             const defaultCity = this.cityCoords['chicago'];
@@ -1153,14 +1153,14 @@ class WeatherApp {
             lon = defaultCity[1];
             location = defaultCity[2];
         }
-        
+
         return { lat, lon, location };
     }
 
     buildApiUrl(lat, lon, location) {
         let apiUrl = '/api/weather';
         const params = new URLSearchParams();
-        
+
         if (lat && lon) {
             params.append('lat', lat);
             params.append('lon', lon);
@@ -1171,7 +1171,7 @@ class WeatherApp {
         if (params.toString()) {
             apiUrl += '?' + params.toString();
         }
-        
+
         return apiUrl;
     }
 
@@ -1197,7 +1197,7 @@ customElements.define('hourly-timeline', HourlyTimelineWidget);
 const weatherApp = new WeatherApp();
 document.addEventListener('DOMContentLoaded', () => {
     weatherApp.init();
-    
+
     // Set up real-time weather updates
     if (window.realTimeWeather) {
         // Subscribe to real-time weather updates
@@ -1205,19 +1205,19 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('🌤️  Real-time weather update received');
             weatherApp.broadcastWeatherData(data);
         });
-        
+
         // Subscribe to provider switch notifications
         window.realTimeWeather.on('provider_switched', (data) => {
             console.log('🔄 Provider switched notification received');
             weatherApp.broadcastEvent('provider-switched', data);
         });
-        
+
         // Subscribe to connection status changes
         window.realTimeWeather.on('connection_status', (status) => {
             console.log('📡 Connection status:', status);
             weatherApp.broadcastEvent('connection-status', status);
         });
-        
+
         // Request initial weather data
         const { lat, lon, location } = weatherApp.parseLocationParams();
         window.realTimeWeather.requestWeatherUpdate({ lat, lon, location });
