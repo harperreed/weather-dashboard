@@ -13,29 +13,29 @@
             color: white;
             font-family: system-ui, -apple-system, sans-serif;
         }
-        
+
         .test-container {
             max-width: 32rem;
             margin: 0 auto;
         }
-        
+
         .test-section {
             margin-bottom: 2rem;
             padding: 1rem;
             border: 1px solid rgba(255, 255, 255, 0.2);
             border-radius: 0.5rem;
         }
-        
+
         .test-title {
             font-size: 1.25rem;
             font-weight: 600;
             margin-bottom: 1rem;
         }
-        
+
         .test-controls {
             margin-bottom: 1rem;
         }
-        
+
         button {
             background: rgba(255, 255, 255, 0.2);
             border: none;
@@ -46,7 +46,7 @@
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
         }
-        
+
         button:hover {
             background: rgba(255, 255, 255, 0.3);
         }
@@ -55,7 +55,7 @@
 <body>
     <div class="test-container">
         <h1>Weather Components Test</h1>
-        
+
         <div class="test-section">
             <div class="test-title">Test Data</div>
             <div class="test-controls">
@@ -64,28 +64,28 @@
                 <button onclick="testWidgetVisibility()">Test Widget Visibility</button>
             </div>
         </div>
-        
+
         <div class="test-section">
             <div class="test-title">Current Weather</div>
             <current-weather></current-weather>
         </div>
-        
+
         <div class="test-section">
             <div class="test-title">Hourly Forecast</div>
             <hourly-forecast></hourly-forecast>
         </div>
-        
+
         <div class="test-section">
             <div class="test-title">Daily Forecast</div>
             <daily-forecast></daily-forecast>
         </div>
-        
+
         <div class="test-section">
             <div class="test-title">Hourly Timeline</div>
             <hourly-timeline></hourly-timeline>
         </div>
     </div>
-    
+
     <script src="static/js/weather-components.js"></script>
     <script>
         // Test data
@@ -122,19 +122,19 @@
                 { d: 'SUN', h: 79, l: 67, icon: 'clear-day', rain: 0 }
             ]
         };
-        
+
         function loadTestData() {
             const event = new CustomEvent('weather-data-updated', { detail: testData });
             document.dispatchEvent(event);
         }
-        
+
         function testError() {
-            const event = new CustomEvent('weather-error', { 
+            const event = new CustomEvent('weather-error', {
                 detail: { error: 'Test error message' }
             });
             document.dispatchEvent(event);
         }
-        
+
         function testWidgetVisibility() {
             const config = {
                 current: Math.random() > 0.5,
@@ -142,13 +142,13 @@
                 daily: Math.random() > 0.5,
                 timeline: Math.random() > 0.5
             };
-            
+
             const event = new CustomEvent('weather-config-changed', { detail: config });
             document.dispatchEvent(event);
-            
+
             console.log('Widget visibility changed:', config);
         }
-        
+
         // Load test data on page load
         setTimeout(loadTestData, 500);
     </script>

@@ -8,7 +8,7 @@
         .weather-gradient {
             background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
         }
-        
+
         body {
             margin: 0;
             padding: 0;
@@ -16,39 +16,39 @@
             font-family: system-ui, -apple-system, sans-serif;
             color: white;
         }
-        
+
         .weather-container {
             max-width: 20rem;
             margin: 0 auto;
             padding: 1rem 0.75rem;
         }
-        
+
         @media (min-width: 640px) {
             .weather-container {
                 max-width: 24rem;
                 padding: 1.5rem 1rem;
             }
         }
-        
+
         @media (min-width: 768px) {
             .weather-container {
                 max-width: 28rem;
             }
         }
-        
+
         @media (min-width: 1024px) {
             .weather-container {
                 max-width: 32rem;
                 padding: 2rem 1rem;
             }
         }
-        
+
         @media (min-width: 1280px) {
             .weather-container {
                 max-width: 36rem;
             }
         }
-        
+
         @media (min-width: 1536px) {
             .weather-container {
                 max-width: 42rem;
@@ -63,13 +63,13 @@
         <daily-forecast></daily-forecast>
         <hourly-timeline></hourly-timeline>
     </div>
-    
+
     <!-- Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-    
+
     <!-- Real-time weather manager -->
     <script src="/static/js/realtime-weather.js"></script>
-    
+
     <!-- Weather components -->
     <script src="/static/js/weather-components.js"></script>
 </body>
