@@ -14,6 +14,7 @@ services:
       - PYTHONUNBUFFERED=1
       - PYTHONDONTWRITEBYTECODE=1
       - TZ=America/Chicago
+      - HOST=0.0.0.0
     env_file:
       - .env
     volumes:
