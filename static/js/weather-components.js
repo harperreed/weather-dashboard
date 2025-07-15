@@ -214,79 +214,15 @@ class WeatherWidget extends HTMLElement {
         });
     }
 
-    // Shared styles for all components
+    // Import external CSS into Shadow DOM
     getSharedStyles() {
         return `
+            <link rel="stylesheet" href="/static/css/weather-components.css">
             <style>
                 :host {
                     display: block;
                     color: var(--text-primary);
                     font-family: system-ui, -apple-system, sans-serif;
-                }
-
-                .theme-card {
-                    background: var(--card-bg);
-                    border: 1px solid var(--card-border);
-                }
-
-                .loading {
-                    opacity: 0.6;
-                    pointer-events: none;
-                }
-
-                .error {
-                    color: var(--error-color);
-                }
-
-                .hidden {
-                    display: none !important;
-                }
-
-                .connection-status {
-                    position: fixed;
-                    top: 1rem;
-                    right: 1rem;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.5rem;
-                    font-size: 0.75rem;
-                    font-weight: 500;
-                    z-index: 1000;
-                    opacity: 0.9;
-                    transition: all 0.3s ease;
-                }
-
-                .connection-status.connected {
-                    background-color: var(--connection-bg-connected);
-                    color: white;
-                }
-
-                .connection-status.disconnected {
-                    background-color: var(--connection-bg-disconnected);
-                    color: white;
-                }
-
-                .connection-status.polling {
-                    background-color: var(--connection-bg-polling);
-                    color: white;
-                }
-
-                /* Responsive utilities */
-
-                @media (max-width: 640px) {
-                    .sm\\:hidden { display: none !important; }
-                    .text-xs { font-size: 0.75rem; }
-                    .text-sm { font-size: 0.875rem; }
-                    .text-base { font-size: 1rem; }
-                    .text-lg { font-size: 1.125rem; }
-                }
-
-                @media (min-width: 641px) {
-                    .sm\\:block { display: block !important; }
-                    .sm\\:inline { display: inline !important; }
-                    .sm\\:text-sm { font-size: 0.875rem; }
-                    .sm\\:text-base { font-size: 1rem; }
-                    .sm\\:text-lg { font-size: 1.125rem; }
-                    .sm\\:text-xl { font-size: 1.25rem; }
                 }
             </style>
         `;
@@ -335,110 +271,6 @@ class CurrentWeatherWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            <style>
-                .current-widget {
-                    margin-bottom: 1.5rem;
-                }
-
-                .temp-display {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    margin-bottom: 1rem;
-                }
-
-                .temperature {
-                    font-size: 2.5rem;
-                    font-weight: 100;
-                    line-height: 1;
-                }
-
-                .weather-icon {
-                    display: inline-block;
-                    vertical-align: middle;
-                }
-
-                .feels-like {
-                    font-size: 0.875rem;
-                    opacity: 0.8;
-                    margin-bottom: 0.5rem;
-                }
-
-                .summary {
-                    font-size: 1.125rem;
-                    font-weight: 300;
-                    margin-bottom: 1rem;
-                    line-height: 1.4;
-                }
-
-                .weather-details {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                    gap: 0.75rem;
-                }
-
-                .detail-card {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    padding: 0.5rem 0.75rem;
-                    border-radius: 0.5rem;
-                    font-size: 0.75rem;
-                }
-
-                .detail-label {
-                    opacity: 0.8;
-                }
-
-                .detail-value {
-                    font-weight: 500;
-                }
-
-                @media (min-width: 641px) {
-                    .current-widget {
-                        margin-bottom: 2rem;
-                    }
-
-                    .temp-display {
-                        gap: 1rem;
-                    }
-
-                    .temperature {
-                        font-size: 3rem;
-                    }
-
-
-                    .feels-like {
-                        font-size: 1rem;
-                    }
-
-                    .summary {
-                        font-size: 1.25rem;
-                    }
-
-                    .detail-card {
-                        padding: 0.75rem 1rem;
-                        font-size: 0.875rem;
-                    }
-                }
-
-                @media (min-width: 1024px) {
-                    .temperature {
-                        font-size: 4rem;
-                    }
-
-
-                    .weather-details {
-                        grid-template-columns: repeat(4, 1fr);
-                    }
-
-                    .detail-card {
-                        flex-direction: column;
-                        text-align: center;
-                        gap: 0.25rem;
-                    }
-                }
-            </style>
 
             <div class="current-widget widget-content">
                 <div class="temp-display">
@@ -523,91 +355,6 @@ class HourlyForecastWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            <style>
-                .hourly-widget {
-                    margin-bottom: 1.5rem;
-                }
-
-                .chart-container {
-                    position: relative;
-                    height: 7rem;
-                    margin-bottom: 1rem;
-                }
-
-                .temperature-chart {
-                    width: 100%;
-                    height: 100%;
-                }
-
-                .chart-line {
-                    stroke: #ef4444;
-                    stroke-width: 2;
-                    fill: none;
-                }
-
-                .hourly-temps {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                    margin-bottom: 0.75rem;
-                    overflow-x: auto;
-                }
-
-                .hour-temp {
-                    text-align: center;
-                    flex-shrink: 0;
-                    min-width: 0;
-                }
-
-                .hour-temp-value {
-                    font-size: 0.75rem;
-                    opacity: 0.8;
-                }
-
-                .hour-icon {
-                    margin-top: 0.25rem;
-                }
-
-
-                .hourly-times {
-                    display: flex;
-                    justify-content: space-between;
-                    font-size: 0.75rem;
-                    opacity: 0.6;
-                    overflow-x: auto;
-                }
-
-                .hour-time {
-                    flex-shrink: 0;
-                    min-width: 0;
-                }
-
-                @media (min-width: 641px) {
-                    .hourly-widget {
-                        margin-bottom: 2rem;
-                    }
-
-                    .chart-container {
-                        height: 9rem;
-                    }
-
-                    .hour-temp-value {
-                        font-size: 0.875rem;
-                    }
-                }
-
-                @media (min-width: 768px) {
-                    .chart-container {
-                        height: 11rem;
-                    }
-                }
-
-                @media (min-width: 1024px) {
-                    .chart-container {
-                        height: 12rem;
-                    }
-                }
-            </style>
 
             <div class="hourly-widget widget-content">
                 <div class="chart-container">
@@ -724,92 +471,6 @@ class DailyForecastWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            <style>
-                .daily-widget {
-                    margin-bottom: 1.5rem;
-                }
-
-                .daily-chart-container {
-                    position: relative;
-                    height: 5rem;
-                    margin-bottom: 1rem;
-                }
-
-                .daily-chart {
-                    width: 100%;
-                    height: 100%;
-                }
-
-                .daily-forecast {
-                    display: grid;
-                    grid-template-columns: repeat(4, 1fr);
-                    gap: 0.25rem;
-                    margin-bottom: 1rem;
-                }
-
-                .day-forecast {
-                    text-align: center;
-                    padding: 0.25rem 0.5rem;
-                }
-
-                .day-name {
-                    font-size: 0.75rem;
-                    opacity: 0.6;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                }
-
-                .day-icon {
-                    margin: 0.25rem 0;
-                }
-
-
-                .day-high {
-                    font-size: 0.75rem;
-                    font-weight: 500;
-                }
-
-                .day-low {
-                    font-size: 0.75rem;
-                    opacity: 0.6;
-                }
-
-                @media (min-width: 641px) {
-                    .daily-widget {
-                        margin-bottom: 2rem;
-                    }
-
-                    .daily-chart-container {
-                        height: 7rem;
-                    }
-
-                    .daily-forecast {
-                        grid-template-columns: repeat(7, 1fr);
-                        gap: 0.5rem;
-                    }
-
-                    .day-forecast {
-                        padding: 0.5rem;
-                    }
-
-
-                    .day-high {
-                        font-size: 0.875rem;
-                    }
-                }
-
-                @media (min-width: 768px) {
-                    .daily-chart-container {
-                        height: 9rem;
-                    }
-                }
-
-                @media (min-width: 1024px) {
-                    .daily-chart-container {
-                        height: 10rem;
-                    }
-                }
-            </style>
 
             <div class="daily-widget widget-content">
                 <div class="daily-chart-container">
@@ -926,111 +587,6 @@ class HourlyTimelineWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            <style>
-                .timeline-widget {
-                    margin-bottom: 1.5rem;
-                }
-
-                .timeline-container {
-                    display: flex;
-                    flex-direction: column;
-                    gap: 0.5rem;
-                }
-
-                .timeline-item {
-                    display: flex;
-                    align-items: center;
-                    justify-content: space-between;
-                }
-
-                .timeline-dot {
-                    width: 0.5rem;
-                    height: 1.5rem;
-                    border-radius: 9999px;
-                    flex-shrink: 0;
-                }
-
-                .timeline-dot.current {
-                    background-color: #fbbf24;
-                }
-
-                .timeline-dot.future {
-                    background-color: #9ca3af;
-                }
-
-                .timeline-content {
-                    flex: 1;
-                    margin-left: 0.75rem;
-                    min-width: 0;
-                }
-
-                .timeline-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: center;
-                }
-
-                .timeline-time {
-                    font-weight: 500;
-                    font-size: 0.875rem;
-                }
-
-                .timeline-temp {
-                    font-size: 0.875rem;
-                    flex-shrink: 0;
-                    margin-left: 0.5rem;
-                }
-
-                .timeline-desc {
-                    font-size: 0.75rem;
-                    opacity: 0.8;
-                    overflow: hidden;
-                    text-overflow: ellipsis;
-                    white-space: nowrap;
-                }
-
-                .timeline-rain {
-                    font-size: 0.75rem;
-                    opacity: 0.6;
-                }
-
-                .loading-message {
-                    text-align: center;
-                    font-size: 0.875rem;
-                    opacity: 0.6;
-                }
-
-                @media (min-width: 641px) {
-                    .timeline-widget {
-                        margin-bottom: 2rem;
-                    }
-
-                    .timeline-container {
-                        gap: 0.75rem;
-                    }
-
-                    .timeline-dot {
-                        height: 2rem;
-                        margin-left: 0.25rem;
-                    }
-
-                    .timeline-content {
-                        margin-left: 1rem;
-                    }
-
-                    .timeline-time {
-                        font-size: 1rem;
-                    }
-
-                    .timeline-temp {
-                        font-size: 1rem;
-                    }
-
-                    .timeline-desc {
-                        font-size: 0.875rem;
-                    }
-                }
-            </style>
 
             <div class="timeline-widget widget-content">
                 <div class="timeline-container" id="timeline-container">
@@ -1305,7 +861,7 @@ class HelpSection extends HTMLElement {
                     margin-top: 2rem;
                     padding: 1rem;
                     font-family: system-ui, -apple-system, sans-serif;
-                    color: rgba(255, 255, 255, 0.9);
+                    color: var(--text-primary);
                     font-size: 0.875rem;
                 }
 
@@ -1317,6 +873,9 @@ class HelpSection extends HTMLElement {
                     width: 100%;
                     text-align: center;
                     transition: all 0.2s ease;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    color: var(--text-primary);
                 }
 
                 .help-toggle:hover {
@@ -1328,34 +887,8 @@ class HelpSection extends HTMLElement {
                     margin-top: 1rem;
                     padding: 1rem;
                     border-radius: 0.5rem;
-                }
-
-                .help-section {
-                    margin-bottom: 1.5rem;
-                }
-
-                .help-section h3 {
-                    color: #60a5fa;
-                    margin: 0 0 0.5rem 0;
-                    font-size: 1rem;
-                    font-weight: 600;
-                }
-
-                .help-section p {
-                    margin: 0 0 0.5rem 0;
-                    opacity: 0.9;
-                    line-height: 1.4;
-                }
-
-                .param-list {
-                    list-style: none;
-                    padding: 0;
-                    margin: 0.5rem 0;
-                }
-
-                .param-list li {
-                    margin: 0.5rem 0;
-                    padding: 0.25rem 0;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
                 }
 
                 .param-name {
@@ -1386,6 +919,8 @@ class HelpSection extends HTMLElement {
                     font-family: monospace;
                     font-size: 0.8rem;
                     text-align: center;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
                 }
 
                 @media (max-width: 640px) {
