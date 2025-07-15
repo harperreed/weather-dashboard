@@ -5,6 +5,12 @@ from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any
 
+
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo  # type: ignore[import-untyped]
+
 import requests
 
 
@@ -122,12 +128,14 @@ class OpenMeteoProvider(WeatherProvider):
             # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
             if hourly.get("time"):
-                current_time = datetime.now(timezone.utc)
+                current_time = datetime.now(zoneinfo.ZoneInfo("America/Chicago"))
 
                 # Find the starting index (current hour or next hour)
                 start_index = 0
                 for i, time_str in enumerate(hourly["time"]):
-                    hour_time = datetime.fromisoformat(time_str.replace("Z", "+00:00"))
+                    hour_time = datetime.fromisoformat(
+                        time_str.replace("Z", "+00:00")
+                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago"))
                     if hour_time >= current_time.replace(
                         minute=0, second=0, microsecond=0
                     ):
@@ -145,6 +153,7 @@ class OpenMeteoProvider(WeatherProvider):
                         "t": datetime.fromisoformat(
                             hourly["time"][i].replace("Z", "+00:00")
                         )
+                        .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
                         .strftime("%I%p")
                         .lower()
                         .replace("0", ""),
@@ -162,7 +171,11 @@ class OpenMeteoProvider(WeatherProvider):
                         "h": round(daily["temperature_2m_max"][i]),
                         "l": round(daily["temperature_2m_min"][i]),
                         "icon": self._map_weather_code(daily["weather_code"][i]),
-                        "d": datetime.fromisoformat(daily["time"][i]).strftime("%a"),
+                        "d": (
+                            datetime.fromisoformat(daily["time"][i])
+                            .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                            .strftime("%a")
+                        ),
                     }
                     daily_forecast.append(day_data)
 
@@ -293,14 +306,14 @@ class PirateWeatherProvider(WeatherProvider):
             # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
             if hourly:
-                current_time = datetime.now(timezone.utc)
+                current_time = datetime.now(zoneinfo.ZoneInfo("America/Chicago"))
 
                 # Find the starting index (current hour or next hour)
                 start_index = 0
                 for i, hour in enumerate(hourly):
                     hour_time = datetime.fromtimestamp(
                         hour.get("time", 0), tz=timezone.utc
-                    )
+                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago"))
                     if hour_time >= current_time.replace(
                         minute=0, second=0, microsecond=0
                     ):
@@ -317,6 +330,7 @@ class PirateWeatherProvider(WeatherProvider):
                         "t": datetime.fromtimestamp(
                             hour.get("time", 0), tz=timezone.utc
                         )
+                        .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
                         .strftime("%I%p")
                         .lower()
                         .replace("0", ""),
@@ -333,7 +347,7 @@ class PirateWeatherProvider(WeatherProvider):
                     "icon": self._map_icon_code(day.get("icon", "clear-day")),
                     "d": datetime.fromtimestamp(
                         day.get("time", 0), tz=timezone.utc
-                    ).strftime("%a"),
+                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago")).strftime("%a"),
                 }
                 daily_forecast.append(day_data)
 

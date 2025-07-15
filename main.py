@@ -3,6 +3,12 @@ import time
 from datetime import datetime, timezone
 from typing import Any
 
+
+try:
+    import zoneinfo
+except ImportError:
+    from backports import zoneinfo  # type: ignore[import-untyped]
+
 import requests
 from cachetools import TTLCache
 from dotenv import load_dotenv
@@ -246,6 +252,7 @@ def process_open_meteo_data(
                     ),
                     "t": (
                         datetime.fromisoformat(hourly["time"][i].replace("Z", "+00:00"))
+                        .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
                         .strftime("%I%p")
                         .lower()
                         .replace("0", "")
@@ -339,9 +346,12 @@ def process_weather_data(data: dict, location_name: str | None = None) -> dict |
         time = datetime.fromtimestamp(hour["time"], tz=timezone.utc)
         hourly_forecast.append(
             {
-                "t": time.strftime("%I%p")
-                .lower()
-                .lstrip("0"),  # compressed field names
+                "t": (
+                    time.astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                    .strftime("%I%p")
+                    .lower()
+                    .lstrip("0")
+                ),  # compressed field names
                 "temp": round(hour.get("temperature", 0)),
                 "icon": get_weather_icon(hour.get("icon", "clear-day")),
                 "rain": round(hour.get("precipProbability", 0) * 100),
@@ -355,7 +365,11 @@ def process_weather_data(data: dict, location_name: str | None = None) -> dict |
         date = datetime.fromtimestamp(day["time"], tz=timezone.utc)
         daily_forecast.append(
             {
-                "d": date.strftime("%a").upper(),  # compressed field names
+                "d": (
+                    date.astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                    .strftime("%a")
+                    .upper()
+                ),  # compressed field names
                 "h": round(day.get("temperatureHigh", 0)),
                 "l": round(day.get("temperatureLow", 0)),
                 "icon": get_weather_icon(day.get("icon", "clear-day")),
