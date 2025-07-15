@@ -216,12 +216,23 @@ class WeatherWidget extends HTMLElement {
 
     // Shared styles for all components
     getSharedStyles() {
+        const isWhiteTheme = document.body.classList.contains('white-theme');
+        const textColor = isWhiteTheme ? '#000000' : 'white';
+        const cardBg = isWhiteTheme ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
+        const borderColor = isWhiteTheme ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)';
+        const errorColor = isWhiteTheme ? '#dc2626' : '#fca5a5';
+
         return `
             <style>
                 :host {
                     display: block;
-                    color: white;
+                    color: ${textColor};
                     font-family: system-ui, -apple-system, sans-serif;
+                }
+
+                .theme-card {
+                    background: ${cardBg};
+                    border: 1px solid ${borderColor};
                 }
 
                 .loading {
@@ -230,7 +241,7 @@ class WeatherWidget extends HTMLElement {
                 }
 
                 .error {
-                    color: #fca5a5;
+                    color: ${errorColor};
                 }
 
                 .hidden {
@@ -377,7 +388,6 @@ class CurrentWeatherWidget extends WeatherWidget {
                     justify-content: space-between;
                     align-items: center;
                     padding: 0.5rem 0.75rem;
-                    background: rgba(255, 255, 255, 0.1);
                     border-radius: 0.5rem;
                     font-size: 0.75rem;
                 }
@@ -446,19 +456,19 @@ class CurrentWeatherWidget extends WeatherWidget {
                 <div class="summary" id="summary">Loading weather data...</div>
 
                 <div class="weather-details">
-                    <div class="detail-card">
+                    <div class="detail-card theme-card">
                         <span class="detail-label">Humidity</span>
                         <span class="detail-value" id="humidity">--%</span>
                     </div>
-                    <div class="detail-card">
+                    <div class="detail-card theme-card">
                         <span class="detail-label">Wind</span>
                         <span class="detail-value" id="wind">-- mph</span>
                     </div>
-                    <div class="detail-card">
+                    <div class="detail-card theme-card">
                         <span class="detail-label">Rain</span>
                         <span class="detail-value" id="rain">--%</span>
                     </div>
-                    <div class="detail-card">
+                    <div class="detail-card theme-card">
                         <span class="detail-label">UV Index</span>
                         <span class="detail-value" id="uv">--</span>
                     </div>
@@ -1088,16 +1098,16 @@ class WeatherApp {
     constructor() {
         this.activeRequests = new Map();
         this.cityCoords = {
-            'chicago': [41.8781, -87.6298, 'Chicago', 'America/Chicago'],
-            'nyc': [40.7128, -74.0060, 'New York City', 'America/New_York'],
-            'sf': [37.7749, -122.4194, 'San Francisco', 'America/Los_Angeles'],
-            'london': [51.5074, -0.1278, 'London', 'Europe/London'],
-            'paris': [48.8566, 2.3522, 'Paris', 'Europe/Paris'],
-            'tokyo': [35.6762, 139.6503, 'Tokyo', 'Asia/Tokyo'],
-            'sydney': [-33.8688, 151.2093, 'Sydney', 'Australia/Sydney'],
-            'berlin': [52.5200, 13.4050, 'Berlin', 'Europe/Berlin'],
-            'rome': [41.9028, 12.4964, 'Rome', 'Europe/Rome'],
-            'madrid': [40.4168, -3.7038, 'Madrid', 'Europe/Madrid'],
+            'chicago': [41.8781, -87.6298, 'Chicago'],
+            'nyc': [40.7128, -74.0060, 'New York City'],
+            'sf': [37.7749, -122.4194, 'San Francisco'],
+            'london': [51.5074, -0.1278, 'London'],
+            'paris': [48.8566, 2.3522, 'Paris'],
+            'tokyo': [35.6762, 139.6503, 'Tokyo'],
+            'sydney': [-33.8688, 151.2093, 'Sydney'],
+            'berlin': [52.5200, 13.4050, 'Berlin'],
+            'rome': [41.9028, 12.4964, 'Rome'],
+            'madrid': [40.4168, -3.7038, 'Madrid'],
         };
     }
 
@@ -1208,22 +1218,21 @@ class WeatherApp {
             if (pathParts.length >= 2) {
                 location = pathParts[1].replace(/-/g, ' ');
             }
-            // Default timezone for custom coordinates
-            timezone = 'America/Chicago';
+            // Timezone will be auto-detected by OpenMeteo API
         } else if (pathParts.length >= 1 && this.cityCoords[pathParts[0].toLowerCase()]) {
             // Format: /city
             const cityData = this.cityCoords[pathParts[0].toLowerCase()];
             lat = cityData[0];
             lon = cityData[1];
             location = cityData[2];
-            timezone = cityData[3];
+            // Timezone will be auto-detected by OpenMeteo API
         } else {
             // Fallback to query parameters
             const urlParams = new URLSearchParams(window.location.search);
             lat = urlParams.get('lat');
             lon = urlParams.get('lon');
             location = urlParams.get('location');
-            timezone = urlParams.get('timezone') || 'America/Chicago';
+            timezone = urlParams.get('timezone'); // Optional override
         }
 
         // Default to Chicago if no location provided
@@ -1232,7 +1241,7 @@ class WeatherApp {
             lat = defaultCity[0];
             lon = defaultCity[1];
             location = defaultCity[2];
-            timezone = defaultCity[3];
+            // Timezone will be auto-detected by OpenMeteo API
         }
 
         return { lat, lon, location, timezone };
@@ -1250,7 +1259,7 @@ class WeatherApp {
             params.append('location', location);
         }
         if (timezone) {
-            params.append('timezone', timezone);
+            params.append('timezone', timezone); // Optional override only
         }
         if (params.toString()) {
             apiUrl += '?' + params.toString();
@@ -1307,9 +1316,6 @@ class HelpSection extends HTMLElement {
                 }
 
                 .help-toggle {
-                    background: rgba(255, 255, 255, 0.1);
-                    border: 1px solid rgba(255, 255, 255, 0.2);
-                    color: rgba(255, 255, 255, 0.9);
                     padding: 0.5rem 1rem;
                     border-radius: 0.5rem;
                     cursor: pointer;
@@ -1320,16 +1326,14 @@ class HelpSection extends HTMLElement {
                 }
 
                 .help-toggle:hover {
-                    background: rgba(255, 255, 255, 0.15);
+                    opacity: 0.8;
                 }
 
                 .help-content {
                     display: none;
                     margin-top: 1rem;
                     padding: 1rem;
-                    background: rgba(0, 0, 0, 0.2);
                     border-radius: 0.5rem;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
                 }
 
                 .help-section {
@@ -1358,7 +1362,6 @@ class HelpSection extends HTMLElement {
                 .param-list li {
                     margin: 0.5rem 0;
                     padding: 0.25rem 0;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
                 }
 
                 .param-name {
@@ -1384,7 +1387,6 @@ class HelpSection extends HTMLElement {
                 }
 
                 .city-item {
-                    background: rgba(255, 255, 255, 0.1);
                     padding: 0.25rem 0.5rem;
                     border-radius: 0.25rem;
                     font-family: monospace;
@@ -1403,9 +1405,9 @@ class HelpSection extends HTMLElement {
                 }
             </style>
 
-            <button id="help-toggle" class="help-toggle">▲ Show Help</button>
+            <button id="help-toggle" class="help-toggle theme-card">▲ Show Help</button>
 
-            <div id="help-content" class="help-content">
+            <div id="help-content" class="help-content theme-card">
                 <div class="help-section">
                     <h3>🌐 Location Parameters</h3>
                     <p>Specify location using coordinates or city names:</p>
@@ -1423,16 +1425,16 @@ class HelpSection extends HTMLElement {
                     <h3>🏙️ City Shortcuts</h3>
                     <p>Use city names directly in the URL path:</p>
                     <div class="city-list">
-                        <div class="city-item">/chicago</div>
-                        <div class="city-item">/nyc</div>
-                        <div class="city-item">/sf</div>
-                        <div class="city-item">/london</div>
-                        <div class="city-item">/paris</div>
-                        <div class="city-item">/tokyo</div>
-                        <div class="city-item">/sydney</div>
-                        <div class="city-item">/berlin</div>
-                        <div class="city-item">/rome</div>
-                        <div class="city-item">/madrid</div>
+                        <div class="city-item theme-card">/chicago</div>
+                        <div class="city-item theme-card">/nyc</div>
+                        <div class="city-item theme-card">/sf</div>
+                        <div class="city-item theme-card">/london</div>
+                        <div class="city-item theme-card">/paris</div>
+                        <div class="city-item theme-card">/tokyo</div>
+                        <div class="city-item theme-card">/sydney</div>
+                        <div class="city-item theme-card">/berlin</div>
+                        <div class="city-item theme-card">/rome</div>
+                        <div class="city-item theme-card">/madrid</div>
                     </div>
                 </div>
 
@@ -1471,6 +1473,14 @@ class HelpSection extends HTMLElement {
                             <span class="param-name">animated</span> - Use animated weather icons (true/false)
                             <span class="param-example">?animated=false</span>
                         </li>
+                        <li>
+                            <span class="param-name">theme</span> - Background theme (white/light for white background)
+                            <span class="param-example">?theme=white</span>
+                        </li>
+                        <li>
+                            <span class="param-name">background</span> - Alias for theme parameter
+                            <span class="param-example">?background=light</span>
+                        </li>
                     </ul>
                 </div>
 
@@ -1493,6 +1503,10 @@ class HelpSection extends HTMLElement {
                         <li>
                             <strong>Hourly forecast only:</strong>
                             <span class="param-example">/london?widgets=hourly</span>
+                        </li>
+                        <li>
+                            <strong>White background theme:</strong>
+                            <span class="param-example">/tokyo?theme=white</span>
                         </li>
                     </ul>
                 </div>

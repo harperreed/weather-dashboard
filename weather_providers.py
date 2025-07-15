@@ -127,6 +127,12 @@ class OpenMeteoProvider(WeatherProvider):
             hourly = raw_data.get("hourly", {})
             daily = raw_data.get("daily", {})
 
+            # Extract timezone from OpenMeteo response (overrides parameter)
+            api_timezone = raw_data.get("timezone")
+            if api_timezone:
+                tz_name = api_timezone
+                print(f"🌍 Using timezone from API: {tz_name}")
+
             # Process current weather
             current_weather = {
                 "temperature": round(current.get("temperature_2m", 0)),

@@ -9,12 +9,21 @@
             background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
         }
 
+        .weather-white {
+            background: #ffffff;
+        }
+
         body {
             margin: 0;
             padding: 0;
             min-height: 100vh;
             font-family: system-ui, -apple-system, sans-serif;
             color: white;
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+
+        body.white-theme {
+            color: #000000;
         }
 
         .weather-container {
@@ -56,7 +65,7 @@
         }
     </style>
 </head>
-<body class="weather-gradient">
+<body class="weather-gradient" id="app-body">
     <div class="weather-container">
         <current-weather></current-weather>
         <hourly-forecast></hourly-forecast>
@@ -73,5 +82,16 @@
 
     <!-- Weather components -->
     <script src="/static/js/weather-components.js"></script>
+
+    <!-- Theme handler -->
+    <script>
+        // Handle theme URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        const theme = urlParams.get('theme') || urlParams.get('background');
+
+        if (theme === 'white' || theme === 'light') {
+            document.getElementById('app-body').className = 'weather-white white-theme';
+        }
+    </script>
 </body>
 </html>
