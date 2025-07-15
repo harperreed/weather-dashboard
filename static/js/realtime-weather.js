@@ -159,6 +159,7 @@ class RealTimeWeatherManager {
             if (location.lat) params.append('lat', location.lat);
             if (location.lon) params.append('lon', location.lon);
             if (location.location) params.append('location', location.location);
+            if (location.timezone) params.append('timezone', location.timezone);
 
             const response = await fetch(`/api/weather?${params}`);
             if (response.ok) {

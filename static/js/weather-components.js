@@ -82,6 +82,60 @@ function getWeatherIconSmall(iconCode) {
     return getWeatherIcon(iconCode, '2.25rem');
 }
 
+// Helper function to determine if an hour is day/night/twilight
+function getTimeOfDay(hourString, sunData) {
+    if (!sunData) return 'day';
+
+    // Parse hour string (e.g., "6pm" -> 18)
+    const hourMatch = hourString.match(/(\d+)(am|pm)/);
+    if (!hourMatch) return 'day';
+
+    let hour = parseInt(hourMatch[1]);
+    const period = hourMatch[2];
+
+    // Convert to 24-hour format
+    if (period === 'pm' && hour !== 12) {
+        hour += 12;
+    } else if (period === 'am' && hour === 12) {
+        hour = 0;
+    }
+
+    // Get today's date
+    const today = new Date().toISOString().split('T')[0];
+    const todaySun = sunData[today];
+
+    if (!todaySun) return 'day';
+
+    // Parse sunrise/sunset times
+    const sunriseHour = parseInt(todaySun.sunrise.split('T')[1].split(':')[0]);
+    const sunsetHour = parseInt(todaySun.sunset.split('T')[1].split(':')[0]);
+
+    // Define time periods
+    const civilTwilightStart = sunriseHour - 1; // 1 hour before sunrise
+    const civilTwilightEnd = sunsetHour + 1; // 1 hour after sunset
+
+    if (hour >= civilTwilightStart && hour < sunriseHour) {
+        return 'dawn';
+    } else if (hour >= sunriseHour && hour < sunsetHour) {
+        return 'day';
+    } else if (hour >= sunsetHour && hour < civilTwilightEnd) {
+        return 'dusk';
+    } else {
+        return 'night';
+    }
+}
+
+// Helper function to get color for time of day
+function getTimeOfDayColor(timeOfDay) {
+    const colors = {
+        'dawn': 'rgba(255, 183, 77, 0.3)',  // Golden dawn
+        'day': 'rgba(135, 206, 235, 0.2)',  // Light blue day
+        'dusk': 'rgba(255, 140, 0, 0.3)',   // Orange dusk
+        'night': 'rgba(25, 25, 112, 0.4)'   // Dark blue night
+    };
+    return colors[timeOfDay] || colors.day;
+}
+
 // Base WeatherWidget class with shared functionality
 class WeatherWidget extends HTMLElement {
     constructor() {
@@ -590,10 +644,22 @@ class HourlyForecastWidget extends WeatherWidget {
         displayHours.forEach((hour, index) => {
             const hourDiv = document.createElement('div');
             hourDiv.className = 'hour-temp';
+
+            // Add time-of-day color coding
+            const timeOfDay = getTimeOfDay(hour.t, this.data.sun);
+            const backgroundColor = getTimeOfDayColor(timeOfDay);
+
             hourDiv.innerHTML = `
                 <div class="hour-temp-value">${hour.temp}°</div>
                 <div class="hour-icon">${getWeatherIcon(hour.icon, '1.75rem')}</div>
             `;
+
+            // Apply background color based on time of day
+            hourDiv.style.backgroundColor = backgroundColor;
+            hourDiv.style.borderRadius = '0.5rem';
+            hourDiv.style.padding = '0.5rem';
+            hourDiv.style.margin = '0.125rem';
+
             hourlyContainer.appendChild(hourDiv);
 
             const timeSpan = document.createElement('span');
@@ -987,6 +1053,10 @@ class HourlyTimelineWidget extends WeatherWidget {
             const isCurrentHour = index === 0;
             const dotClass = isCurrentHour ? 'current' : 'future';
 
+            // Add time-of-day color coding
+            const timeOfDay = getTimeOfDay(hour.t, this.data.sun);
+            const backgroundColor = getTimeOfDayColor(timeOfDay);
+
             timelineItem.innerHTML = `
                 <div class="timeline-dot ${dotClass}"></div>
                 <div class="timeline-content">
@@ -998,6 +1068,12 @@ class HourlyTimelineWidget extends WeatherWidget {
                     ${hour.rain > 0 ? `<div class="timeline-rain">${hour.rain}% rain</div>` : ''}
                 </div>
             `;
+
+            // Apply background color based on time of day
+            timelineItem.style.backgroundColor = backgroundColor;
+            timelineItem.style.borderRadius = '0.5rem';
+            timelineItem.style.padding = '0.5rem';
+            timelineItem.style.margin = '0.25rem 0';
 
             timelineContainer.appendChild(timelineItem);
         });
@@ -1012,16 +1088,16 @@ class WeatherApp {
     constructor() {
         this.activeRequests = new Map();
         this.cityCoords = {
-            'chicago': [41.8781, -87.6298, 'Chicago'],
-            'nyc': [40.7128, -74.0060, 'New York City'],
-            'sf': [37.7749, -122.4194, 'San Francisco'],
-            'london': [51.5074, -0.1278, 'London'],
-            'paris': [48.8566, 2.3522, 'Paris'],
-            'tokyo': [35.6762, 139.6503, 'Tokyo'],
-            'sydney': [-33.8688, 151.2093, 'Sydney'],
-            'berlin': [52.5200, 13.4050, 'Berlin'],
-            'rome': [41.9028, 12.4964, 'Rome'],
-            'madrid': [40.4168, -3.7038, 'Madrid'],
+            'chicago': [41.8781, -87.6298, 'Chicago', 'America/Chicago'],
+            'nyc': [40.7128, -74.0060, 'New York City', 'America/New_York'],
+            'sf': [37.7749, -122.4194, 'San Francisco', 'America/Los_Angeles'],
+            'london': [51.5074, -0.1278, 'London', 'Europe/London'],
+            'paris': [48.8566, 2.3522, 'Paris', 'Europe/Paris'],
+            'tokyo': [35.6762, 139.6503, 'Tokyo', 'Asia/Tokyo'],
+            'sydney': [-33.8688, 151.2093, 'Sydney', 'Australia/Sydney'],
+            'berlin': [52.5200, 13.4050, 'Berlin', 'Europe/Berlin'],
+            'rome': [41.9028, 12.4964, 'Rome', 'Europe/Rome'],
+            'madrid': [40.4168, -3.7038, 'Madrid', 'Europe/Madrid'],
         };
     }
 
@@ -1086,8 +1162,8 @@ class WeatherApp {
         try {
             this.broadcastEvent('weather-loading', { loading: true });
 
-            const { lat, lon, location } = this.parseLocationParams();
-            const apiUrl = this.buildApiUrl(lat, lon, location);
+            const { lat, lon, location, timezone } = this.parseLocationParams();
+            const apiUrl = this.buildApiUrl(lat, lon, location, timezone);
 
             // Request deduplication
             if (this.activeRequests.has(apiUrl)) {
@@ -1120,7 +1196,7 @@ class WeatherApp {
     }
 
     parseLocationParams() {
-        let lat, lon, location;
+        let lat, lon, location, timezone;
 
         // Check URL format
         const pathParts = window.location.pathname.split('/').filter(part => part);
@@ -1132,18 +1208,22 @@ class WeatherApp {
             if (pathParts.length >= 2) {
                 location = pathParts[1].replace(/-/g, ' ');
             }
+            // Default timezone for custom coordinates
+            timezone = 'America/Chicago';
         } else if (pathParts.length >= 1 && this.cityCoords[pathParts[0].toLowerCase()]) {
             // Format: /city
             const cityData = this.cityCoords[pathParts[0].toLowerCase()];
             lat = cityData[0];
             lon = cityData[1];
             location = cityData[2];
+            timezone = cityData[3];
         } else {
             // Fallback to query parameters
             const urlParams = new URLSearchParams(window.location.search);
             lat = urlParams.get('lat');
             lon = urlParams.get('lon');
             location = urlParams.get('location');
+            timezone = urlParams.get('timezone') || 'America/Chicago';
         }
 
         // Default to Chicago if no location provided
@@ -1152,12 +1232,13 @@ class WeatherApp {
             lat = defaultCity[0];
             lon = defaultCity[1];
             location = defaultCity[2];
+            timezone = defaultCity[3];
         }
 
-        return { lat, lon, location };
+        return { lat, lon, location, timezone };
     }
 
-    buildApiUrl(lat, lon, location) {
+    buildApiUrl(lat, lon, location, timezone) {
         let apiUrl = '/api/weather';
         const params = new URLSearchParams();
 
@@ -1167,6 +1248,9 @@ class WeatherApp {
         }
         if (location) {
             params.append('location', location);
+        }
+        if (timezone) {
+            params.append('timezone', timezone);
         }
         if (params.toString()) {
             apiUrl += '?' + params.toString();
@@ -1186,12 +1270,252 @@ class WeatherApp {
     }
 }
 
+// Help Section Component
+class HelpSection extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.isVisible = false;
+    }
+
+    connectedCallback() {
+        this.render();
+        this.setupEventListeners();
+    }
+
+    setupEventListeners() {
+        const toggleButton = this.shadowRoot.getElementById('help-toggle');
+        const helpContent = this.shadowRoot.getElementById('help-content');
+
+        toggleButton.addEventListener('click', () => {
+            this.isVisible = !this.isVisible;
+            helpContent.style.display = this.isVisible ? 'block' : 'none';
+            toggleButton.textContent = this.isVisible ? '▼ Hide Help' : '▲ Show Help';
+        });
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            <style>
+                :host {
+                    display: block;
+                    margin-top: 2rem;
+                    padding: 1rem;
+                    font-family: system-ui, -apple-system, sans-serif;
+                    color: rgba(255, 255, 255, 0.9);
+                    font-size: 0.875rem;
+                }
+
+                .help-toggle {
+                    background: rgba(255, 255, 255, 0.1);
+                    border: 1px solid rgba(255, 255, 255, 0.2);
+                    color: rgba(255, 255, 255, 0.9);
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    cursor: pointer;
+                    font-size: 0.875rem;
+                    width: 100%;
+                    text-align: center;
+                    transition: all 0.2s ease;
+                }
+
+                .help-toggle:hover {
+                    background: rgba(255, 255, 255, 0.15);
+                }
+
+                .help-content {
+                    display: none;
+                    margin-top: 1rem;
+                    padding: 1rem;
+                    background: rgba(0, 0, 0, 0.2);
+                    border-radius: 0.5rem;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .help-section {
+                    margin-bottom: 1.5rem;
+                }
+
+                .help-section h3 {
+                    color: #60a5fa;
+                    margin: 0 0 0.5rem 0;
+                    font-size: 1rem;
+                    font-weight: 600;
+                }
+
+                .help-section p {
+                    margin: 0 0 0.5rem 0;
+                    opacity: 0.9;
+                    line-height: 1.4;
+                }
+
+                .param-list {
+                    list-style: none;
+                    padding: 0;
+                    margin: 0.5rem 0;
+                }
+
+                .param-list li {
+                    margin: 0.5rem 0;
+                    padding: 0.25rem 0;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .param-name {
+                    color: #fbbf24;
+                    font-weight: 600;
+                    font-family: monospace;
+                }
+
+                .param-example {
+                    color: #86efac;
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    display: block;
+                    margin-top: 0.25rem;
+                    opacity: 0.8;
+                }
+
+                .city-list {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+                    gap: 0.5rem;
+                    margin: 0.5rem 0;
+                }
+
+                .city-item {
+                    background: rgba(255, 255, 255, 0.1);
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.25rem;
+                    font-family: monospace;
+                    font-size: 0.8rem;
+                    text-align: center;
+                }
+
+                @media (max-width: 640px) {
+                    :host {
+                        font-size: 0.8rem;
+                    }
+
+                    .city-list {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+            </style>
+
+            <button id="help-toggle" class="help-toggle">▲ Show Help</button>
+
+            <div id="help-content" class="help-content">
+                <div class="help-section">
+                    <h3>🌐 Location Parameters</h3>
+                    <p>Specify location using coordinates or city names:</p>
+                    <ul class="param-list">
+                        <li>
+                            <span class="param-name">lat</span> & <span class="param-name">lon</span> - Latitude and longitude coordinates
+                            <span class="param-example">?lat=41.8781&lon=-87.6298</span>
+                        </li>
+                        <li>
+                            <span class="param-name">location</span> - Display name for the location
+                            <span class="param-example">?lat=41.8781&lon=-87.6298&location=Chicago</span>
+                        </li>
+                    </ul>
+
+                    <h3>🏙️ City Shortcuts</h3>
+                    <p>Use city names directly in the URL path:</p>
+                    <div class="city-list">
+                        <div class="city-item">/chicago</div>
+                        <div class="city-item">/nyc</div>
+                        <div class="city-item">/sf</div>
+                        <div class="city-item">/london</div>
+                        <div class="city-item">/paris</div>
+                        <div class="city-item">/tokyo</div>
+                        <div class="city-item">/sydney</div>
+                        <div class="city-item">/berlin</div>
+                        <div class="city-item">/rome</div>
+                        <div class="city-item">/madrid</div>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>📱 Widget Controls</h3>
+                    <p>Show or hide specific weather widgets:</p>
+                    <ul class="param-list">
+                        <li>
+                            <span class="param-name">widgets</span> - Comma-separated list of widgets to show
+                            <span class="param-example">?widgets=current,hourly,daily</span>
+                        </li>
+                        <li>
+                            <span class="param-name">current</span> - Show/hide current weather (true/false)
+                            <span class="param-example">?current=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">hourly</span> - Show/hide hourly forecast (true/false)
+                            <span class="param-example">?hourly=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">daily</span> - Show/hide daily forecast (true/false)
+                            <span class="param-example">?daily=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">timeline</span> - Show/hide hourly timeline (true/false)
+                            <span class="param-example">?timeline=false</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>🎨 Visual Options</h3>
+                    <p>Customize the appearance and behavior:</p>
+                    <ul class="param-list">
+                        <li>
+                            <span class="param-name">animated</span> - Use animated weather icons (true/false)
+                            <span class="param-example">?animated=false</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>🔗 Example URLs</h3>
+                    <p>Here are some example configurations:</p>
+                    <ul class="param-list">
+                        <li>
+                            <strong>Minimal Chicago view:</strong>
+                            <span class="param-example">/chicago?widgets=current</span>
+                        </li>
+                        <li>
+                            <strong>Static icons, no timeline:</strong>
+                            <span class="param-example">/nyc?animated=false&timeline=false</span>
+                        </li>
+                        <li>
+                            <strong>Custom location:</strong>
+                            <span class="param-example">?lat=34.0522&lon=-118.2437&location=Los Angeles</span>
+                        </li>
+                        <li>
+                            <strong>Hourly forecast only:</strong>
+                            <span class="param-example">/london?widgets=hourly</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <div class="help-section">
+                    <h3>💡 Tips</h3>
+                    <p>• Widget names accept aliases: current/now, hourly/hours, daily/days/week, timeline/list</p>
+                    <p>• Parameters can be combined for maximum customization</p>
+                    <p>• Default location is Chicago if no location is specified</p>
+                    <p>• All weather data includes beautiful sunrise/sunset color coding</p>
+                </div>
+            </div>
+        `;
+    }
+}
+
 // Register all components
 customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
 customElements.define('hourly-forecast', HourlyForecastWidget);
 customElements.define('daily-forecast', DailyForecastWidget);
 customElements.define('hourly-timeline', HourlyTimelineWidget);
+customElements.define('help-section', HelpSection);
 
 // Initialize the weather app
 const weatherApp = new WeatherApp();
@@ -1219,7 +1543,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         // Request initial weather data
-        const { lat, lon, location } = weatherApp.parseLocationParams();
-        window.realTimeWeather.requestWeatherUpdate({ lat, lon, location });
+        const { lat, lon, location, timezone } = weatherApp.parseLocationParams();
+        window.realTimeWeather.requestWeatherUpdate({ lat, lon, location, timezone });
     }
 });

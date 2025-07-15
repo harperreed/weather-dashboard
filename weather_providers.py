@@ -9,7 +9,7 @@ from typing import Any
 try:
     import zoneinfo
 except ImportError:
-    from backports import zoneinfo  # type: ignore[import-untyped]
+    from backports import zoneinfo  # type: ignore[no-redef]
 
 import requests
 
@@ -22,29 +22,38 @@ class WeatherProvider(ABC):
         self.timeout = 10
 
     @abstractmethod
-    def fetch_weather_data(self, lat: float, lon: float) -> dict[str, Any] | None:
+    def fetch_weather_data(
+        self, lat: float, lon: float, tz_name: str | None = None
+    ) -> dict[str, Any] | None:
         """Fetch raw weather data from the provider"""
         pass
 
     @abstractmethod
     def process_weather_data(
-        self, raw_data: dict[str, Any], location_name: str | None = None
+        self,
+        raw_data: dict[str, Any],
+        location_name: str | None = None,
+        tz_name: str | None = None,
     ) -> dict[str, Any] | None:
         """Process raw weather data into standardized format"""
         pass
 
     def get_weather(
-        self, lat: float, lon: float, location_name: str | None = None
+        self,
+        lat: float,
+        lon: float,
+        location_name: str | None = None,
+        tz_name: str | None = None,
     ) -> dict[str, Any] | None:
         """Get processed weather data for coordinates"""
         try:
-            raw_data = self.fetch_weather_data(lat, lon)
+            raw_data = self.fetch_weather_data(lat, lon, tz_name)
         except Exception as e:
             print(f"❌ {self.name} provider error: {str(e)}")
             return None
         else:
             if raw_data:
-                return self.process_weather_data(raw_data, location_name)
+                return self.process_weather_data(raw_data, location_name, tz_name)
             return None
 
     def get_provider_info(self) -> dict[str, Any]:
@@ -63,21 +72,29 @@ class OpenMeteoProvider(WeatherProvider):
         super().__init__("OpenMeteo")
         self.base_url = "https://api.open-meteo.com/v1/forecast"
 
-    def fetch_weather_data(self, lat: float, lon: float) -> dict | None:
+    def fetch_weather_data(
+        self, lat: float, lon: float, tz_name: str | None = None  # noqa: ARG002
+    ) -> dict | None:
         """Fetch weather data from Open-Meteo API"""
         try:
             # Build comprehensive weather request
             params: dict[str, str | float | int] = {
                 "latitude": lat,
                 "longitude": lon,
-                "current": ("temperature_2m,relative_humidity_2m,apparent_temperature,"
-                           "precipitation,weather_code,cloud_cover,wind_speed_10m,"
-                           "wind_direction_10m,uv_index"),
-                "hourly": ("temperature_2m,precipitation_probability,precipitation,"
-                          "weather_code,cloud_cover,wind_speed_10m"),
-                "daily": ("weather_code,temperature_2m_max,temperature_2m_min,"
-                         "precipitation_sum,precipitation_probability_max,"
-                         "wind_speed_10m_max,uv_index_max"),
+                "current": (
+                    "temperature_2m,relative_humidity_2m,apparent_temperature,"
+                    "precipitation,weather_code,cloud_cover,wind_speed_10m,"
+                    "wind_direction_10m,uv_index"
+                ),
+                "hourly": (
+                    "temperature_2m,precipitation_probability,precipitation,"
+                    "weather_code,cloud_cover,wind_speed_10m"
+                ),
+                "daily": (
+                    "weather_code,temperature_2m_max,temperature_2m_min,"
+                    "precipitation_sum,precipitation_probability_max,"
+                    "wind_speed_10m_max,uv_index_max,sunrise,sunset"
+                ),
                 "temperature_unit": "fahrenheit",
                 "wind_speed_unit": "mph",
                 "precipitation_unit": "inch",
@@ -96,7 +113,10 @@ class OpenMeteoProvider(WeatherProvider):
             return None
 
     def process_weather_data(
-        self, raw_data: dict, location_name: str | None = None
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,
     ) -> dict | None:
         """Process Open-Meteo data into standardized format"""
         if not raw_data:
@@ -128,14 +148,19 @@ class OpenMeteoProvider(WeatherProvider):
             # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
             if hourly.get("time"):
-                current_time = datetime.now(zoneinfo.ZoneInfo("America/Chicago"))
+                tz = (
+                    zoneinfo.ZoneInfo(tz_name)
+                    if tz_name
+                    else zoneinfo.ZoneInfo("America/Chicago")
+                )
+                current_time = datetime.now(tz)
 
                 # Find the starting index (current hour or next hour)
                 start_index = 0
                 for i, time_str in enumerate(hourly["time"]):
                     hour_time = datetime.fromisoformat(
                         time_str.replace("Z", "+00:00")
-                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                    ).astimezone(tz)
                     if hour_time >= current_time.replace(
                         minute=0, second=0, microsecond=0
                     ):
@@ -153,7 +178,7 @@ class OpenMeteoProvider(WeatherProvider):
                         "t": datetime.fromisoformat(
                             hourly["time"][i].replace("Z", "+00:00")
                         )
-                        .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                        .astimezone(tz)
                         .strftime("%I%p")
                         .lower()
                         .replace("0", ""),
@@ -173,11 +198,21 @@ class OpenMeteoProvider(WeatherProvider):
                         "icon": self._map_weather_code(daily["weather_code"][i]),
                         "d": (
                             datetime.fromisoformat(daily["time"][i])
-                            .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                            .astimezone(tz)
                             .strftime("%a")
                         ),
                     }
                     daily_forecast.append(day_data)
+
+            # Process sunrise/sunset data
+            sun_data = {}
+            if daily.get("time") and daily.get("sunrise") and daily.get("sunset"):
+                for i in range(min(7, len(daily["time"]))):
+                    date_str = daily["time"][i]
+                    sun_data[date_str] = {
+                        "sunrise": daily["sunrise"][i],
+                        "sunset": daily["sunset"][i],
+                    }
 
         except Exception as e:
             print(f"❌ Error processing Open-Meteo data: {str(e)}")
@@ -187,6 +222,7 @@ class OpenMeteoProvider(WeatherProvider):
                 "current": current_weather,
                 "hourly": hourly_forecast,
                 "daily": daily_forecast,
+                "sun": sun_data,
                 "location": location_name or "Unknown Location",
                 "provider": self.name,
             }
@@ -258,7 +294,9 @@ class PirateWeatherProvider(WeatherProvider):
         self.api_key = api_key
         self.base_url = "https://api.pirateweather.net/forecast"
 
-    def fetch_weather_data(self, lat: float, lon: float) -> dict | None:
+    def fetch_weather_data(
+        self, lat: float, lon: float, tz_name: str | None = None  # noqa: ARG002
+    ) -> dict | None:
         """Fetch weather data from PirateWeather API"""
         if not self.api_key or self.api_key == "YOUR_API_KEY_HERE":
             print("❌ PirateWeather API key not configured")
@@ -278,7 +316,10 @@ class PirateWeatherProvider(WeatherProvider):
             return None
 
     def process_weather_data(
-        self, raw_data: dict, location_name: str | None = None
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,
     ) -> dict | None:
         """Process PirateWeather data into standardized format"""
         if not raw_data:
@@ -306,14 +347,19 @@ class PirateWeatherProvider(WeatherProvider):
             # Process hourly forecast (next 24 hours starting from current hour)
             hourly_forecast = []
             if hourly:
-                current_time = datetime.now(zoneinfo.ZoneInfo("America/Chicago"))
+                tz = (
+                    zoneinfo.ZoneInfo(tz_name)
+                    if tz_name
+                    else zoneinfo.ZoneInfo("America/Chicago")
+                )
+                current_time = datetime.now(tz)
 
                 # Find the starting index (current hour or next hour)
                 start_index = 0
                 for i, hour in enumerate(hourly):
                     hour_time = datetime.fromtimestamp(
                         hour.get("time", 0), tz=timezone.utc
-                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                    ).astimezone(tz)
                     if hour_time >= current_time.replace(
                         minute=0, second=0, microsecond=0
                     ):
@@ -330,7 +376,7 @@ class PirateWeatherProvider(WeatherProvider):
                         "t": datetime.fromtimestamp(
                             hour.get("time", 0), tz=timezone.utc
                         )
-                        .astimezone(zoneinfo.ZoneInfo("America/Chicago"))
+                        .astimezone(tz)
                         .strftime("%I%p")
                         .lower()
                         .replace("0", ""),
@@ -345,11 +391,37 @@ class PirateWeatherProvider(WeatherProvider):
                     "h": round(day.get("temperatureHigh", 0)),
                     "l": round(day.get("temperatureLow", 0)),
                     "icon": self._map_icon_code(day.get("icon", "clear-day")),
-                    "d": datetime.fromtimestamp(
-                        day.get("time", 0), tz=timezone.utc
-                    ).astimezone(zoneinfo.ZoneInfo("America/Chicago")).strftime("%a"),
+                    "d": datetime.fromtimestamp(day.get("time", 0), tz=timezone.utc)
+                    .astimezone(tz)
+                    .strftime("%a"),
                 }
                 daily_forecast.append(day_data)
+
+            # Process sunrise/sunset data (if available)
+            sun_data = {}
+            for day in daily[:7]:
+                if day.get("sunriseTime") and day.get("sunsetTime"):
+                    date_str = (
+                        datetime.fromtimestamp(day.get("time", 0), tz=timezone.utc)
+                        .astimezone(tz)
+                        .strftime("%Y-%m-%d")
+                    )
+                    sun_data[date_str] = {
+                        "sunrise": (
+                            datetime.fromtimestamp(
+                                day.get("sunriseTime", 0), tz=timezone.utc
+                            )
+                            .astimezone(tz)
+                            .strftime("%Y-%m-%dT%H:%M")
+                        ),
+                        "sunset": (
+                            datetime.fromtimestamp(
+                                day.get("sunsetTime", 0), tz=timezone.utc
+                            )
+                            .astimezone(tz)
+                            .strftime("%Y-%m-%dT%H:%M")
+                        ),
+                    }
 
         except Exception as e:
             print(f"❌ Error processing PirateWeather data: {str(e)}")
@@ -359,6 +431,7 @@ class PirateWeatherProvider(WeatherProvider):
                 "current": current_weather,
                 "hourly": hourly_forecast,
                 "daily": daily_forecast,
+                "sun": sun_data,
                 "location": location_name or "Unknown Location",
                 "provider": self.name,
             }
@@ -422,14 +495,18 @@ class WeatherProviderManager:
             raise ValueError(msg)
 
     def get_weather(
-        self, lat: float, lon: float, location_name: str | None = None
+        self,
+        lat: float,
+        lon: float,
+        location_name: str | None = None,
+        tz_name: str | None = None,
     ) -> dict | None:
         """Get weather data using primary provider with fallbacks"""
         # Try primary provider first
         if self.primary_provider and self.primary_provider in self.providers:
             print(f"🎯 Trying primary provider: {self.primary_provider}")
             result = self.providers[self.primary_provider].get_weather(
-                lat, lon, location_name
+                lat, lon, location_name, tz_name
             )
             if result:
                 return result
@@ -439,7 +516,7 @@ class WeatherProviderManager:
             if provider_name in self.providers:
                 print(f"🔄 Trying fallback provider: {provider_name}")
                 result = self.providers[provider_name].get_weather(
-                    lat, lon, location_name
+                    lat, lon, location_name, tz_name
                 )
                 if result:
                     return result

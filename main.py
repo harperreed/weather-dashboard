@@ -7,7 +7,7 @@ from typing import Any
 try:
     import zoneinfo
 except ImportError:
-    from backports import zoneinfo  # type: ignore[import-untyped]
+    from backports import zoneinfo  # type: ignore[no-redef]
 
 import requests
 from cachetools import TTLCache
@@ -389,16 +389,16 @@ def process_weather_data(data: dict, location_name: str | None = None) -> dict |
 
 # Common city shortcuts
 CITY_COORDS = {
-    "chicago": (41.8781, -87.6298, "Chicago"),
-    "nyc": (40.7128, -74.0060, "New York City"),
-    "sf": (37.7749, -122.4194, "San Francisco"),
-    "london": (51.5074, -0.1278, "London"),
-    "paris": (48.8566, 2.3522, "Paris"),
-    "tokyo": (35.6762, 139.6503, "Tokyo"),
-    "sydney": (-33.8688, 151.2093, "Sydney"),
-    "berlin": (52.5200, 13.4050, "Berlin"),
-    "rome": (41.9028, 12.4964, "Rome"),
-    "madrid": (40.4168, -3.7038, "Madrid"),
+    "chicago": (41.8781, -87.6298, "Chicago", "America/Chicago"),
+    "nyc": (40.7128, -74.0060, "New York City", "America/New_York"),
+    "sf": (37.7749, -122.4194, "San Francisco", "America/Los_Angeles"),
+    "london": (51.5074, -0.1278, "London", "Europe/London"),
+    "paris": (48.8566, 2.3522, "Paris", "Europe/Paris"),
+    "tokyo": (35.6762, 139.6503, "Tokyo", "Asia/Tokyo"),
+    "sydney": (-33.8688, 151.2093, "Sydney", "Australia/Sydney"),
+    "berlin": (52.5200, 13.4050, "Berlin", "Europe/Berlin"),
+    "rome": (41.9028, 12.4964, "Rome", "Europe/Rome"),
+    "madrid": (40.4168, -3.7038, "Madrid", "Europe/Madrid"),
 }
 
 
@@ -439,11 +439,13 @@ def weather_api() -> Response:
     lat = request.args.get("lat", type=float)
     lon = request.args.get("lon", type=float)
     location_name = request.args.get("location", "Chicago")
+    timezone_name = request.args.get("timezone")
 
     # Default to Chicago if no coordinates provided
     if not lat or not lon:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
+        timezone_name = "America/Chicago"
 
     # Create cache key
     cache_key = f"{lat:.4f},{lon:.4f}"
@@ -461,7 +463,7 @@ def weather_api() -> Response:
 
     # Use weather provider manager to get data
     print(f"🌤️  Fetching weather for {location_name} using provider system")
-    processed_data = weather_manager.get_weather(lat, lon, location_name)
+    processed_data = weather_manager.get_weather(lat, lon, location_name, timezone_name)
 
     if processed_data:
         # Cache the result
@@ -562,11 +564,12 @@ def handle_weather_update_request(data: dict) -> None:
     lat = data.get("lat", CHICAGO_LAT)
     lon = data.get("lon", CHICAGO_LON)
     location = data.get("location", "Chicago")
+    timezone_name = data.get("timezone", "America/Chicago")
 
     print(f"🌤️  Weather update requested for {location}")
 
     # Get fresh weather data
-    weather_data = weather_manager.get_weather(lat, lon, location)
+    weather_data = weather_manager.get_weather(lat, lon, location, timezone_name)
 
     if weather_data:
         # Send updated weather data to requesting client
