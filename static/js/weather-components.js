@@ -216,23 +216,17 @@ class WeatherWidget extends HTMLElement {
 
     // Shared styles for all components
     getSharedStyles() {
-        const isWhiteTheme = document.body.classList.contains('white-theme');
-        const textColor = isWhiteTheme ? '#000000' : 'white';
-        const cardBg = isWhiteTheme ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)';
-        const borderColor = isWhiteTheme ? 'rgba(0, 0, 0, 0.1)' : 'rgba(255, 255, 255, 0.2)';
-        const errorColor = isWhiteTheme ? '#dc2626' : '#fca5a5';
-
         return `
             <style>
                 :host {
                     display: block;
-                    color: ${textColor};
+                    color: var(--text-primary);
                     font-family: system-ui, -apple-system, sans-serif;
                 }
 
                 .theme-card {
-                    background: ${cardBg};
-                    border: 1px solid ${borderColor};
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
                 }
 
                 .loading {
@@ -241,7 +235,7 @@ class WeatherWidget extends HTMLElement {
                 }
 
                 .error {
-                    color: ${errorColor};
+                    color: var(--error-color);
                 }
 
                 .hidden {
@@ -262,17 +256,17 @@ class WeatherWidget extends HTMLElement {
                 }
 
                 .connection-status.connected {
-                    background-color: #10b981;
+                    background-color: var(--connection-bg-connected);
                     color: white;
                 }
 
                 .connection-status.disconnected {
-                    background-color: #ef4444;
+                    background-color: var(--connection-bg-disconnected);
                     color: white;
                 }
 
                 .connection-status.polling {
-                    background-color: #f59e0b;
+                    background-color: var(--connection-bg-polling);
                     color: white;
                 }
 
@@ -1474,7 +1468,7 @@ class HelpSection extends HTMLElement {
                             <span class="param-example">?animated=false</span>
                         </li>
                         <li>
-                            <span class="param-name">theme</span> - Background theme (white/light for white background)
+                            <span class="param-name">theme</span> - Background theme (white/light available, more themes coming)
                             <span class="param-example">?theme=white</span>
                         </li>
                         <li>

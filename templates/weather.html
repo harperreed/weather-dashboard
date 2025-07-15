@@ -5,25 +5,55 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather App</title>
     <style>
-        .weather-gradient {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+        :root {
+            /* Default theme (blue gradient) */
+            --bg-primary: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+            --text-primary: white;
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --card-border: rgba(255, 255, 255, 0.2);
+            --error-color: #fca5a5;
+            --connection-bg-connected: #10b981;
+            --connection-bg-polling: #f59e0b;
+            --connection-bg-disconnected: #ef4444;
         }
 
-        .weather-white {
-            background: #ffffff;
+        [data-theme="white"] {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --card-bg: rgba(0, 0, 0, 0.05);
+            --card-border: rgba(0, 0, 0, 0.1);
+            --error-color: #dc2626;
+            --connection-bg-connected: #10b981;
+            --connection-bg-polling: #f59e0b;
+            --connection-bg-disconnected: #ef4444;
         }
+
+        /* Future theme examples:
+        [data-theme="dark"] {
+            --bg-primary: #1f2937;
+            --text-primary: #f9fafb;
+            --card-bg: rgba(255, 255, 255, 0.05);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --error-color: #f87171;
+        }
+
+        [data-theme="sunset"] {
+            --bg-primary: linear-gradient(135deg, #ff7e5f 0%, #feb47b 100%);
+            --text-primary: #ffffff;
+            --card-bg: rgba(255, 255, 255, 0.15);
+            --card-border: rgba(255, 255, 255, 0.3);
+            --error-color: #dc2626;
+        }
+        */
 
         body {
             margin: 0;
             padding: 0;
             min-height: 100vh;
             font-family: system-ui, -apple-system, sans-serif;
-            color: white;
+            background: var(--bg-primary);
+            color: var(--text-primary);
             transition: background-color 0.3s ease, color 0.3s ease;
-        }
-
-        body.white-theme {
-            color: #000000;
         }
 
         .weather-container {
@@ -65,7 +95,7 @@
         }
     </style>
 </head>
-<body class="weather-gradient" id="app-body">
+<body id="app-body">
     <div class="weather-container">
         <current-weather></current-weather>
         <hourly-forecast></hourly-forecast>
@@ -89,9 +119,16 @@
         const urlParams = new URLSearchParams(window.location.search);
         const theme = urlParams.get('theme') || urlParams.get('background');
 
+        // Apply theme based on URL parameter
         if (theme === 'white' || theme === 'light') {
-            document.getElementById('app-body').className = 'weather-white white-theme';
+            document.getElementById('app-body').setAttribute('data-theme', 'white');
         }
+        // Future themes can be added here:
+        // else if (theme === 'dark') {
+        //     document.getElementById('app-body').setAttribute('data-theme', 'dark');
+        // } else if (theme === 'sunset') {
+        //     document.getElementById('app-body').setAttribute('data-theme', 'sunset');
+        // }
     </script>
 </body>
 </html>
