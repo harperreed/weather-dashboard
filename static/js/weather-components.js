@@ -47,7 +47,9 @@ class WeatherIcon extends HTMLElement {
 
         // Check URL parameter for animation preference
         const urlParams = new URLSearchParams(window.location.search);
-        const useAnimated = urlParams.get('animated') !== 'false';
+        const theme = urlParams.get('theme') || urlParams.get('background');
+        const isDashboard = theme === 'dashboard' || theme === 'eink';
+        const useAnimated = urlParams.get('animated') !== 'false' && !isDashboard;
         const iconType = useAnimated ? 'animated' : 'static';
 
         const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
@@ -327,13 +329,13 @@ class WeatherWidget extends HTMLElement {
                 }
 
                 :host([data-theme="dashboard"]) .hour-icon img {
-                    width: 3rem !important;
-                    height: 3rem !important;
+                    width: 6rem !important;
+                    height: 6rem !important;
                 }
 
                 :host([data-theme="dashboard"]) .day-icon img {
-                    width: 3rem !important;
-                    height: 3rem !important;
+                    width: 6rem !important;
+                    height: 6rem !important;
                 }
 
                 :host([data-theme="dashboard"]) .chart-line {
@@ -442,7 +444,7 @@ class CurrentWeatherWidget extends WeatherWidget {
         const current = this.data.current;
 
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
-        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '3rem');
+        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '6rem');
         this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}°`;
 
         // Enhance summary with precipitation info

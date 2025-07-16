@@ -643,10 +643,10 @@
 
 [data-theme="dashboard"] .weather-icon img {
     filter: contrast(2) brightness(0.8);
-    width: 12rem !important;
-    height: 12rem !important;
-    min-width: 12rem;
-    min-height: 12rem;
+    width: 20rem !important;
+    height: 20rem !important;
+    min-width: 20rem;
+    min-height: 20rem;
 }
 
 /* Adjust layout for larger main icon */
@@ -733,18 +733,18 @@
 
 /* Bigger icons for hourly forecast in dashboard theme */
 [data-theme="dashboard"] .hour-icon img {
-    width: 3rem !important;
-    height: 3rem !important;
-    min-width: 3rem;
-    min-height: 3rem;
+    width: 6rem !important;
+    height: 6rem !important;
+    min-width: 6rem;
+    min-height: 6rem;
 }
 
 /* Bigger icons for daily forecast in dashboard theme */
 [data-theme="dashboard"] .day-icon img {
-    width: 3rem !important;
-    height: 3rem !important;
-    min-width: 3rem;
-    min-height: 3rem;
+    width: 6rem !important;
+    height: 6rem !important;
+    min-width: 6rem;
+    min-height: 6rem;
 }
 
 /* Adjust spacing for bigger hourly icons */
