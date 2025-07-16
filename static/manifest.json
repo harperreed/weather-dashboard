@@ -1,0 +1,37 @@
+{
+  "name": "Weather Dashboard",
+  "short_name": "Weather",
+  "description": "A real-time weather dashboard with forecasts and current conditions",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e3a8a",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/",
+  "lang": "en-US",
+  "icons": [
+    {
+      "src": "/static/icons/app-icon.svg",
+      "sizes": "72x72 96x96 128x128 144x144 152x152 192x192 384x384 512x512",
+      "type": "image/svg+xml",
+      "purpose": "maskable any"
+    }
+  ],
+  "categories": ["weather", "utilities"],
+  "screenshots": [
+    {
+      "src": "/static/icons/screenshot-mobile.png",
+      "sizes": "390x844",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Weather Dashboard Mobile View"
+    },
+    {
+      "src": "/static/icons/screenshot-desktop.png",
+      "sizes": "1280x800",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "Weather Dashboard Desktop View"
+    }
+  ]
+}

@@ -593,6 +593,24 @@ def static_files(filename: str) -> Response:
     return send_from_directory("static", filename)
 
 
+@app.route("/sw.js")  # type: ignore[misc]
+def service_worker() -> Response:
+    """Serve service worker from root for security"""
+    response = send_from_directory("static", "sw.js")
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
+
+
+@app.route("/manifest.json")  # type: ignore[misc]
+def manifest() -> Response:
+    """Serve manifest file from root"""
+    response = send_from_directory("static", "manifest.json")
+    response.headers["Content-Type"] = "application/manifest+json"
+    return response
+
+
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5001"))
     host = os.getenv("HOST", "127.0.0.1")  # Default to localhost, allow override
