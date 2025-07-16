@@ -53,6 +53,23 @@ class TestFrontendIntegration:
 
         assert os.path.exists(animated_path)
         assert os.path.exists(static_path)
+    
+    def test_severe_weather_banner_in_template(self) -> None:
+        """Test that the severe weather banner is included in the template"""
+        template_path = os.path.join(
+            os.path.dirname(__file__), "..", "templates", "weather.html"
+        )
+        
+        with open(template_path, 'r') as f:
+            template_content = f.read()
+        
+        # Check that the severe weather banner component is in the template
+        assert '<severe-weather-banner></severe-weather-banner>' in template_content
+        
+        # Check that it appears before the current weather component
+        banner_pos = template_content.find('<severe-weather-banner>')
+        current_pos = template_content.find('<current-weather>')
+        assert banner_pos < current_pos and banner_pos != -1
 
     def test_essential_weather_icons_exist(self) -> None:
         """Test that essential weather icons exist"""

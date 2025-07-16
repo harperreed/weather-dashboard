@@ -21,6 +21,157 @@ const WEATHER_ICONS = {
     'hail': 'hail.svg'
 };
 
+// Severe Weather Banner Component
+class SevereWeatherBanner extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+        this.data = null;
+    }
+
+    connectedCallback() {
+        this.observeTheme();
+        this.render();
+        this.setupEventListeners();
+    }
+
+    observeTheme() {
+        // Get theme from app-body and apply to this component
+        const appBody = document.getElementById('app-body');
+        if (appBody) {
+            const bodyTheme = appBody.getAttribute('data-theme');
+            if (bodyTheme) {
+                this.setAttribute('data-theme', bodyTheme);
+            }
+
+            // Watch for theme changes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        const newTheme = appBody.getAttribute('data-theme');
+                        if (newTheme) {
+                            this.setAttribute('data-theme', newTheme);
+                        } else {
+                            this.removeAttribute('data-theme');
+                        }
+                    }
+                });
+            });
+
+            observer.observe(appBody, {
+                attributes: true,
+                attributeFilter: ['data-theme']
+            });
+        }
+    }
+
+    setupEventListeners() {
+        // Listen for weather data updates
+        document.addEventListener('weather-data-updated', (e) => {
+            this.data = e.detail;
+            this.update();
+        });
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            <style>
+                :host {
+                    display: block;
+                    width: 100%;
+                    margin-bottom: 1rem;
+                }
+
+                .severe-banner {
+                    background: linear-gradient(135deg, #dc2626 0%, #ef4444 100%);
+                    color: white;
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    text-align: center;
+                    font-weight: 600;
+                    font-size: 0.875rem;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+                    border: 2px solid rgba(255, 255, 255, 0.2);
+                    animation: pulse 2s infinite;
+                }
+
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: 0.8; }
+                }
+
+                .severe-banner.hidden {
+                    display: none;
+                }
+
+                .banner-icon {
+                    font-size: 1.125rem;
+                    margin-right: 0.5rem;
+                }
+
+                .banner-message {
+                    font-size: 0.875rem;
+                    line-height: 1.4;
+                }
+
+                /* Dashboard theme overrides */
+                :host([data-theme="dashboard"]) .severe-banner {
+                    background: #000000;
+                    border: 3px solid #000000;
+                    color: #ffffff;
+                    font-weight: 900;
+                    font-size: 1.25rem;
+                    padding: 1.5rem;
+                    animation: none;
+                }
+
+                :host([data-theme="dashboard"]) .banner-message {
+                    font-size: 1.25rem;
+                    font-weight: 900;
+                }
+
+                :host([data-theme="dashboard"]) .banner-icon {
+                    font-size: 1.5rem;
+                }
+
+                /* Responsive design */
+                @media (min-width: 640px) {
+                    .severe-banner {
+                        font-size: 1rem;
+                        padding: 1.25rem;
+                    }
+
+                    .banner-message {
+                        font-size: 1rem;
+                    }
+                }
+            </style>
+
+            <div class="severe-banner hidden" id="banner">
+                <div class="banner-content">
+                    <span class="banner-icon">⚠️</span>
+                    <div class="banner-message" id="message">Severe Weather Alert</div>
+                </div>
+            </div>
+        `;
+    }
+
+    update() {
+        if (!this.data) return;
+
+        const banner = this.shadowRoot.getElementById('banner');
+        const message = this.shadowRoot.getElementById('message');
+
+        if (isSevereWeather(this.data)) {
+            const alertMessage = getSevereWeatherMessage(this.data);
+            message.textContent = alertMessage;
+            banner.classList.remove('hidden');
+        } else {
+            banner.classList.add('hidden');
+        }
+    }
+}
+
 // Weather Icon Web Component
 class WeatherIcon extends HTMLElement {
     constructor() {
@@ -155,6 +306,95 @@ function calculateWetbulbTemp(tempF, humidity) {
     const wetbulbF = wetbulbC * 9/5 + 32;
 
     return Math.round(wetbulbF);
+}
+
+// Helper function to check if current weather is severe
+function isSevereWeather(weatherData) {
+    if (!weatherData || !weatherData.current) return false;
+
+    const current = weatherData.current;
+    const icon = current.icon;
+    const windSpeed = current.wind_speed || 0;
+    const precipRate = current.precipitation_rate || 0;
+    const uvIndex = current.uv_index || 0;
+
+    // Severe weather indicators
+    const severeIcons = [
+        'thunderstorm',
+        'heavy-rain',
+        'heavy-snow',
+        'hail'
+    ];
+
+    // Check for severe weather icons
+    if (severeIcons.includes(icon)) {
+        return true;
+    }
+
+    // Check for high wind speeds (over 35 mph)
+    if (windSpeed > 35) {
+        return true;
+    }
+
+    // Check for heavy precipitation (over 0.5 inches per hour)
+    if (precipRate > 0.5) {
+        return true;
+    }
+
+    // Check for extreme UV index (over 10)
+    if (uvIndex > 10) {
+        return true;
+    }
+
+    return false;
+}
+
+// Helper function to get severe weather alert message
+function getSevereWeatherMessage(weatherData) {
+    if (!weatherData || !weatherData.current) return '';
+
+    const current = weatherData.current;
+    const icon = current.icon;
+    const windSpeed = current.wind_speed || 0;
+    const precipRate = current.precipitation_rate || 0;
+    const uvIndex = current.uv_index || 0;
+
+    let messages = [];
+
+    // Specific severe weather messages
+    if (icon === 'thunderstorm') {
+        messages.push('⚡ THUNDERSTORM WARNING');
+    }
+    if (icon === 'heavy-rain') {
+        messages.push('🌧️ HEAVY RAIN ALERT');
+    }
+    if (icon === 'heavy-snow') {
+        messages.push('❄️ HEAVY SNOW ALERT');
+    }
+    if (icon === 'hail') {
+        messages.push('🧊 HAIL WARNING');
+    }
+
+    // Wind warnings
+    if (windSpeed > 50) {
+        messages.push('💨 DANGEROUS WINDS');
+    } else if (windSpeed > 35) {
+        messages.push('💨 HIGH WINDS');
+    }
+
+    // Precipitation warnings
+    if (precipRate > 1.0) {
+        messages.push('🌊 EXTREME PRECIPITATION');
+    } else if (precipRate > 0.5) {
+        messages.push('🌧️ HEAVY PRECIPITATION');
+    }
+
+    // UV warnings
+    if (uvIndex > 10) {
+        messages.push('☀️ EXTREME UV INDEX');
+    }
+
+    return messages.join(' • ');
 }
 
 // Base WeatherWidget class with shared functionality
@@ -1219,6 +1459,7 @@ class HelpSection extends HTMLElement {
 
 // Register all components
 customElements.define('weather-icon', WeatherIcon);
+customElements.define('severe-weather-banner', SevereWeatherBanner);
 customElements.define('current-weather', CurrentWeatherWidget);
 customElements.define('hourly-forecast', HourlyForecastWidget);
 customElements.define('daily-forecast', DailyForecastWidget);
