@@ -29,6 +29,18 @@
             --connection-bg-disconnected: #ef4444;
         }
 
+        [data-theme="dashboard"] {
+            /* High contrast theme for eInk displays */
+            --bg-primary: #eeeeee;
+            --text-primary: #000000;
+            --card-bg: #ffffff;
+            --card-border: #000000;
+            --error-color: #000000;
+            --connection-bg-connected: #000000;
+            --connection-bg-polling: #000000;
+            --connection-bg-disconnected: #000000;
+        }
+
         /* Future theme examples:
         [data-theme="dark"] {
             --bg-primary: #1f2937;
@@ -123,6 +135,8 @@
         // Apply theme based on URL parameter
         if (theme === 'white' || theme === 'light') {
             document.getElementById('app-body').setAttribute('data-theme', 'white');
+        } else if (theme === 'dashboard' || theme === 'eink') {
+            document.getElementById('app-body').setAttribute('data-theme', 'dashboard');
         }
         // Future themes can be added here:
         // else if (theme === 'dark') {

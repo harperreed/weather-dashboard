@@ -1003,7 +1003,7 @@ class HelpSection extends HTMLElement {
                             <span class="param-example">?animated=false</span>
                         </li>
                         <li>
-                            <span class="param-name">theme</span> - Background theme (white/light available, more themes coming)
+                            <span class="param-name">theme</span> - Background theme (white/light/dashboard/eink available)
                             <span class="param-example">?theme=white</span>
                         </li>
                         <li>
@@ -1036,6 +1036,10 @@ class HelpSection extends HTMLElement {
                         <li>
                             <strong>White background theme:</strong>
                             <span class="param-example">/tokyo?theme=white</span>
+                        </li>
+                        <li>
+                            <strong>High contrast dashboard (eInk displays):</strong>
+                            <span class="param-example">/chicago?theme=dashboard</span>
                         </li>
                     </ul>
                 </div>

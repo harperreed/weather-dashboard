@@ -589,3 +589,164 @@
         height: 13rem;
     }
 }
+
+/* Dashboard theme - High contrast for eInk displays */
+[data-theme="dashboard"] .weather-widget {
+    border: 2px solid #000000;
+}
+
+[data-theme="dashboard"] .theme-card {
+    background: #ffffff;
+    border: 2px solid #000000;
+    box-shadow: none;
+}
+
+[data-theme="dashboard"] .chart-line {
+    stroke: #000000 !important;
+    stroke-width: 6 !important;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+/* Make graph lines more pronounced for all themes */
+.chart-line {
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+[data-theme="dashboard"] .timeline-dot.current {
+    background-color: #000000;
+    border: 2px solid #000000;
+    width: 0.75rem;
+}
+
+[data-theme="dashboard"] .timeline-dot.future {
+    background-color: #ffffff;
+    border: 2px solid #000000;
+    width: 0.75rem;
+}
+
+[data-theme="dashboard"] .connection-status {
+    background-color: #000000 !important;
+    color: #ffffff !important;
+    border: 2px solid #000000;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.625rem;
+    font-weight: 600;
+}
+
+[data-theme="dashboard"] .help-toggle:hover {
+    background-color: #f0f0f0;
+}
+
+[data-theme="dashboard"] .weather-icon img {
+    filter: contrast(2) brightness(0.8);
+    width: 12rem !important;
+    height: 12rem !important;
+    min-width: 12rem;
+    min-height: 12rem;
+}
+
+/* Adjust layout for larger main icon */
+[data-theme="dashboard"] .temp-display {
+    gap: 2rem;
+    margin-bottom: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+/* Make temperature bigger to match large icon */
+[data-theme="dashboard"] .temperature {
+    font-size: 5rem;
+    font-weight: 700;
+    line-height: 1;
+}
+
+[data-theme="dashboard"] .detail-value {
+    font-weight: 700;
+}
+
+[data-theme="dashboard"] .timeline-time {
+    font-weight: 700;
+}
+
+[data-theme="dashboard"] .timeline-temp {
+    font-weight: 700;
+}
+
+[data-theme="dashboard"] .day-high {
+    font-weight: 700;
+}
+
+[data-theme="dashboard"] .hour-temp-value {
+    font-weight: 700;
+}
+
+/* Bigger icons for hourly forecast in dashboard theme */
+[data-theme="dashboard"] .hour-icon img {
+    width: 3rem !important;
+    height: 3rem !important;
+    min-width: 3rem;
+    min-height: 3rem;
+}
+
+/* Bigger icons for daily forecast in dashboard theme */
+[data-theme="dashboard"] .day-icon img {
+    width: 3rem !important;
+    height: 3rem !important;
+    min-width: 3rem;
+    min-height: 3rem;
+}
+
+/* Adjust spacing for bigger hourly icons */
+[data-theme="dashboard"] .hour-icon {
+    margin-top: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+/* Fix hourly forecast layout for bigger icons */
+[data-theme="dashboard"] .hourly-temps {
+    display: flex;
+    gap: 0.5rem;
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    justify-content: space-between;
+}
+
+[data-theme="dashboard"] .hour-temp {
+    min-width: 4rem;
+    flex-shrink: 0;
+}
+
+[data-theme="dashboard"] .hourly-times {
+    display: flex;
+    overflow-x: auto;
+    padding-top: 0.5rem;
+    gap: 0.5rem;
+    justify-content: space-between;
+}
+
+[data-theme="dashboard"] .hour-time {
+    min-width: 4rem;
+    flex-shrink: 0;
+    text-align: center;
+}
+
+/* Adjust spacing for bigger daily icons */
+[data-theme="dashboard"] .day-icon {
+    margin: 0.5rem 0;
+}
+
+/* Smaller buttons for dashboard theme */
+[data-theme="dashboard"] .help-toggle {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* General button size improvements */
+.help-toggle {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.8125rem;
+}
