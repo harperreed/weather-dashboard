@@ -629,12 +629,7 @@
 }
 
 [data-theme="dashboard"] .connection-status {
-    background-color: #000000 !important;
-    color: #ffffff !important;
-    border: 2px solid #000000;
-    padding: 0.25rem 0.5rem;
-    font-size: 0.625rem;
-    font-weight: 800;
+    display: none !important;
 }
 
 [data-theme="dashboard"] .help-toggle:hover {
