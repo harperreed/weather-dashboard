@@ -593,6 +593,7 @@
 /* Dashboard theme - High contrast for eInk displays */
 [data-theme="dashboard"] .weather-widget {
     border: 2px solid #000000;
+    margin-bottom: 2.5rem;
 }
 
 [data-theme="dashboard"] .theme-card {
@@ -633,7 +634,7 @@
     border: 2px solid #000000;
     padding: 0.25rem 0.5rem;
     font-size: 0.625rem;
-    font-weight: 600;
+    font-weight: 800;
 }
 
 [data-theme="dashboard"] .help-toggle:hover {
@@ -650,37 +651,84 @@
 
 /* Adjust layout for larger main icon */
 [data-theme="dashboard"] .temp-display {
-    gap: 2rem;
-    margin-bottom: 2rem;
+    gap: 2.5rem;
+    margin-bottom: 2.5rem;
     align-items: center;
     flex-wrap: wrap;
 }
 
 /* Make temperature bigger to match large icon */
 [data-theme="dashboard"] .temperature {
-    font-size: 5rem;
-    font-weight: 700;
+    font-size: 6rem;
+    font-weight: 900;
     line-height: 1;
 }
 
+[data-theme="dashboard"] .feels-like {
+    font-size: 1.5rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+}
+
+[data-theme="dashboard"] .summary {
+    font-size: 2rem;
+    font-weight: 900;
+    margin-bottom: 1.5rem;
+}
+
 [data-theme="dashboard"] .detail-value {
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 1.25rem;
+}
+
+[data-theme="dashboard"] .detail-label {
+    font-size: 1.125rem;
+    font-weight: 800;
+}
+
+[data-theme="dashboard"] .detail-card {
+    padding: 1rem 1.5rem;
+    font-size: 1.125rem;
+}
+
+[data-theme="dashboard"] .weather-details {
+    gap: 1.25rem;
+    margin-top: 1.5rem;
 }
 
 [data-theme="dashboard"] .timeline-time {
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 1.25rem;
 }
 
 [data-theme="dashboard"] .timeline-temp {
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 1.25rem;
+}
+
+[data-theme="dashboard"] .timeline-desc {
+    font-size: 1.125rem;
+    font-weight: 800;
 }
 
 [data-theme="dashboard"] .day-high {
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 1.25rem;
+}
+
+[data-theme="dashboard"] .day-low {
+    font-weight: 800;
+    font-size: 1.125rem;
+}
+
+[data-theme="dashboard"] .day-name {
+    font-size: 1.125rem;
+    font-weight: 800;
 }
 
 [data-theme="dashboard"] .hour-temp-value {
-    font-weight: 700;
+    font-weight: 900;
+    font-size: 1.25rem;
 }
 
 /* Bigger icons for hourly forecast in dashboard theme */
@@ -731,6 +779,8 @@
     min-width: 4rem;
     flex-shrink: 0;
     text-align: center;
+    font-size: 1.125rem;
+    font-weight: 800;
 }
 
 /* Adjust spacing for bigger daily icons */
@@ -742,7 +792,7 @@
 [data-theme="dashboard"] .help-toggle {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 800;
 }
 
 /* General button size improvements */

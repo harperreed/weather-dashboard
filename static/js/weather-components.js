@@ -152,8 +152,34 @@ class WeatherWidget extends HTMLElement {
 
     connectedCallback() {
         this.parseConfig();
+        this.observeTheme();
         this.render();
         this.setupEventListeners();
+    }
+
+    observeTheme() {
+        // Get theme from app-body and apply to this component
+        const appBody = document.getElementById('app-body');
+        if (appBody) {
+            const bodyTheme = appBody.getAttribute('data-theme');
+            if (bodyTheme) {
+                this.setAttribute('data-theme', bodyTheme);
+            }
+
+            // Watch for theme changes
+            const observer = new MutationObserver((mutations) => {
+                mutations.forEach((mutation) => {
+                    if (mutation.type === 'attributes' && mutation.attributeName === 'data-theme') {
+                        const newTheme = appBody.getAttribute('data-theme');
+                        if (newTheme) {
+                            this.setAttribute('data-theme', newTheme);
+                        }
+                    }
+                });
+            });
+
+            observer.observe(appBody, { attributes: true, attributeFilter: ['data-theme'] });
+        }
     }
 
     parseConfig() {
@@ -214,7 +240,7 @@ class WeatherWidget extends HTMLElement {
         });
     }
 
-    // Import external CSS into Shadow DOM
+    // Import external CSS into Shadow DOM + dashboard theme styles
     getSharedStyles() {
         return `
             <link rel="stylesheet" href="/static/css/weather-components.css">
@@ -223,6 +249,111 @@ class WeatherWidget extends HTMLElement {
                     display: block;
                     color: var(--text-primary);
                     font-family: system-ui, -apple-system, sans-serif;
+                }
+
+                /* Dashboard theme overrides for Shadow DOM */
+                :host([data-theme="dashboard"]) .temperature {
+                    font-size: 6rem !important;
+                    font-weight: 900 !important;
+                    line-height: 1 !important;
+                }
+
+                :host([data-theme="dashboard"]) .feels-like {
+                    font-size: 1.5rem !important;
+                    font-weight: 900 !important;
+                    margin-bottom: 1rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .summary {
+                    font-size: 2rem !important;
+                    font-weight: 900 !important;
+                    margin-bottom: 1.5rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .detail-value {
+                    font-weight: 900 !important;
+                    font-size: 1.25rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .detail-label {
+                    font-size: 1.125rem !important;
+                    font-weight: 800 !important;
+                }
+
+                :host([data-theme="dashboard"]) .hour-temp-value {
+                    font-weight: 900 !important;
+                    font-size: 1.25rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .hour-time {
+                    font-size: 1.125rem !important;
+                    font-weight: 800 !important;
+                }
+
+                :host([data-theme="dashboard"]) .day-high {
+                    font-weight: 900 !important;
+                    font-size: 1.25rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .day-low {
+                    font-weight: 800 !important;
+                    font-size: 1.125rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .day-name {
+                    font-size: 1.125rem !important;
+                    font-weight: 800 !important;
+                }
+
+                :host([data-theme="dashboard"]) .timeline-time {
+                    font-weight: 900 !important;
+                    font-size: 1.25rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .timeline-temp {
+                    font-weight: 900 !important;
+                    font-size: 1.25rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .timeline-desc {
+                    font-size: 1.125rem !important;
+                    font-weight: 800 !important;
+                }
+
+                :host([data-theme="dashboard"]) .weather-icon img {
+                    width: 12rem !important;
+                    height: 12rem !important;
+                    filter: contrast(2) brightness(0.8) !important;
+                }
+
+                :host([data-theme="dashboard"]) .hour-icon img {
+                    width: 3rem !important;
+                    height: 3rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .day-icon img {
+                    width: 3rem !important;
+                    height: 3rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .chart-line {
+                    stroke: #000000 !important;
+                    stroke-width: 6 !important;
+                }
+
+                :host([data-theme="dashboard"]) .temp-display {
+                    gap: 2.5rem !important;
+                    margin-bottom: 2.5rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .weather-details {
+                    gap: 1.25rem !important;
+                    margin-top: 1.5rem !important;
+                }
+
+                :host([data-theme="dashboard"]) .detail-card {
+                    padding: 1rem 1.5rem !important;
+                    font-size: 1.125rem !important;
                 }
             </style>
         `;
@@ -838,6 +969,13 @@ class HelpSection extends HTMLElement {
     }
 
     connectedCallback() {
+        // Hide help section if widgets parameter is specified
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('widgets')) {
+            this.style.display = 'none';
+            return;
+        }
+
         this.render();
         this.setupEventListeners();
     }
