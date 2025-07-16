@@ -138,6 +138,25 @@ function getTimeOfDayColor(timeOfDay) {
     return colors[timeOfDay] || colors.day;
 }
 
+// Helper function to calculate wetbulb temperature
+function calculateWetbulbTemp(tempF, humidity) {
+    // Convert Fahrenheit to Celsius
+    const tempC = (tempF - 32) * 5/9;
+    const rh = humidity;
+
+    // Stull approximation for wetbulb temperature
+    const wetbulbC = tempC * Math.atan(0.152 * Math.sqrt(rh + 8.3136)) +
+                     Math.atan(tempC + rh) -
+                     Math.atan(rh - 1.6763) +
+                     0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) -
+                     4.686035;
+
+    // Convert back to Fahrenheit
+    const wetbulbF = wetbulbC * 9/5 + 32;
+
+    return Math.round(wetbulbF);
+}
+
 // Base WeatherWidget class with shared functionality
 class WeatherWidget extends HTMLElement {
     constructor() {
@@ -263,7 +282,7 @@ class WeatherWidget extends HTMLElement {
                 :host([data-theme="dashboard"]) .feels-like {
                     font-size: 1.5rem !important;
                     font-weight: 900 !important;
-                    margin-bottom: 1rem !important;
+                    margin-bottom: 0.5rem !important;
                 }
 
                 :host([data-theme="dashboard"]) .summary {
@@ -445,7 +464,9 @@ class CurrentWeatherWidget extends WeatherWidget {
 
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
         this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '6rem');
-        this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}°`;
+
+        const wetbulbTemp = calculateWetbulbTemp(current.temperature, current.humidity);
+        this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}° • WETBULB ${wetbulbTemp}°`;
 
         // Enhance summary with precipitation info
         let summary = current.summary;
