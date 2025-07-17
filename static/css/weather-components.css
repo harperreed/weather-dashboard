@@ -873,3 +873,35 @@
 [data-theme="white"] .footer-right .copyright a:hover {
     color: #555;
 }
+
+/* PWA Install Button */
+.pwa-install-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: #3b82f6;
+    color: white;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    transition: background-color 0.2s ease, transform 0.1s ease;
+}
+
+.pwa-install-button:hover {
+    background: #2563eb;
+    transform: translateY(-1px);
+}
+
+.pwa-install-button:active {
+    transform: translateY(0);
+}
+
+.pwa-install-button:focus {
+    outline: 2px solid #60a5fa;
+    outline-offset: 2px;
+}

@@ -3,7 +3,26 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Weather App</title>
+    <title>Weather Dashboard</title>
+    <meta name="description" content="A real-time weather dashboard with forecasts and current conditions">
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="Weather Dashboard">
+    <meta name="msapplication-TileColor" content="#3b82f6">
+    <meta name="msapplication-tap-highlight" content="no">
+
+    <!-- PWA Icons -->
+    <link rel="icon" type="image/svg+xml" href="/static/icons/app-icon.svg">
+    <link rel="apple-touch-icon" href="/static/icons/app-icon.svg">
+    <link rel="mask-icon" href="/static/icons/app-icon.svg" color="#3b82f6">
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+
     <link rel="stylesheet" href="/static/css/weather-components.css">
     <style>
         :root {
@@ -165,6 +184,86 @@
         // } else if (theme === 'sunset') {
         //     document.getElementById('app-body').setAttribute('data-theme', 'sunset');
         // }
+    </script>
+
+    <!-- PWA Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', function() {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(function(registration) {
+                        console.log('Service Worker registered with scope:', registration.scope);
+
+                        // Check for updates
+                        registration.addEventListener('updatefound', function() {
+                            const newWorker = registration.installing;
+                            if (newWorker) {
+                                newWorker.addEventListener('statechange', function() {
+                                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                                        // New content is available, prompt user to reload
+                                        if (confirm('New version available! Reload to update?')) {
+                                            window.location.reload();
+                                        }
+                                    }
+                                });
+                            }
+                        });
+                    })
+                    .catch(function(error) {
+                        console.log('Service Worker registration failed:', error);
+                    });
+            });
+        }
+
+        // Listen for messages from service worker
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+            navigator.serviceWorker.addEventListener('message', function(event) {
+                if (event.data && event.data.type === 'weather-update') {
+                    // Handle weather update from service worker
+                    console.log('Weather update received from service worker:', event.data.data);
+                    // You can dispatch a custom event here to update the UI
+                }
+            });
+        }
+
+        // Add install prompt for PWA
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', function(e) {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            deferredPrompt = e;
+
+            // Add install button or show install banner
+            console.log('PWA install prompt available');
+
+            // Example: Add install button to UI
+            const installButton = document.createElement('button');
+            installButton.textContent = 'Install App';
+            installButton.className = 'pwa-install-button';
+            installButton.setAttribute('aria-label', 'Install Weather Dashboard as an app');
+            installButton.setAttribute('title', 'Install this app on your device');
+
+            installButton.addEventListener('click', function() {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then(function(choiceResult) {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the PWA install prompt');
+                    } else {
+                        console.log('User dismissed the PWA install prompt');
+                    }
+                    deferredPrompt = null;
+                    document.body.removeChild(installButton);
+                });
+            });
+
+            document.body.appendChild(installButton);
+        });
+
+        // Handle PWA install success
+        window.addEventListener('appinstalled', function(e) {
+            console.log('PWA was installed successfully');
+        });
     </script>
 </body>
 </html>
