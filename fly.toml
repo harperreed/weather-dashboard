@@ -1,0 +1,48 @@
+# ABOUTME: Fly.io deployment configuration for weather dashboard
+# ABOUTME: Configures app settings, environment variables, and health checks
+
+app = "weather-dashboard"
+primary_region = "ord"
+
+[experimental]
+  auto_rollback = true
+
+[build]
+
+[env]
+  PORT = "5001"
+  HOST = "0.0.0.0"
+  FLASK_ENV = "production"
+  PYTHONUNBUFFERED = "1"
+  PYTHONDONTWRITEBYTECODE = "1"
+
+[http_service]
+  internal_port = 5001
+  force_https = true
+  auto_stop_machines = true
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ["app"]
+
+[[vm]]
+  cpu_kind = "shared"
+  cpus = 1
+  memory_mb = 256
+
+[[statics]]
+  guest_path = "/app/static"
+  url_prefix = "/static/"
+
+[checks]
+  [checks.alive]
+    type = "http"
+    grace_period = "10s"
+    method = "GET"
+    path = "/api/cache/stats"
+    protocol = "http"
+    timeout = "5s"
+    interval = "30s"
+    headers = {}
+
+[deploy]
+  release_command = "echo 'Starting weather dashboard'"
