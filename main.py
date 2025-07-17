@@ -1,4 +1,5 @@
 import os
+import subprocess
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -78,6 +79,23 @@ pirate_weather_api_key = os.getenv("PIRATE_WEATHER_API_KEY", "YOUR_API_KEY_HERE"
 if pirate_weather_api_key and pirate_weather_api_key != "YOUR_API_KEY_HERE":
     pirate_weather = PirateWeatherProvider(pirate_weather_api_key)
     weather_manager.add_provider(pirate_weather)
+
+
+def get_git_hash() -> str:
+    """Get the current git commit hash"""
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            cwd=os.path.dirname(__file__) or ".", check=False
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
+        pass
+    return "unknown"
 
 
 def get_weather_from_open_meteo(lat: float, lon: float) -> dict | None:
@@ -405,19 +423,19 @@ CITY_COORDS = {
 @app.route("/")  # type: ignore[misc]
 def index() -> str:
     """Main weather page"""
-    return str(render_template("weather.html"))
+    return str(render_template("weather.html", git_hash=get_git_hash()))
 
 
 @app.route("/<float:lat>,<float:lon>", methods=["GET"])  # type: ignore[misc]
 def weather_by_coords(_lat: float, _lon: float) -> str:
     """Weather page for specific coordinates"""
-    return str(render_template("weather.html"))
+    return str(render_template("weather.html", git_hash=get_git_hash()))
 
 
 @app.route("/<float:lat>,<float:lon>/<location>")  # type: ignore[misc]
 def weather_by_coords_and_location(_lat: float, _lon: float, _location: str) -> str:
     """Weather page for specific coordinates and location name"""
-    return str(render_template("weather.html"))
+    return str(render_template("weather.html", git_hash=get_git_hash()))
 
 
 @app.route("/<city>")  # type: ignore[misc]
@@ -425,7 +443,7 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
     """Weather page for common cities"""
     city_lower = city.lower()
     if city_lower in CITY_COORDS:
-        return str(render_template("weather.html"))
+        return str(render_template("weather.html", git_hash=get_git_hash()))
     return (
         f"City '{city}' not found. Available cities: "
         f"{', '.join(CITY_COORDS.keys())}"
