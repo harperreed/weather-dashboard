@@ -1,0 +1,189 @@
+# ABOUTME: GitHub Actions workflow for Fly.io PR preview deployments
+# ABOUTME: Creates ephemeral apps for each PR to enable review before merging
+
+name: Fly.io PR Preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, closed]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy-preview:
+    if: github.event.action != 'closed'
+    runs-on: ubuntu-latest
+    environment: preview
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Generate preview app name
+        id: app-name
+        run: |
+          # Create a safe app name from PR number and branch
+          APP_NAME="weather-dashboard-pr-${{ github.event.number }}"
+          # Ensure name is lowercase and contains only valid characters
+          APP_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+          # Truncate to 63 characters (DNS limit)
+          APP_NAME=${APP_NAME:0:63}
+          echo "name=$APP_NAME" >> $GITHUB_OUTPUT
+          echo "url=https://$APP_NAME.fly.dev" >> $GITHUB_OUTPUT
+
+      - name: Create or update preview app
+        id: deploy
+        run: |
+          # Check if app already exists
+          if flyctl apps list | grep -q "${{ steps.app-name.outputs.name }}"; then
+            echo "App ${{ steps.app-name.outputs.name }} already exists, updating..."
+            flyctl deploy --app ${{ steps.app-name.outputs.name }} --remote-only
+          else
+            echo "Creating new preview app ${{ steps.app-name.outputs.name }}..."
+
+            # Create a temporary fly.toml for the preview app
+            cat > fly.preview.toml << EOF
+          app = "${{ steps.app-name.outputs.name }}"
+          primary_region = "ord"
+
+          [experimental]
+            auto_rollback = true
+
+          [build]
+
+          [env]
+            PORT = "5001"
+            HOST = "0.0.0.0"
+            FLASK_ENV = "production"
+            PYTHONUNBUFFERED = "1"
+            PYTHONDONTWRITEBYTECODE = "1"
+
+          [http_service]
+            internal_port = 5001
+            force_https = true
+            auto_stop_machines = true
+            auto_start_machines = true
+            min_machines_running = 0
+            processes = ["app"]
+
+          [[vm]]
+            cpu_kind = "shared"
+            cpus = 1
+            memory_mb = 256
+
+          [[statics]]
+            guest_path = "/app/static"
+            url_prefix = "/static/"
+
+          [checks]
+            [checks.alive]
+              type = "http"
+              grace_period = "10s"
+              method = "GET"
+              path = "/api/cache/stats"
+              protocol = "http"
+              timeout = "5s"
+              interval = "30s"
+              headers = {}
+
+          [deploy]
+            release_command = "echo 'Starting weather dashboard preview'"
+          EOF
+
+            # Launch the preview app
+            flyctl launch --copy-config --name ${{ steps.app-name.outputs.name }} --config fly.preview.toml --no-deploy --org personal
+            flyctl deploy --app ${{ steps.app-name.outputs.name }} --config fly.preview.toml --remote-only
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+
+            const botComment = comments.find(comment =>
+              comment.user.type === 'Bot' && comment.body.includes('🚀 Preview deployment')
+            );
+
+            const body = `🚀 **Preview deployment ready!**
+
+            **App**: \`${{ steps.app-name.outputs.name }}\`
+            **URL**: ${{ steps.app-name.outputs.url }}
+            **Commit**: ${context.sha.substring(0, 7)}
+
+            This preview will be automatically destroyed when the PR is closed.
+
+            ---
+            <sub>Deployed with [Fly.io](https://fly.io) • [View logs](https://fly.io/apps/${{ steps.app-name.outputs.name }}/monitoring)</sub>`;
+
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body: body
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body
+              });
+            }
+
+  cleanup-preview:
+    if: github.event.action == 'closed'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Generate preview app name
+        id: app-name
+        run: |
+          APP_NAME="weather-dashboard-pr-${{ github.event.number }}"
+          APP_NAME=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9-]/-/g' | sed 's/--*/-/g' | sed 's/^-\|-$//g')
+          APP_NAME=${APP_NAME:0:63}
+          echo "name=$APP_NAME" >> $GITHUB_OUTPUT
+
+      - name: Destroy preview app
+        run: |
+          if flyctl apps list | grep -q "${{ steps.app-name.outputs.name }}"; then
+            echo "Destroying preview app ${{ steps.app-name.outputs.name }}..."
+            flyctl apps destroy ${{ steps.app-name.outputs.name }} --yes
+          else
+            echo "Preview app ${{ steps.app-name.outputs.name }} not found, skipping cleanup"
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = `🧹 **Preview deployment cleaned up**
+
+            The preview app \`${{ steps.app-name.outputs.name }}\` has been destroyed.
+
+            ---
+            <sub>Cleaned up by [Fly.io](https://fly.io) automation</sub>`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
