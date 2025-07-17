@@ -9,7 +9,8 @@ const STATIC_FILES = [
   '/static/js/weather-components.js',
   '/static/js/realtime-weather.js',
   '/static/manifest.json',
-  '/static/icons/app-icon.svg'
+  '/static/icons/icon-192x192.png',
+  '/static/icons/icon-512x512.png'
 ];
 
 // Weather icons that should be cached
@@ -17,12 +18,12 @@ const WEATHER_ICONS = [
   '/static/icons/weather/static/clear-day.svg',
   '/static/icons/weather/static/clear-night.svg',
   '/static/icons/weather/static/cloudy.svg',
-  '/static/icons/weather/static/rain.svg',
-  '/static/icons/weather/static/partly-cloudy-day.svg',
-  '/static/icons/weather/static/partly-cloudy-night.svg',
+  '/static/icons/weather/static/rainy-1.svg',
+  '/static/icons/weather/static/cloudy-1-day.svg',
+  '/static/icons/weather/static/cloudy-1-night.svg',
   '/static/icons/weather/static/fog.svg',
   '/static/icons/weather/static/wind.svg',
-  '/static/icons/weather/static/thunderstorm.svg'
+  '/static/icons/weather/static/thunderstorms.svg'
 ];
 
 // Install event - cache static files
@@ -37,14 +38,27 @@ self.addEventListener('install', (event) => {
       }),
       caches.open(CACHE_NAME).then((cache) => {
         console.log('Service Worker: Caching weather icons');
-        return cache.addAll(WEATHER_ICONS.map(icon => {
-          return fetch(icon).then(response => {
-            if (response.ok) {
-              return cache.put(icon, response);
-            }
-            return Promise.resolve();
-          }).catch(() => Promise.resolve());
-        }));
+        return Promise.allSettled(
+          WEATHER_ICONS.map(icon =>
+            fetch(icon)
+              .then(response => {
+                if (response.ok) {
+                  console.log(`Service Worker: Successfully cached ${icon}`);
+                  return cache.put(icon, response.clone());
+                } else {
+                  console.warn(`Service Worker: Failed to fetch ${icon} - ${response.status}`);
+                  return Promise.resolve();
+                }
+              })
+              .catch(error => {
+                console.error(`Service Worker: Error caching ${icon}:`, error);
+                return Promise.resolve();
+              })
+          )
+        ).then(results => {
+          const successful = results.filter(result => result.status === 'fulfilled').length;
+          console.log(`Service Worker: Cached ${successful}/${WEATHER_ICONS.length} weather icons`);
+        });
       })
     ])
   );

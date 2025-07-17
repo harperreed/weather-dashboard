@@ -614,9 +614,15 @@ def static_files(filename: str) -> Response:
 def service_worker() -> Response:
     """Serve service worker from root for security"""
     response = send_from_directory('static', 'sw.js')
+    # Cache control headers
     response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
     response.headers['Pragma'] = 'no-cache'
     response.headers['Expires'] = '0'
+    # Security headers
+    response.headers['Content-Type'] = 'text/javascript'
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'DENY'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     return response
 
 

@@ -239,21 +239,9 @@
             // Example: Add install button to UI
             const installButton = document.createElement('button');
             installButton.textContent = 'Install App';
-            installButton.style.cssText = `
-                position: fixed;
-                bottom: 20px;
-                right: 20px;
-                background: #3b82f6;
-                color: white;
-                border: none;
-                padding: 12px 24px;
-                border-radius: 8px;
-                cursor: pointer;
-                font-size: 14px;
-                font-weight: 500;
-                z-index: 1000;
-                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            `;
+            installButton.className = 'pwa-install-button';
+            installButton.setAttribute('aria-label', 'Install Weather Dashboard as an app');
+            installButton.setAttribute('title', 'Install this app on your device');
 
             installButton.addEventListener('click', function() {
                 deferredPrompt.prompt();

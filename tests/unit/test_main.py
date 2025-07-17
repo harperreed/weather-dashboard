@@ -446,8 +446,11 @@ class TestPWARoutes:
         """Test service worker route serves the correct file"""
         response = client.get('/sw.js')
         assert response.status_code == HTTP_OK
-        assert response.content_type == 'text/javascript; charset=utf-8'
+        assert response.content_type == 'text/javascript'
         assert b'Service Worker' in response.data
+        # Check security headers
+        assert response.headers.get('X-Content-Type-Options') == 'nosniff'
+        assert response.headers.get('X-Frame-Options') == 'DENY'
 
     def test_manifest_route(self, client: Any) -> None:
         """Test manifest.json route serves the correct file"""
