@@ -2,10 +2,13 @@ import json
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from main import (
     CHICAGO_LAT,
     CHICAGO_LON,
     CITY_COORDS,
+    get_weather_data,
     get_weather_description,
     get_weather_from_open_meteo,
     get_weather_icon,
@@ -466,8 +469,6 @@ class TestLegacyAPI:
     @patch("requests.get")
     def test_get_weather_data_success(self, mock_get: MagicMock) -> None:
         """Test legacy get_weather_data function success"""
-        from main import get_weather_data
-
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = {"temperature": 72}
@@ -485,10 +486,6 @@ class TestLegacyAPI:
         self, mock_get: MagicMock, mock_cache: MagicMock
     ) -> None:
         """Test legacy get_weather_data function failure"""
-        import requests
-
-        from main import get_weather_data
-
         # Mock cache miss
         mock_cache.__contains__.return_value = False
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
@@ -501,8 +498,6 @@ class TestLegacyAPI:
     @patch("main.weather_cache")
     def test_get_weather_data_defaults(self, mock_cache: MagicMock) -> None:
         """Test legacy get_weather_data function with default coordinates"""
-        from main import get_weather_data
-
         # Mock cache miss for default coordinates
         mock_cache.__contains__.return_value = False
 
