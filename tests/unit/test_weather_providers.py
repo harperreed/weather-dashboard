@@ -29,7 +29,7 @@ class TestWeatherProvider:
     def test_weather_provider_abstract_methods(self) -> None:
         """Test that WeatherProvider cannot be instantiated directly"""
         with pytest.raises(TypeError):
-            WeatherProvider("TestProvider")  # type: ignore[abstract]
+            WeatherProvider('TestProvider')  # type: ignore[abstract]
 
     def test_weather_provider_info(self) -> None:
         """Test provider info method"""
@@ -49,12 +49,12 @@ class TestWeatherProvider:
             ) -> dict[str, Any] | None:
                 return {}
 
-        provider = TestProvider("TestProvider")
+        provider = TestProvider('TestProvider')
         info = provider.get_provider_info()
 
-        assert info["name"] == "TestProvider"
-        assert info["timeout"] == PROVIDER_TIMEOUT
-        assert "description" in info
+        assert info['name'] == 'TestProvider'
+        assert info['timeout'] == PROVIDER_TIMEOUT
+        assert 'description' in info
 
 
 class TestOpenMeteoProvider:
@@ -63,11 +63,11 @@ class TestOpenMeteoProvider:
     def test_init(self) -> None:
         """Test OpenMeteo provider initialization"""
         provider = OpenMeteoProvider()
-        assert provider.name == "OpenMeteo"
-        assert provider.base_url == "https://api.open-meteo.com/v1/forecast"
+        assert provider.name == 'OpenMeteo'
+        assert provider.base_url == 'https://api.open-meteo.com/v1/forecast'
         assert provider.timeout == PROVIDER_TIMEOUT
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_fetch_weather_data_success(
         self, mock_get: MagicMock, mock_open_meteo_response: dict[str, Any]
     ) -> None:
@@ -86,13 +86,13 @@ class TestOpenMeteoProvider:
         # Check that the request was made with correct parameters
         call_args = mock_get.call_args
         assert call_args[0][0] == provider.base_url
-        assert call_args[1]["params"]["latitude"] == CHICAGO_LAT
-        assert call_args[1]["params"]["longitude"] == CHICAGO_LON
+        assert call_args[1]['params']['latitude'] == CHICAGO_LAT
+        assert call_args[1]['params']['longitude'] == CHICAGO_LON
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_fetch_weather_data_failure(self, mock_get: MagicMock) -> None:
         """Test failed weather data fetch from OpenMeteo"""
-        mock_get.side_effect = requests.exceptions.RequestException("API Error")
+        mock_get.side_effect = requests.exceptions.RequestException('API Error')
 
         provider = OpenMeteoProvider()
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
@@ -105,30 +105,30 @@ class TestOpenMeteoProvider:
         """Test successful weather data processing"""
         provider = OpenMeteoProvider()
         result = provider.process_weather_data(
-            mock_open_meteo_response, "Test Location"
+            mock_open_meteo_response, 'Test Location'
         )
 
         assert result is not None
-        assert result["location"] == "Test Location"
-        assert result["provider"] == "OpenMeteo"
-        assert "current" in result
-        assert "hourly" in result
-        assert "daily" in result
+        assert result['location'] == 'Test Location'
+        assert result['provider'] == 'OpenMeteo'
+        assert 'current' in result
+        assert 'hourly' in result
+        assert 'daily' in result
 
         # Test current weather data
-        current = result["current"]
-        assert current["temperature"] == MOCK_TEMP
-        assert current["feels_like"] == MOCK_FEELS_LIKE
-        assert current["humidity"] == MOCK_HUMIDITY
-        assert current["wind_speed"] == MOCK_WIND_SPEED
-        assert current["uv_index"] == MOCK_UV_INDEX
-        assert current["icon"] == "clear-day"
-        assert current["summary"] == "Clear sky"
+        current = result['current']
+        assert current['temperature'] == MOCK_TEMP
+        assert current['feels_like'] == MOCK_FEELS_LIKE
+        assert current['humidity'] == MOCK_HUMIDITY
+        assert current['wind_speed'] == MOCK_WIND_SPEED
+        assert current['uv_index'] == MOCK_UV_INDEX
+        assert current['icon'] == 'clear-day'
+        assert current['summary'] == 'Clear sky'
 
     def test_process_weather_data_empty(self) -> None:
         """Test processing with empty data"""
         provider = OpenMeteoProvider()
-        result = provider.process_weather_data({}, "Test Location")
+        result = provider.process_weather_data({}, 'Test Location')
 
         # Empty data should return None, not an empty result
         assert result is None
@@ -136,7 +136,7 @@ class TestOpenMeteoProvider:
     def test_process_weather_data_none(self) -> None:
         """Test processing with None data"""
         provider = OpenMeteoProvider()
-        result = provider.process_weather_data({}, "Test Location")
+        result = provider.process_weather_data({}, 'Test Location')
 
         assert result is None
 
@@ -145,27 +145,27 @@ class TestOpenMeteoProvider:
         provider = OpenMeteoProvider()
 
         # Test known codes
-        assert provider._map_weather_code(0) == "clear-day"
-        assert provider._map_weather_code(2) == "partly-cloudy-day"
-        assert provider._map_weather_code(3) == "cloudy"
-        assert provider._map_weather_code(61) == "light-rain"
-        assert provider._map_weather_code(95) == "thunderstorm"
+        assert provider._map_weather_code(0) == 'clear-day'
+        assert provider._map_weather_code(2) == 'partly-cloudy-day'
+        assert provider._map_weather_code(3) == 'cloudy'
+        assert provider._map_weather_code(61) == 'light-rain'
+        assert provider._map_weather_code(95) == 'thunderstorm'
 
         # Test unknown code
-        assert provider._map_weather_code(999) == "clear-day"
+        assert provider._map_weather_code(999) == 'clear-day'
 
     def test_get_weather_description(self) -> None:
         """Test weather description mapping"""
         provider = OpenMeteoProvider()
 
         # Test known codes
-        assert provider._get_weather_description(0) == "Clear sky"
-        assert provider._get_weather_description(2) == "Partly cloudy"
-        assert provider._get_weather_description(61) == "Slight rain"
-        assert provider._get_weather_description(95) == "Thunderstorm"
+        assert provider._get_weather_description(0) == 'Clear sky'
+        assert provider._get_weather_description(2) == 'Partly cloudy'
+        assert provider._get_weather_description(61) == 'Slight rain'
+        assert provider._get_weather_description(95) == 'Thunderstorm'
 
         # Test unknown code
-        assert provider._get_weather_description(999) == "Unknown"
+        assert provider._get_weather_description(999) == 'Unknown'
 
 
 class TestPirateWeatherProvider:
@@ -173,12 +173,12 @@ class TestPirateWeatherProvider:
 
     def test_init(self) -> None:
         """Test PirateWeather provider initialization"""
-        provider = PirateWeatherProvider("test_api_key")
-        assert provider.name == "PirateWeather"
-        assert provider.api_key == "test_api_key"
-        assert provider.base_url == "https://api.pirateweather.net/forecast"
+        provider = PirateWeatherProvider('test_api_key')
+        assert provider.name == 'PirateWeather'
+        assert provider.api_key == 'test_api_key'
+        assert provider.base_url == 'https://api.pirateweather.net/forecast'
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_fetch_weather_data_success(
         self, mock_get: MagicMock, mock_pirate_weather_response: dict[str, Any]
     ) -> None:
@@ -188,7 +188,7 @@ class TestPirateWeatherProvider:
         mock_response.raise_for_status.return_value = None
         mock_get.return_value = mock_response
 
-        provider = PirateWeatherProvider("test_api_key")
+        provider = PirateWeatherProvider('test_api_key')
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
 
         assert result == mock_pirate_weather_response
@@ -196,29 +196,29 @@ class TestPirateWeatherProvider:
 
         # Check the URL was constructed correctly
         call_args = mock_get.call_args
-        expected_url = f"{provider.base_url}/test_api_key/{CHICAGO_LAT},{CHICAGO_LON}"
+        expected_url = f'{provider.base_url}/test_api_key/{CHICAGO_LAT},{CHICAGO_LON}'
         assert call_args[0][0] == expected_url
 
     def test_fetch_weather_data_no_api_key(self) -> None:
         """Test fetch with no API key"""
-        provider = PirateWeatherProvider("YOUR_API_KEY_HERE")
+        provider = PirateWeatherProvider('YOUR_API_KEY_HERE')
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
 
         assert result is None
 
     def test_fetch_weather_data_empty_api_key(self) -> None:
         """Test fetch with empty API key"""
-        provider = PirateWeatherProvider("")
+        provider = PirateWeatherProvider('')
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
 
         assert result is None
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_fetch_weather_data_failure(self, mock_get: MagicMock) -> None:
         """Test failed weather data fetch from PirateWeather"""
-        mock_get.side_effect = requests.exceptions.RequestException("API Error")
+        mock_get.side_effect = requests.exceptions.RequestException('API Error')
 
-        provider = PirateWeatherProvider("test_api_key")
+        provider = PirateWeatherProvider('test_api_key')
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
 
         assert result is None
@@ -227,55 +227,55 @@ class TestPirateWeatherProvider:
         self, mock_pirate_weather_response: dict[str, Any]
     ) -> None:
         """Test successful weather data processing"""
-        provider = PirateWeatherProvider("test_api_key")
+        provider = PirateWeatherProvider('test_api_key')
         result = provider.process_weather_data(
-            mock_pirate_weather_response, "Test Location"
+            mock_pirate_weather_response, 'Test Location'
         )
 
         assert result is not None
-        assert result["location"] == "Test Location"
-        assert result["provider"] == "PirateWeather"
-        assert "current" in result
-        assert "hourly" in result
-        assert "daily" in result
+        assert result['location'] == 'Test Location'
+        assert result['provider'] == 'PirateWeather'
+        assert 'current' in result
+        assert 'hourly' in result
+        assert 'daily' in result
 
         # Test current weather data
-        current = result["current"]
-        assert current["temperature"] == MOCK_TEMP
-        assert current["feels_like"] == MOCK_FEELS_LIKE
-        assert current["humidity"] == MOCK_HUMIDITY
-        assert current["wind_speed"] == MOCK_WIND_SPEED
-        assert current["uv_index"] == MOCK_UV_INDEX
-        assert current["icon"] == "clear-day"
-        assert current["summary"] == "Clear sky"
+        current = result['current']
+        assert current['temperature'] == MOCK_TEMP
+        assert current['feels_like'] == MOCK_FEELS_LIKE
+        assert current['humidity'] == MOCK_HUMIDITY
+        assert current['wind_speed'] == MOCK_WIND_SPEED
+        assert current['uv_index'] == MOCK_UV_INDEX
+        assert current['icon'] == 'clear-day'
+        assert current['summary'] == 'Clear sky'
 
     def test_process_weather_data_empty(self) -> None:
         """Test processing with empty data"""
-        provider = PirateWeatherProvider("test_api_key")
-        result = provider.process_weather_data({}, "Test Location")
+        provider = PirateWeatherProvider('test_api_key')
+        result = provider.process_weather_data({}, 'Test Location')
 
         # Empty data should return None, not an empty result
         assert result is None
 
     def test_process_weather_data_none(self) -> None:
         """Test processing with None data"""
-        provider = PirateWeatherProvider("test_api_key")
-        result = provider.process_weather_data({}, "Test Location")
+        provider = PirateWeatherProvider('test_api_key')
+        result = provider.process_weather_data({}, 'Test Location')
 
         assert result is None
 
     def test_map_icon_code(self) -> None:
         """Test icon code mapping"""
-        provider = PirateWeatherProvider("test_api_key")
+        provider = PirateWeatherProvider('test_api_key')
 
         # Test known codes
-        assert provider._map_icon_code("clear-day") == "clear-day"
-        assert provider._map_icon_code("rain") == "rain"
-        assert provider._map_icon_code("snow") == "snow"
-        assert provider._map_icon_code("tornado") == "wind"
+        assert provider._map_icon_code('clear-day') == 'clear-day'
+        assert provider._map_icon_code('rain') == 'rain'
+        assert provider._map_icon_code('snow') == 'snow'
+        assert provider._map_icon_code('tornado') == 'wind'
 
         # Test unknown code
-        assert provider._map_icon_code("unknown") == "clear-day"
+        assert provider._map_icon_code('unknown') == 'clear-day'
 
 
 class TestWeatherProviderManager:
@@ -314,7 +314,7 @@ class TestWeatherProviderManager:
         """Test setting primary provider"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider("test_key")
+        provider2 = PirateWeatherProvider('test_key')
 
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
@@ -331,9 +331,9 @@ class TestWeatherProviderManager:
         manager = WeatherProviderManager()
 
         with pytest.raises(ValueError, match="Provider 'UnknownProvider' not found"):
-            manager.set_primary_provider("UnknownProvider")
+            manager.set_primary_provider('UnknownProvider')
 
-    @patch.object(OpenMeteoProvider, "get_weather")
+    @patch.object(OpenMeteoProvider, 'get_weather')
     def test_get_weather_primary_success(
         self, mock_get_weather: MagicMock, mock_weather_data: dict[str, Any]
     ) -> None:
@@ -344,15 +344,15 @@ class TestWeatherProviderManager:
         provider = OpenMeteoProvider()
         manager.add_provider(provider, is_primary=True)
 
-        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, "Test Location")
+        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Test Location')
 
         assert result == mock_weather_data
         mock_get_weather.assert_called_once_with(
-            CHICAGO_LAT, CHICAGO_LON, "Test Location", None
+            CHICAGO_LAT, CHICAGO_LON, 'Test Location', None
         )
 
-    @patch.object(PirateWeatherProvider, "get_weather")
-    @patch.object(OpenMeteoProvider, "get_weather")
+    @patch.object(PirateWeatherProvider, 'get_weather')
+    @patch.object(OpenMeteoProvider, 'get_weather')
     def test_get_weather_fallback_success(
         self,
         mock_open_meteo: MagicMock,
@@ -365,18 +365,18 @@ class TestWeatherProviderManager:
 
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider("test_key")
+        provider2 = PirateWeatherProvider('test_key')
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
-        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, "Test Location")
+        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Test Location')
 
         assert result == mock_weather_data
         mock_open_meteo.assert_called_once()
         mock_pirate_weather.assert_called_once()
 
-    @patch.object(PirateWeatherProvider, "get_weather")
-    @patch.object(OpenMeteoProvider, "get_weather")
+    @patch.object(PirateWeatherProvider, 'get_weather')
+    @patch.object(OpenMeteoProvider, 'get_weather')
     def test_get_weather_all_fail(
         self, mock_open_meteo: MagicMock, mock_pirate_weather: MagicMock
     ) -> None:
@@ -386,11 +386,11 @@ class TestWeatherProviderManager:
 
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider("test_key")
+        provider2 = PirateWeatherProvider('test_key')
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
-        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, "Test Location")
+        result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Test Location')
 
         assert result is None
         mock_open_meteo.assert_called_once()
@@ -400,22 +400,22 @@ class TestWeatherProviderManager:
         """Test getting provider information"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider("test_key")
+        provider2 = PirateWeatherProvider('test_key')
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
         info = manager.get_provider_info()
 
-        assert info["primary"] == provider1.name
-        assert info["fallbacks"] == [provider2.name]
-        assert provider1.name in info["providers"]
-        assert provider2.name in info["providers"]
+        assert info['primary'] == provider1.name
+        assert info['fallbacks'] == [provider2.name]
+        assert provider1.name in info['providers']
+        assert provider2.name in info['providers']
 
     def test_switch_provider_success(self) -> None:
         """Test successful provider switching"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider("test_key")
+        provider2 = PirateWeatherProvider('test_key')
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
@@ -431,7 +431,7 @@ class TestWeatherProviderManager:
         provider1 = OpenMeteoProvider()
         manager.add_provider(provider1, is_primary=True)
 
-        result = manager.switch_provider("UnknownProvider")
+        result = manager.switch_provider('UnknownProvider')
 
         assert result is False
         assert manager.primary_provider == provider1.name

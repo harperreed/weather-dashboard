@@ -28,7 +28,7 @@ const WEATHER_ICONS = [
 // Install event - cache static files
 self.addEventListener('install', (event) => {
   console.log('Service Worker: Installing...');
-  
+
   event.waitUntil(
     Promise.all([
       caches.open(STATIC_CACHE_NAME).then((cache) => {
@@ -48,7 +48,7 @@ self.addEventListener('install', (event) => {
       })
     ])
   );
-  
+
   // Force the service worker to activate immediately
   self.skipWaiting();
 });
@@ -56,7 +56,7 @@ self.addEventListener('install', (event) => {
 // Activate event - clean up old caches
 self.addEventListener('activate', (event) => {
   console.log('Service Worker: Activating...');
-  
+
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
@@ -69,7 +69,7 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  
+
   // Take control of all clients immediately
   self.clients.claim();
 });
@@ -78,12 +78,12 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
-  
+
   // Only handle GET requests
   if (request.method !== 'GET') {
     return;
   }
-  
+
   // Handle API requests with network-first strategy
   if (url.pathname.startsWith('/api/')) {
     event.respondWith(
@@ -104,7 +104,7 @@ self.addEventListener('fetch', (event) => {
             if (cachedResponse) {
               return cachedResponse;
             }
-            
+
             // Return a fallback response for weather API
             if (url.pathname === '/api/weather') {
               return new Response(
@@ -129,35 +129,35 @@ self.addEventListener('fetch', (event) => {
                 }
               );
             }
-            
+
             return new Response('Offline', { status: 503 });
           });
         })
     );
     return;
   }
-  
+
   // Handle static files with cache-first strategy
   event.respondWith(
     caches.match(request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      
+
       return fetch(request).then((response) => {
         // Don't cache non-successful responses
         if (!response || response.status !== 200 || response.type !== 'basic') {
           return response;
         }
-        
+
         // Cache successful responses
         const responseClone = response.clone();
         const cacheToUse = url.pathname.startsWith('/static/') ? STATIC_CACHE_NAME : CACHE_NAME;
-        
+
         caches.open(cacheToUse).then((cache) => {
           cache.put(request, responseClone);
         });
-        
+
         return response;
       });
     })
@@ -193,7 +193,7 @@ self.addEventListener('sync', (event) => {
 self.addEventListener('push', (event) => {
   if (event.data) {
     const data = event.data.json();
-    
+
     const options = {
       body: data.body || 'Weather alert!',
       icon: '/static/icons/icon-192x192.png',
@@ -211,7 +211,7 @@ self.addEventListener('push', (event) => {
         }
       ]
     };
-    
+
     event.waitUntil(
       self.registration.showNotification(data.title || 'Weather Dashboard', options)
     );
@@ -221,7 +221,7 @@ self.addEventListener('push', (event) => {
 // Handle notification clicks
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  
+
   if (event.action === 'view') {
     event.waitUntil(
       clients.openWindow('/')

@@ -2,10 +2,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
   <!-- Background circle -->
   <circle cx="256" cy="256" r="240" fill="#3b82f6" stroke="#1e3a8a" stroke-width="8"/>
-  
+
   <!-- Sun -->
   <circle cx="200" cy="180" r="50" fill="#fbbf24" stroke="#f59e0b" stroke-width="3"/>
-  
+
   <!-- Sun rays -->
   <g stroke="#fbbf24" stroke-width="4" stroke-linecap="round">
     <line x1="200" y1="110" x2="200" y2="130"/>
@@ -17,25 +17,25 @@
     <line x1="243" y1="137" x2="228" y2="152"/>
     <line x1="172" y1="208" x2="157" y2="223"/>
   </g>
-  
+
   <!-- Cloud -->
   <path d="M280 220 Q300 200 330 210 Q360 200 380 220 Q400 230 390 250 Q400 270 380 280 L300 280 Q280 270 280 250 Q270 235 280 220 Z" fill="#ffffff" stroke="#e5e7eb" stroke-width="2"/>
-  
+
   <!-- Dashboard elements -->
   <rect x="80" y="320" width="120" height="80" rx="8" fill="#ffffff" fill-opacity="0.9" stroke="#1e3a8a" stroke-width="2"/>
   <rect x="220" y="320" width="120" height="80" rx="8" fill="#ffffff" fill-opacity="0.9" stroke="#1e3a8a" stroke-width="2"/>
   <rect x="360" y="320" width="120" height="80" rx="8" fill="#ffffff" fill-opacity="0.9" stroke="#1e3a8a" stroke-width="2"/>
-  
+
   <!-- Dashboard details -->
   <text x="140" y="345" text-anchor="middle" fill="#1e3a8a" font-family="Arial, sans-serif" font-size="14" font-weight="bold">72°F</text>
   <text x="140" y="365" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="12">Current</text>
-  
+
   <text x="280" y="345" text-anchor="middle" fill="#1e3a8a" font-family="Arial, sans-serif" font-size="14" font-weight="bold">75%</text>
   <text x="280" y="365" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="12">Humidity</text>
-  
+
   <text x="420" y="345" text-anchor="middle" fill="#1e3a8a" font-family="Arial, sans-serif" font-size="14" font-weight="bold">10mph</text>
   <text x="420" y="365" text-anchor="middle" fill="#374151" font-family="Arial, sans-serif" font-size="12">Wind</text>
-  
+
   <!-- Bottom text -->
   <text x="256" y="450" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="24" font-weight="bold">WEATHER</text>
   <text x="256" y="475" text-anchor="middle" fill="#ffffff" font-family="Arial, sans-serif" font-size="16">DASHBOARD</text>
