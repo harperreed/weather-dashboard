@@ -36,14 +36,17 @@ class TestWeatherProvider:
 
         # Create a concrete implementation for testing
         class TestProvider(WeatherProvider):
-            def fetch_weather_data(self, lat: float, lon: float) -> dict[str, Any]:  # noqa: ARG002
+            def fetch_weather_data(
+                self, _lat: float, _lon: float, _tz_name: str | None = None
+            ) -> dict[str, Any] | None:
                 return {}
 
             def process_weather_data(
                 self,
-                raw_data: dict[str, Any],  # noqa: ARG002
-                location_name: str | None = None  # noqa: ARG002
-            ) -> dict[str, Any]:
+                _raw_data: dict[str, Any],
+                _location_name: str | None = None,
+                _tz_name: str | None = None
+            ) -> dict[str, Any] | None:
                 return {}
 
         provider = TestProvider("TestProvider")
@@ -345,7 +348,7 @@ class TestWeatherProviderManager:
 
         assert result == mock_weather_data
         mock_get_weather.assert_called_once_with(
-            CHICAGO_LAT, CHICAGO_LON, "Test Location"
+            CHICAGO_LAT, CHICAGO_LON, "Test Location", None
         )
 
     @patch.object(PirateWeatherProvider, "get_weather")
