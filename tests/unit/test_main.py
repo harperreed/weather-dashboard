@@ -130,6 +130,15 @@ class TestUtilityFunctions:
 
         assert result is None
 
+    def test_process_open_meteo_data_exception(self) -> None:
+        """Test process_open_meteo_data exception handling"""
+        # Create malformed data that will cause an exception
+        malformed_data = {
+            "current": "invalid_data_type"  # Should be dict, not string
+        }
+        result = process_open_meteo_data(malformed_data, "Test Location")
+        assert result is None
+
     def test_process_weather_data_success(
         self, mock_pirate_weather_response: dict[str, Any]
     ) -> None:
@@ -270,7 +279,7 @@ class TestWeatherAPIEndpoint:
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test successful weather API call"""
         # Mock cache to return no cached data
@@ -297,7 +306,7 @@ class TestWeatherAPIEndpoint:
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API with default location"""
         # Mock cache to return no cached data
@@ -333,7 +342,7 @@ class TestWeatherAPIEndpoint:
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API cache hit"""
         # Mock cache to return cached data
@@ -356,7 +365,7 @@ class TestWeatherAPIEndpoint:
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API cache miss"""
         # Mock cache to return no cached data
@@ -425,3 +434,91 @@ class TestCacheIntegration:
         assert isinstance(expected_key, str)
         assert "," in expected_key
         assert len(expected_key.split(",")) == EXPECTED_KEY_PARTS
+
+
+class TestPWARoutes:
+    """Test Progressive Web App routes and functionality"""
+
+    def test_service_worker_route(self, client: Any) -> None:
+        """Test service worker route serves the correct file"""
+        response = client.get("/sw.js")
+        assert response.status_code == HTTP_OK
+        assert response.content_type == "text/javascript; charset=utf-8"
+        assert b"Service Worker" in response.data
+
+    def test_manifest_route(self, client: Any) -> None:
+        """Test manifest.json route serves the correct file"""
+        response = client.get("/manifest.json")
+        assert response.status_code == HTTP_OK
+        assert response.content_type == "application/manifest+json"
+
+        # Parse the manifest to ensure it's valid JSON
+        manifest_data = json.loads(response.data)
+        assert "name" in manifest_data
+        assert "short_name" in manifest_data
+        assert "start_url" in manifest_data
+
+
+class TestLegacyAPI:
+    """Test legacy API functions for compatibility"""
+
+    @patch("main.pirate_weather_api_key", "test_key")
+    @patch("requests.get")
+    def test_get_weather_data_success(self, mock_get: MagicMock) -> None:
+        """Test legacy get_weather_data function success"""
+        from main import get_weather_data
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {"temperature": 72}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        result = get_weather_data(41.8781, -87.6298)
+        assert result == {"temperature": 72}
+        mock_get.assert_called_once()
+
+    @patch("main.pirate_weather_api_key", "test_key")
+    @patch("main.weather_cache")
+    @patch("requests.get")
+    def test_get_weather_data_failure(
+        self, mock_get: MagicMock, mock_cache: MagicMock
+    ) -> None:
+        """Test legacy get_weather_data function failure"""
+        import requests
+
+        from main import get_weather_data
+
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+        mock_get.side_effect = requests.exceptions.RequestException("Network error")
+
+        # Use different coordinates to avoid cache
+        result = get_weather_data(42.0, -88.0)
+        assert result is None
+
+    @patch("main.pirate_weather_api_key", "test_key")
+    @patch("main.weather_cache")
+    def test_get_weather_data_defaults(self, mock_cache: MagicMock) -> None:
+        """Test legacy get_weather_data function with default coordinates"""
+        from main import get_weather_data
+
+        # Mock cache miss for default coordinates
+        mock_cache.__contains__.return_value = False
+
+        with patch("requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"temperature": 72}
+            mock_response.raise_for_status.return_value = None
+            mock_get.return_value = mock_response
+
+            # Test with None coordinates (should use Chicago defaults)
+            result = get_weather_data(None, None)
+            assert result == {"temperature": 72}
+
+            # Verify it used Chicago coordinates
+            mock_get.assert_called_once()
+            args = mock_get.call_args
+            assert "41.8781" in args[0][0]  # URL should contain Chicago lat
+            assert "-87.6298" in args[0][0]  # URL should contain Chicago lon

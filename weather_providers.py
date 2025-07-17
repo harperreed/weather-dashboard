@@ -73,7 +73,10 @@ class OpenMeteoProvider(WeatherProvider):
         self.base_url = "https://api.open-meteo.com/v1/forecast"
 
     def fetch_weather_data(
-        self, lat: float, lon: float, tz_name: str | None = None  # noqa: ARG002
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
     ) -> dict | None:
         """Fetch weather data from Open-Meteo API"""
         try:
@@ -301,7 +304,10 @@ class PirateWeatherProvider(WeatherProvider):
         self.base_url = "https://api.pirateweather.net/forecast"
 
     def fetch_weather_data(
-        self, lat: float, lon: float, tz_name: str | None = None  # noqa: ARG002
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
     ) -> dict | None:
         """Fetch weather data from PirateWeather API"""
         if not self.api_key or self.api_key == "YOUR_API_KEY_HERE":

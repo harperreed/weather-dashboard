@@ -52,6 +52,7 @@ omit = [
     "*/.venv/*",
     "setup.py",
     "conftest.py",
+    "run_tests.py",
 ]
 
 [tool.coverage.report]

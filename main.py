@@ -1,5 +1,5 @@
 import os
-import subprocess
+import subprocess  # nosec B404 # Safe subprocess usage for git commands
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -84,12 +84,13 @@ if pirate_weather_api_key and pirate_weather_api_key != "YOUR_API_KEY_HERE":
 def get_git_hash() -> str:
     """Get the current git commit hash"""
     try:
-        result = subprocess.run(
+        result = subprocess.run(  # nosec B603 B607 # Safe git command execution
             ["git", "rev-parse", "--short", "HEAD"],
             capture_output=True,
             text=True,
             timeout=5,
-            cwd=os.path.dirname(__file__) or ".", check=False
+            cwd=os.path.dirname(__file__) or ".",
+            check=False,
         )
         if result.returncode == 0:
             return result.stdout.strip()
@@ -632,6 +633,4 @@ def manifest() -> Response:
 if __name__ == "__main__":
     port = int(os.getenv("PORT", "5001"))
     host = os.getenv("HOST", "127.0.0.1")  # Default to localhost, allow override
-    socketio.run(
-        app, debug=False, host=host, port=port, allow_unsafe_werkzeug=True
-    )
+    socketio.run(app, debug=False, host=host, port=port, allow_unsafe_werkzeug=True)

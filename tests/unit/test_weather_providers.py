@@ -45,7 +45,7 @@ class TestWeatherProvider:
                 self,
                 _raw_data: dict[str, Any],
                 _location_name: str | None = None,
-                _tz_name: str | None = None
+                _tz_name: str | None = None,
             ) -> dict[str, Any] | None:
                 return {}
 
