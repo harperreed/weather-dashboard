@@ -2,7 +2,7 @@
 # ABOUTME: Simplified build process to avoid UV permission issues on Fly.io
 
 # Build stage
-FROM python:3.12-slim-bookworm AS builder
+FROM python:3.10-slim-bookworm AS builder
 
 # Set working directory
 WORKDIR /app
@@ -23,7 +23,7 @@ RUN pip install uv
 RUN uv pip install --system --compile-bytecode .
 
 # Production stage
-FROM python:3.12-slim-bookworm
+FROM python:3.10-slim-bookworm
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -39,7 +39,7 @@ RUN groupadd --gid 1000 app && \
 WORKDIR /app
 
 # Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
