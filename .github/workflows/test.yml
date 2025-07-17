@@ -91,4 +91,4 @@ jobs:
 
       - name: Check coverage threshold
         run: |
-          uv run coverage report --fail-under=70
+          uv run coverage report --fail-under=80
