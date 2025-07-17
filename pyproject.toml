@@ -135,6 +135,8 @@ ignore = [
     "PLR0913", # Too many arguments to function call
     "PLR0912", # Too many branches
     "PD901",   # Avoid using the generic variable name df for DataFrames
+    "Q000",  # Single quotes found but double quotes preferred (conflicts with formatter)
+    "Q003",  # Change outer quotes to avoid escaping inner quotes (conflicts with formatter)
 ]
 
 # Allow unfixable rules
