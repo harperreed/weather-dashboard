@@ -96,7 +96,7 @@ class TestFrontendComponents:
             os.path.dirname(__file__), "..", "test_components.html"
         )
 
-        with open(test_file_path) as f:
+        with open(test_file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check for essential HTML structure
@@ -122,7 +122,7 @@ class TestFrontendComponents:
             os.path.dirname(__file__), "..", "test_components.html"
         )
 
-        with open(test_file_path) as f:
+        with open(test_file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check for test data structure
@@ -146,7 +146,7 @@ class TestFrontendComponents:
             os.path.dirname(__file__), "..", "test_components.html"
         )
 
-        with open(test_file_path) as f:
+        with open(test_file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check for event handling
@@ -162,7 +162,7 @@ class TestFrontendComponents:
             os.path.dirname(__file__), "..", "test_components.html"
         )
 
-        with open(test_file_path) as f:
+        with open(test_file_path, encoding="utf-8") as f:
             content = f.read()
 
         # Check for CSS styling
