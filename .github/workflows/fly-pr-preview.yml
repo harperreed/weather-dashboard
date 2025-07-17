@@ -96,7 +96,7 @@ jobs:
           EOF
 
             # Launch the preview app
-            flyctl launch --copy-config --name ${{ steps.app-name.outputs.name }} --config fly.preview.toml --no-deploy --org personal
+            flyctl apps create ${{ steps.app-name.outputs.name }} --org personal
             flyctl deploy --app ${{ steps.app-name.outputs.name }} --config fly.preview.toml --remote-only
           fi
         env:
