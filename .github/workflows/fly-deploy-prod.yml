@@ -1,0 +1,75 @@
+# ABOUTME: GitHub Actions workflow for production deployments to Fly.io
+# ABOUTME: Deploys to production when changes are merged to main branch
+
+name: Fly.io Production Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@master
+
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying to production..."
+          flyctl deploy --remote-only --app weather-dashboard
+          echo "✅ Production deployment complete!"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Verify deployment
+        run: |
+          echo "🔍 Verifying deployment..."
+          flyctl status --app weather-dashboard
+
+          # Wait for health checks to pass
+          echo "⏳ Waiting for health checks..."
+          sleep 30
+
+          # Check if the app is responding
+          if curl -f -s https://weather-dashboard.fly.dev/api/cache/stats > /dev/null; then
+            echo "✅ Health check passed - app is responding"
+          else
+            echo "❌ Health check failed - app is not responding"
+            exit 1
+          fi
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Production deployment failed - ${context.sha.substring(0, 7)}`,
+              body: `Production deployment failed for commit ${context.sha}.
+
+              **Workflow**: ${context.workflow}
+              **Run**: ${context.runNumber}
+
+              [View logs](${context.payload.repository.html_url}/actions/runs/${context.runId})
+
+              Please investigate and fix the issue.`,
+              labels: ['deployment', 'production', 'bug']
+            });
+
+            console.log('Created issue:', issue.data.html_url);

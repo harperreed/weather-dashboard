@@ -1,46 +1,46 @@
-# ABOUTME: Multi-stage Docker build using UV for Python dependency management
-# ABOUTME: Optimized for production with smaller final image size
+# ABOUTME: Multi-stage Docker build for weather dashboard using standard Python approach
+# ABOUTME: Simplified build process to avoid UV permission issues on Fly.io
 
-# Build stage - install dependencies
-FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim AS builder
+# Build stage
+FROM python:3.12-slim-bookworm AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies needed for building Python packages
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy dependency files first for better caching
-COPY pyproject.toml uv.lock ./
+# Copy requirements
+COPY pyproject.toml ./
 
-# Install dependencies into virtual environment
-# --frozen ensures exact versions from lockfile
-# --no-cache prevents UV cache from bloating the image
-RUN uv sync --frozen --no-cache --no-dev
+# Install UV
+RUN pip install uv
 
-# Production stage - minimal runtime
-FROM python:3.13-slim-bookworm
+# Install dependencies
+RUN uv pip install --system --compile-bytecode .
 
-# Install uv for runtime
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Production stage
+FROM python:3.12-slim-bookworm
 
-# Install timezone data and configure timezone
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y \
     tzdata \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create non-root user for security
+# Create non-root user
 RUN groupadd --gid 1000 app && \
     useradd --uid 1000 --gid app --shell /bin/bash --create-home app
 
 # Set working directory
 WORKDIR /app
 
-# Copy virtual environment from builder stage with proper ownership
-COPY --from=builder --chown=app:app /app/.venv /app/.venv
+# Copy Python packages from builder
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy application code
 COPY --chown=app:app . .
@@ -48,10 +48,7 @@ COPY --chown=app:app . .
 # Switch to non-root user
 USER app
 
-# Ensure we use the virtual environment
-ENV PATH="/app/.venv/bin:$PATH"
-
-# Set production environment
+# Set environment variables
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -64,4 +61,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 EXPOSE 5001
 
 # Run the application
-CMD ["uv", "run", "main.py"]
+CMD ["python", "main.py"]
