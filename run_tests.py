@@ -15,7 +15,7 @@ from pathlib import Path
 def run_command(cmd: list[str], description: str) -> bool:
     """Run a command and return success status"""
     print(f'\n🚀 {description}')
-    print(f"Command: {' '.join(cmd)}")
+    print(f'Command: {" ".join(cmd)}')
     print('-' * 50)
 
     result = subprocess.run(cmd, capture_output=False, check=False)  # nosec B603 # Safe subprocess usage with known command list

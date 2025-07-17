@@ -119,8 +119,7 @@ def get_weather_from_open_meteo(lat: float, lon: float) -> dict | None:
             'wind_speed_10m_max,uv_index_max'
         )
         url += (
-            '&temperature_unit=fahrenheit&wind_speed_unit=mph&'
-            'precipitation_unit=inch'
+            '&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch'
         )
         url += '&timezone=auto&forecast_days=7'
 
@@ -446,8 +445,7 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
     if city_lower in CITY_COORDS:
         return str(render_template('weather.html', git_hash=get_git_hash()))
     return (
-        f"City '{city}' not found. Available cities: "
-        f"{', '.join(CITY_COORDS.keys())}"
+        f"City '{city}' not found. Available cities: {', '.join(CITY_COORDS.keys())}"
     ), 404
 
 
