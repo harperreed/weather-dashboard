@@ -19,9 +19,11 @@ repos:
     - repo: https://github.com/astral-sh/ruff-pre-commit
       rev: v0.6.4
       hooks:
-          # Run the linter
-          - id: ruff # lint + auto-fix + format in one pass
+          # Run the linter (matches workflow: ruff check)
+          - id: ruff
             args: [--fix]
+          # Run the formatter check (matches workflow: ruff format --check)
+          - id: ruff-format
     # Python security linter
     - repo: https://github.com/PyCQA/bandit
       rev: 1.7.7
@@ -36,6 +38,17 @@ repos:
           - id: mypy
             additional_dependencies: [types-requests, types-cachetools]
             args: [--ignore-missing-imports]
+
+    # Test coverage check (matches workflow requirement)
+    - repo: local
+      hooks:
+          - id: pytest-coverage
+            name: pytest with coverage check
+            entry: uv run pytest --cov=. --cov-report=term-missing --cov-fail-under=80
+            language: system
+            types: [python]
+            pass_filenames: false
+            always_run: true
 
     # Dockerfile linting
     # - repo: https://github.com/hadolint/hadolint

@@ -2,10 +2,13 @@ import json
 from typing import Any
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from main import (
     CHICAGO_LAT,
     CHICAGO_LON,
     CITY_COORDS,
+    get_weather_data,
     get_weather_description,
     get_weather_from_open_meteo,
     get_weather_icon,
@@ -41,37 +44,37 @@ class TestUtilityFunctions:
 
     def test_map_open_meteo_weather_code(self) -> None:
         """Test OpenMeteo weather code mapping"""
-        assert map_open_meteo_weather_code(0) == "clear-day"
-        assert map_open_meteo_weather_code(2) == "partly-cloudy-day"
-        assert map_open_meteo_weather_code(3) == "cloudy"
-        assert map_open_meteo_weather_code(45) == "fog"
-        assert map_open_meteo_weather_code(61) == "light-rain"
-        assert map_open_meteo_weather_code(95) == "thunderstorm"
+        assert map_open_meteo_weather_code(0) == 'clear-day'
+        assert map_open_meteo_weather_code(2) == 'partly-cloudy-day'
+        assert map_open_meteo_weather_code(3) == 'cloudy'
+        assert map_open_meteo_weather_code(45) == 'fog'
+        assert map_open_meteo_weather_code(61) == 'light-rain'
+        assert map_open_meteo_weather_code(95) == 'thunderstorm'
 
         # Test unknown code defaults to clear-day
-        assert map_open_meteo_weather_code(999) == "clear-day"
+        assert map_open_meteo_weather_code(999) == 'clear-day'
 
     def test_get_weather_icon(self) -> None:
         """Test weather icon mapping"""
-        assert get_weather_icon("clear-day") == "clear-day"
-        assert get_weather_icon("rain") == "rain"
-        assert get_weather_icon("snow") == "snow"
-        assert get_weather_icon("thunderstorm") == "thunderstorm"
+        assert get_weather_icon('clear-day') == 'clear-day'
+        assert get_weather_icon('rain') == 'rain'
+        assert get_weather_icon('snow') == 'snow'
+        assert get_weather_icon('thunderstorm') == 'thunderstorm'
 
         # Test unknown icon defaults to clear-day
-        assert get_weather_icon("unknown") == "clear-day"
+        assert get_weather_icon('unknown') == 'clear-day'
 
     def test_get_weather_description(self) -> None:
         """Test weather description mapping"""
-        assert get_weather_description(0) == "Clear sky"
-        assert get_weather_description(2) == "Partly cloudy"
-        assert get_weather_description(61) == "Slight rain"
-        assert get_weather_description(95) == "Thunderstorm"
+        assert get_weather_description(0) == 'Clear sky'
+        assert get_weather_description(2) == 'Partly cloudy'
+        assert get_weather_description(61) == 'Slight rain'
+        assert get_weather_description(95) == 'Thunderstorm'
 
         # Test unknown code
-        assert get_weather_description(999) == "Unknown"
+        assert get_weather_description(999) == 'Unknown'
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_get_weather_from_open_meteo_success(
         self, mock_get: MagicMock, mock_open_meteo_response: dict[str, Any]
     ) -> None:
@@ -86,10 +89,10 @@ class TestUtilityFunctions:
         assert result == mock_open_meteo_response
         mock_get.assert_called_once()
 
-    @patch("requests.get")
+    @patch('requests.get')
     def test_get_weather_from_open_meteo_failure(self, mock_get: MagicMock) -> None:
         """Test failed OpenMeteo API call"""
-        mock_get.side_effect = Exception("API Error")
+        mock_get.side_effect = Exception('API Error')
 
         result = get_weather_from_open_meteo(41.8781, -87.6298)
 
@@ -99,63 +102,72 @@ class TestUtilityFunctions:
         self, mock_open_meteo_response: dict[str, Any]
     ) -> None:
         """Test successful OpenMeteo data processing"""
-        result = process_open_meteo_data(mock_open_meteo_response, "Test Location")
+        result = process_open_meteo_data(mock_open_meteo_response, 'Test Location')
 
         assert result is not None
-        assert result["location"] == "Test Location"
-        assert "current" in result
-        assert "hourly" in result
-        assert "daily" in result
+        assert result['location'] == 'Test Location'
+        assert 'current' in result
+        assert 'hourly' in result
+        assert 'daily' in result
 
         # Test current weather structure
-        current = result["current"]
-        assert current["temperature"] == MOCK_TEMP
-        assert current["feels_like"] == MOCK_FEELS_LIKE
-        assert current["humidity"] == MOCK_HUMIDITY
-        assert current["wind_speed"] == MOCK_WIND_SPEED
-        assert current["uv_index"] == MOCK_UV_INDEX
-        assert current["icon"] == "clear-day"
-        assert current["summary"] == "Clear sky"
+        current = result['current']
+        assert current['temperature'] == MOCK_TEMP
+        assert current['feels_like'] == MOCK_FEELS_LIKE
+        assert current['humidity'] == MOCK_HUMIDITY
+        assert current['wind_speed'] == MOCK_WIND_SPEED
+        assert current['uv_index'] == MOCK_UV_INDEX
+        assert current['icon'] == 'clear-day'
+        assert current['summary'] == 'Clear sky'
 
     def test_process_open_meteo_data_empty(self) -> None:
         """Test processing empty OpenMeteo data"""
-        result = process_open_meteo_data({}, "Test Location")
+        result = process_open_meteo_data({}, 'Test Location')
 
         # Empty data should return None (matching the actual behavior)
         assert result is None
 
     def test_process_open_meteo_data_none(self) -> None:
         """Test processing None OpenMeteo data"""
-        result = process_open_meteo_data(None, "Test Location")
+        result = process_open_meteo_data(None, 'Test Location')
 
+        assert result is None
+
+    def test_process_open_meteo_data_exception(self) -> None:
+        """Test process_open_meteo_data exception handling"""
+        # Create malformed data that will cause an exception
+        malformed_data = {
+            'current': 'invalid_data_type'  # Should be dict, not string
+        }
+        result = process_open_meteo_data(malformed_data, 'Test Location')
         assert result is None
 
     def test_process_weather_data_success(
         self, mock_pirate_weather_response: dict[str, Any]
     ) -> None:
         """Test successful PirateWeather data processing"""
-        result = process_weather_data(mock_pirate_weather_response, "Test Location")
+        result = process_weather_data(mock_pirate_weather_response, 'Test Location')
 
         assert result is not None
-        assert result["location"] == "Test Location"
-        assert "current" in result
-        assert "hourly" in result
-        assert "daily" in result
-        assert "last_updated" in result
+        assert result['location'] == 'Test Location'
+        assert 'current' in result
+        assert 'hourly' in result
+        assert 'daily' in result
+        assert 'last_updated' in result
 
         # Test current weather structure
-        current = result["current"]
-        assert current["temperature"] == MOCK_TEMP
-        assert current["feels_like"] == MOCK_FEELS_LIKE
-        assert current["humidity"] == MOCK_HUMIDITY
-        assert current["wind_speed"] == MOCK_WIND_SPEED
-        assert current["uv_index"] == MOCK_UV_INDEX
-        assert current["icon"] == "clear-day"
-        assert current["summary"] == "Clear sky"
+        current = result['current']
+        assert current['temperature'] == MOCK_TEMP
+        assert current['feels_like'] == MOCK_FEELS_LIKE
+        assert current['humidity'] == MOCK_HUMIDITY
+        assert current['wind_speed'] == MOCK_WIND_SPEED
+        assert current['uv_index'] == MOCK_UV_INDEX
+        assert current['icon'] == 'clear-day'
+        assert current['summary'] == 'Clear sky'
 
     def test_process_weather_data_none(self) -> None:
         """Test processing None weather data"""
-        result = process_weather_data({}, "Test Location")
+        result = process_weather_data({}, 'Test Location')
 
         assert result is None
 
@@ -165,153 +177,153 @@ class TestFlaskRoutes:
 
     def test_index_route(self, client: Any) -> None:
         """Test the index route"""
-        response = client.get("/")
+        response = client.get('/')
         assert response.status_code == HTTP_OK
-        assert b"weather.html" in response.data or b"html" in response.data
+        assert b'weather.html' in response.data or b'html' in response.data
 
     def test_weather_by_coords_route(self, client: Any) -> None:
         """Test weather by coordinates route"""
         # NOTE: This route has issues with Flask's comma parsing in URL patterns
         # For now, expect 404 until the route pattern is fixed
-        response = client.get("/41.8781,-87.6298")
+        response = client.get('/41.8781,-87.6298')
         assert response.status_code == HTTP_NOT_FOUND
 
     def test_weather_by_coords_and_location_route(self, client: Any) -> None:
         """Test weather by coordinates and location route"""
         # NOTE: This route has issues with Flask's comma parsing in URL patterns
         # For now, expect 404 until the route pattern is fixed
-        response = client.get("/41.8781,-87.6298/Chicago")
+        response = client.get('/41.8781,-87.6298/Chicago')
         assert response.status_code == HTTP_NOT_FOUND
 
     def test_weather_by_city_route_valid(self, client: Any) -> None:
         """Test weather by city route with valid city"""
-        response = client.get("/chicago")
+        response = client.get('/chicago')
         assert response.status_code == HTTP_OK
 
     def test_weather_by_city_route_invalid(self, client: Any) -> None:
         """Test weather by city route with invalid city"""
-        response = client.get("/invalid_city")
+        response = client.get('/invalid_city')
         assert response.status_code == HTTP_NOT_FOUND
-        assert b"not found" in response.data
+        assert b'not found' in response.data
 
     def test_static_files_route(self, client: Any) -> None:
         """Test static files route"""
-        response = client.get("/static/js/weather-components.js")
+        response = client.get('/static/js/weather-components.js')
         # File might not exist in test
         assert response.status_code in (HTTP_OK, HTTP_NOT_FOUND)
 
     def test_cache_stats_route(self, client: Any) -> None:
         """Test cache statistics route"""
-        response = client.get("/api/cache/stats")
+        response = client.get('/api/cache/stats')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert "cache_size" in data
-        assert "max_size" in data
-        assert "ttl_seconds" in data
-        assert "cached_locations" in data
+        assert 'cache_size' in data
+        assert 'max_size' in data
+        assert 'ttl_seconds' in data
+        assert 'cached_locations' in data
 
     def test_providers_route(self, client: Any) -> None:
         """Test providers information route"""
-        response = client.get("/api/providers")
+        response = client.get('/api/providers')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert "primary" in data
-        assert "fallbacks" in data
-        assert "providers" in data
+        assert 'primary' in data
+        assert 'fallbacks' in data
+        assert 'providers' in data
 
     def test_switch_provider_route_success(self, client: Any) -> None:
         """Test successful provider switching"""
         response = client.post(
-            "/api/providers/switch",
-            json={"provider": "OpenMeteo"},
-            content_type="application/json",
+            '/api/providers/switch',
+            json={'provider': 'OpenMeteo'},
+            content_type='application/json',
         )
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data["success"] is True
-        assert "message" in data
-        assert "provider_info" in data
+        assert data['success'] is True
+        assert 'message' in data
+        assert 'provider_info' in data
 
     def test_switch_provider_route_missing_provider(self, client: Any) -> None:
         """Test provider switching without provider name"""
         response = client.post(
-            "/api/providers/switch", json={}, content_type="application/json"
+            '/api/providers/switch', json={}, content_type='application/json'
         )
         assert response.status_code == HTTP_BAD_REQUEST
 
         data = json.loads(response.data)
-        assert "error" in data
+        assert 'error' in data
 
     def test_switch_provider_route_unknown_provider(self, client: Any) -> None:
         """Test provider switching with unknown provider"""
         response = client.post(
-            "/api/providers/switch",
-            json={"provider": "UnknownProvider"},
-            content_type="application/json",
+            '/api/providers/switch',
+            json={'provider': 'UnknownProvider'},
+            content_type='application/json',
         )
         assert response.status_code == HTTP_BAD_REQUEST
 
         data = json.loads(response.data)
-        assert data["success"] is False
-        assert "error" in data
-        assert "available_providers" in data
+        assert data['success'] is False
+        assert 'error' in data
+        assert 'available_providers' in data
 
 
 class TestWeatherAPIEndpoint:
     """Test the weather API endpoint"""
 
-    @patch("main.weather_cache")  # Mock cache to avoid hits
-    @patch("main.weather_manager.get_weather")
+    @patch('main.weather_cache')  # Mock cache to avoid hits
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_success(
         self,
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test successful weather API call"""
         # Mock cache to return no cached data
         mock_cache.__contains__.return_value = False
         mock_get_weather.return_value = mock_weather_data
 
-        response = client.get("/api/weather?lat=41.8781&lon=-87.6298&location=Chicago")
+        response = client.get('/api/weather?lat=41.8781&lon=-87.6298&location=Chicago')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data["location"] == "Test Location"  # Match the mock data
-        assert "current" in data
-        assert "hourly" in data
-        assert "daily" in data
+        assert data['location'] == 'Test Location'  # Match the mock data
+        assert 'current' in data
+        assert 'hourly' in data
+        assert 'daily' in data
 
         # Check cache headers
-        assert "Cache-Control" in response.headers
-        assert "ETag" in response.headers
+        assert 'Cache-Control' in response.headers
+        assert 'ETag' in response.headers
 
-    @patch("main.weather_cache")  # Mock cache to avoid hits
-    @patch("main.weather_manager.get_weather")
+    @patch('main.weather_cache')  # Mock cache to avoid hits
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_default_location(
         self,
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API with default location"""
         # Mock cache to return no cached data
         mock_cache.__contains__.return_value = False
         mock_get_weather.return_value = mock_weather_data
 
-        response = client.get("/api/weather")
+        response = client.get('/api/weather')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data["location"] == "Test Location"  # Match the mock data
+        assert data['location'] == 'Test Location'  # Match the mock data
 
-    @patch("main.weather_cache")  # Mock cache to avoid hits
-    @patch("main.weather_manager.get_weather")
+    @patch('main.weather_cache')  # Mock cache to avoid hits
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_failure(
         self, mock_get_weather: MagicMock, mock_cache: MagicMock, client: Any
     ) -> None:
@@ -320,54 +332,54 @@ class TestWeatherAPIEndpoint:
         mock_cache.__contains__.return_value = False
         mock_get_weather.return_value = None
 
-        response = client.get("/api/weather?lat=41.8781&lon=-87.6298")
+        response = client.get('/api/weather?lat=41.8781&lon=-87.6298')
         assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
 
         data = json.loads(response.data)
-        assert "error" in data
+        assert 'error' in data
 
-    @patch("main.weather_cache")
-    @patch("main.weather_manager.get_weather")
+    @patch('main.weather_cache')
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_cache_hit(
         self,
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API cache hit"""
         # Mock cache to return cached data
         mock_cache.__contains__.return_value = True
         mock_cache.__getitem__.return_value = mock_weather_data
 
-        response = client.get("/api/weather?lat=41.8781&lon=-87.6298&location=Chicago")
+        response = client.get('/api/weather?lat=41.8781&lon=-87.6298&location=Chicago')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data["location"] == "Chicago"
+        assert data['location'] == 'Chicago'
 
         # Verify weather manager was not called (cache hit)
         mock_get_weather.assert_not_called()
 
-    @patch("main.weather_cache")
-    @patch("main.weather_manager.get_weather")
+    @patch('main.weather_cache')
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_cache_miss(
         self,
         mock_get_weather: MagicMock,
         mock_cache: MagicMock,
         client: Any,
-        mock_weather_data: dict[str, Any]
+        mock_weather_data: dict[str, Any],
     ) -> None:
         """Test weather API cache miss"""
         # Mock cache to return no cached data
         mock_cache.__contains__.return_value = False
         mock_get_weather.return_value = mock_weather_data
 
-        response = client.get("/api/weather?lat=41.8781&lon=-87.6298&location=Chicago")
+        response = client.get('/api/weather?lat=41.8781&lon=-87.6298&location=Chicago')
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data["location"] == "Test Location"  # Match the mock data
+        assert data['location'] == 'Test Location'  # Match the mock data
 
         # Verify weather manager was called (cache miss)
         mock_get_weather.assert_called_once()
@@ -382,16 +394,16 @@ class TestCityCoords:
     def test_city_coords_structure(self) -> None:
         """Test that CITY_COORDS has the expected structure"""
         assert isinstance(CITY_COORDS, dict)
-        assert "chicago" in CITY_COORDS
-        assert "nyc" in CITY_COORDS
-        assert "sf" in CITY_COORDS
+        assert 'chicago' in CITY_COORDS
+        assert 'nyc' in CITY_COORDS
+        assert 'sf' in CITY_COORDS
 
         # Test chicago coordinates
-        chicago_data = CITY_COORDS["chicago"]
+        chicago_data = CITY_COORDS['chicago']
         assert len(chicago_data) == EXPECTED_COORDS_COUNT
         assert chicago_data[0] == CHICAGO_LAT  # lat
         assert chicago_data[1] == CHICAGO_LON  # lon
-        assert chicago_data[2] == "Chicago"  # name
+        assert chicago_data[2] == 'Chicago'  # name
 
     def test_all_cities_have_valid_coords(self) -> None:
         """Test that all cities have valid coordinate data"""
@@ -420,8 +432,91 @@ class TestCacheIntegration:
         # Test key format matches expected pattern
         lat = round(CHICAGO_LAT, 4)
         lon = round(CHICAGO_LON, 4)
-        expected_key = f"{lat},{lon}"
+        expected_key = f'{lat},{lon}'
 
         assert isinstance(expected_key, str)
-        assert "," in expected_key
-        assert len(expected_key.split(",")) == EXPECTED_KEY_PARTS
+        assert ',' in expected_key
+        assert len(expected_key.split(',')) == EXPECTED_KEY_PARTS
+
+
+class TestPWARoutes:
+    """Test Progressive Web App routes and functionality"""
+
+    def test_service_worker_route(self, client: Any) -> None:
+        """Test service worker route serves the correct file"""
+        response = client.get('/sw.js')
+        assert response.status_code == HTTP_OK
+        assert response.content_type == 'text/javascript'
+        assert b'Service Worker' in response.data
+        # Check security headers
+        assert response.headers.get('X-Content-Type-Options') == 'nosniff'
+        assert response.headers.get('X-Frame-Options') == 'DENY'
+
+    def test_manifest_route(self, client: Any) -> None:
+        """Test manifest.json route serves the correct file"""
+        response = client.get('/manifest.json')
+        assert response.status_code == HTTP_OK
+        assert response.content_type == 'application/manifest+json'
+
+        # Parse the manifest to ensure it's valid JSON
+        manifest_data = json.loads(response.data)
+        assert 'name' in manifest_data
+        assert 'short_name' in manifest_data
+        assert 'start_url' in manifest_data
+
+
+class TestLegacyAPI:
+    """Test legacy API functions for compatibility"""
+
+    @patch('main.pirate_weather_api_key', 'test_key')
+    @patch('requests.get')
+    def test_get_weather_data_success(self, mock_get: MagicMock) -> None:
+        """Test legacy get_weather_data function success"""
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = {'temperature': 72}
+        mock_response.raise_for_status.return_value = None
+        mock_get.return_value = mock_response
+
+        result = get_weather_data(41.8781, -87.6298)
+        assert result == {'temperature': 72}
+        mock_get.assert_called_once()
+
+    @patch('main.pirate_weather_api_key', 'test_key')
+    @patch('main.weather_cache')
+    @patch('requests.get')
+    def test_get_weather_data_failure(
+        self, mock_get: MagicMock, mock_cache: MagicMock
+    ) -> None:
+        """Test legacy get_weather_data function failure"""
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+        mock_get.side_effect = requests.exceptions.RequestException('Network error')
+
+        # Use different coordinates to avoid cache
+        result = get_weather_data(42.0, -88.0)
+        assert result is None
+
+    @patch('main.pirate_weather_api_key', 'test_key')
+    @patch('main.weather_cache')
+    def test_get_weather_data_defaults(self, mock_cache: MagicMock) -> None:
+        """Test legacy get_weather_data function with default coordinates"""
+        # Mock cache miss for default coordinates
+        mock_cache.__contains__.return_value = False
+
+        with patch('requests.get') as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {'temperature': 72}
+            mock_response.raise_for_status.return_value = None
+            mock_get.return_value = mock_response
+
+            # Test with None coordinates (should use Chicago defaults)
+            result = get_weather_data(None, None)
+            assert result == {'temperature': 72}
+
+            # Verify it used Chicago coordinates
+            mock_get.assert_called_once()
+            args = mock_get.call_args
+            assert '41.8781' in args[0][0]  # URL should contain Chicago lat
+            assert '-87.6298' in args[0][0]  # URL should contain Chicago lon
