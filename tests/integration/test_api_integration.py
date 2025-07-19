@@ -162,9 +162,12 @@ class TestWeatherAPIIntegration:
         response = client.get('/nonexistent_city')
         assert response.status_code == HTTP_NOT_FOUND
 
-        # Test coordinate routes - these have issues with Flask's comma parsing
-        # For now, expect 404 until the route pattern is fixed
+        # Test coordinate routes - now handled by city route with coordinate detection
         response = client.get('/41.8781,-87.6298')
+        assert response.status_code == HTTP_OK
+
+        # Test invalid coordinates
+        response = client.get('/91.0,-181.0')
         assert response.status_code == HTTP_NOT_FOUND
 
         response = client.get('/41.8781,-87.6298/Chicago')

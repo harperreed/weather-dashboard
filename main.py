@@ -326,6 +326,35 @@ def index() -> str:
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
+@app.route('/<city>')  # type: ignore[misc]
+def weather_by_city(city: str) -> str | tuple[str, int]:
+    """Weather page for common cities"""
+    city_lower = city.lower()
+    if city_lower in CITY_COORDS:
+        return str(render_template('weather.html', git_hash=get_git_hash()))
+
+    # Check if this might be coordinates (contains comma and numbers)
+    coord_chars = {'.', '-'}
+    if ',' in city and any(char.isdigit() or char in coord_chars for char in city):
+        try:
+            parts = city.split(',')
+            coord_parts_expected = 2
+            if len(parts) == coord_parts_expected:
+                lat = float(parts[0])
+                lon = float(parts[1])
+                # Valid coordinate range check
+                min_lat, max_lat = -90, 90
+                min_lon, max_lon = -180, 180
+                if min_lat <= lat <= max_lat and min_lon <= lon <= max_lon:
+                    return str(render_template('weather.html', git_hash=get_git_hash()))
+        except ValueError:
+            pass
+
+    return (
+        f"City '{city}' not found. Available cities: {', '.join(CITY_COORDS.keys())}"
+    ), 404
+
+
 @app.route('/<float:lat>,<float:lon>', methods=['GET'])  # type: ignore[misc]
 def weather_by_coords(_lat: float, _lon: float) -> str:
     """Weather page for specific coordinates"""
@@ -336,17 +365,6 @@ def weather_by_coords(_lat: float, _lon: float) -> str:
 def weather_by_coords_and_location(_lat: float, _lon: float, _location: str) -> str:
     """Weather page for specific coordinates and location name"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
-
-
-@app.route('/<city>')  # type: ignore[misc]
-def weather_by_city(city: str) -> str | tuple[str, int]:
-    """Weather page for common cities"""
-    city_lower = city.lower()
-    if city_lower in CITY_COORDS:
-        return str(render_template('weather.html', git_hash=get_git_hash()))
-    return (
-        f"City '{city}' not found. Available cities: {', '.join(CITY_COORDS.keys())}"
-    ), 404
 
 
 @app.route('/api/weather')  # type: ignore[misc]
