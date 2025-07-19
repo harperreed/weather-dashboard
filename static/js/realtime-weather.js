@@ -9,10 +9,13 @@ class RealTimeWeatherManager {
         this.maxRetries = 3;
         this.retryDelay = 1000; // Start with 1 second
         this.pollingInterval = null;
-        this.pollingDelay = 600000; // 10 minutes
+        this.pollingDelay = 180000; // 3 minutes for real-time precipitation detection
+        this.precipitationPollingInterval = null;
+        this.precipitationPollingDelay = 60000; // 1 minute when precipitation detected
         this.usePolling = false;
         this.currentLocation = null;
         this.eventHandlers = new Map();
+        this.hasPrecipitation = false;
 
         this.init();
     }
@@ -63,6 +66,7 @@ class RealTimeWeatherManager {
             // Weather-specific event handlers
             this.socket.on('weather_update', (data) => {
                 console.log('🌤️  Received weather update via WebSocket');
+                this.handleWeatherUpdate(data);
                 this.broadcastEvent('weather_update', data);
             });
 
@@ -165,6 +169,7 @@ class RealTimeWeatherManager {
             if (response.ok) {
                 const data = await response.json();
                 console.log('🌤️  Weather data fetched via polling');
+                this.handleWeatherUpdate(data);
                 this.broadcastEvent('weather_update', data);
             } else {
                 console.log('❌ Failed to fetch weather data:', response.status);
@@ -173,6 +178,81 @@ class RealTimeWeatherManager {
         } catch (error) {
             console.log('❌ Error fetching weather data:', error);
             this.broadcastEvent('weather_error', { error: error.message });
+        }
+    }
+
+    handleWeatherUpdate(data) {
+        // Check for precipitation to enable more frequent updates
+        const hasPrecipitation = this.detectPrecipitation(data);
+
+        if (hasPrecipitation && !this.hasPrecipitation) {
+            console.log('🌧️ Precipitation detected - enabling frequent updates');
+            this.startPrecipitationPolling();
+        } else if (!hasPrecipitation && this.hasPrecipitation) {
+            console.log('☀️ Precipitation cleared - returning to normal polling');
+            this.stopPrecipitationPolling();
+        }
+
+        this.hasPrecipitation = hasPrecipitation;
+    }
+
+    detectPrecipitation(data) {
+        if (!data || !data.current) return false;
+
+        // Enhanced precipitation detection for hybrid data
+        const current = data.current;
+
+        // Check all possible precipitation indicators
+        const hasRain = (current.rain_rate > 0) ||
+                       (current.shower_rate > 0) ||
+                       (current.precipitation_rate > 0);
+
+        const hasSnow = (current.snow_rate > 0) ||
+                       (current.precipitation_type === 'snow' && current.precipitation_rate > 0);
+
+        const hasOtherPrecip = (current.precipitation_type &&
+                               current.precipitation_type !== 'none' &&
+                               current.precipitation_rate > 0);
+
+        const isPrecipitating = hasRain || hasSnow || hasOtherPrecip;
+
+        // Debug logging for precipitation detection
+        if (isPrecipitating) {
+            console.log('🌧️ Precipitation detected:', {
+                rain_rate: current.rain_rate,
+                shower_rate: current.shower_rate,
+                snow_rate: current.snow_rate,
+                precipitation_rate: current.precipitation_rate,
+                precipitation_type: current.precipitation_type,
+                data_age: current.data_age,
+                provider: data.provider
+            });
+        }
+
+        return isPrecipitating;
+    }
+
+    startPrecipitationPolling() {
+        if (this.precipitationPollingInterval) return; // Already running
+
+        console.log('🌧️ Starting precipitation polling every', this.precipitationPollingDelay / 1000, 'seconds');
+
+        this.precipitationPollingInterval = setInterval(() => {
+            if (this.currentLocation) {
+                if (this.isConnected && this.socket) {
+                    this.socket.emit('request_weather_update', this.currentLocation);
+                } else {
+                    this.fetchWeatherData(this.currentLocation);
+                }
+            }
+        }, this.precipitationPollingDelay);
+    }
+
+    stopPrecipitationPolling() {
+        if (this.precipitationPollingInterval) {
+            clearInterval(this.precipitationPollingInterval);
+            this.precipitationPollingInterval = null;
+            console.log('⏹️  Precipitation polling stopped');
         }
     }
 
@@ -264,6 +344,7 @@ class RealTimeWeatherManager {
             this.socket.disconnect();
         }
         this.stopPolling();
+        this.stopPrecipitationPolling();
         this.eventHandlers.clear();
         console.log('🔥 RealTimeWeatherManager destroyed');
     }

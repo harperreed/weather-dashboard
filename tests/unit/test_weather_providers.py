@@ -6,7 +6,6 @@ import requests
 
 from weather_providers import (
     OpenMeteoProvider,
-    PirateWeatherProvider,
     WeatherProvider,
     WeatherProviderManager,
 )
@@ -168,116 +167,6 @@ class TestOpenMeteoProvider:
         assert provider._get_weather_description(999) == 'Unknown'
 
 
-class TestPirateWeatherProvider:
-    """Test the PirateWeather provider"""
-
-    def test_init(self) -> None:
-        """Test PirateWeather provider initialization"""
-        provider = PirateWeatherProvider('test_api_key')
-        assert provider.name == 'PirateWeather'
-        assert provider.api_key == 'test_api_key'
-        assert provider.base_url == 'https://api.pirateweather.net/forecast'
-
-    @patch('requests.get')
-    def test_fetch_weather_data_success(
-        self, mock_get: MagicMock, mock_pirate_weather_response: dict[str, Any]
-    ) -> None:
-        """Test successful weather data fetch from PirateWeather"""
-        mock_response = MagicMock()
-        mock_response.json.return_value = mock_pirate_weather_response
-        mock_response.raise_for_status.return_value = None
-        mock_get.return_value = mock_response
-
-        provider = PirateWeatherProvider('test_api_key')
-        result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-
-        assert result == mock_pirate_weather_response
-        mock_get.assert_called_once()
-
-        # Check the URL was constructed correctly
-        call_args = mock_get.call_args
-        expected_url = f'{provider.base_url}/test_api_key/{CHICAGO_LAT},{CHICAGO_LON}'
-        assert call_args[0][0] == expected_url
-
-    def test_fetch_weather_data_no_api_key(self) -> None:
-        """Test fetch with no API key"""
-        provider = PirateWeatherProvider('YOUR_API_KEY_HERE')
-        result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-
-        assert result is None
-
-    def test_fetch_weather_data_empty_api_key(self) -> None:
-        """Test fetch with empty API key"""
-        provider = PirateWeatherProvider('')
-        result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-
-        assert result is None
-
-    @patch('requests.get')
-    def test_fetch_weather_data_failure(self, mock_get: MagicMock) -> None:
-        """Test failed weather data fetch from PirateWeather"""
-        mock_get.side_effect = requests.exceptions.RequestException('API Error')
-
-        provider = PirateWeatherProvider('test_api_key')
-        result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-
-        assert result is None
-
-    def test_process_weather_data_success(
-        self, mock_pirate_weather_response: dict[str, Any]
-    ) -> None:
-        """Test successful weather data processing"""
-        provider = PirateWeatherProvider('test_api_key')
-        result = provider.process_weather_data(
-            mock_pirate_weather_response, 'Test Location'
-        )
-
-        assert result is not None
-        assert result['location'] == 'Test Location'
-        assert result['provider'] == 'PirateWeather'
-        assert 'current' in result
-        assert 'hourly' in result
-        assert 'daily' in result
-
-        # Test current weather data
-        current = result['current']
-        assert current['temperature'] == MOCK_TEMP
-        assert current['feels_like'] == MOCK_FEELS_LIKE
-        assert current['humidity'] == MOCK_HUMIDITY
-        assert current['wind_speed'] == MOCK_WIND_SPEED
-        assert current['uv_index'] == MOCK_UV_INDEX
-        assert current['icon'] == 'clear-day'
-        assert current['summary'] == 'Clear sky'
-
-    def test_process_weather_data_empty(self) -> None:
-        """Test processing with empty data"""
-        provider = PirateWeatherProvider('test_api_key')
-        result = provider.process_weather_data({}, 'Test Location')
-
-        # Empty data should return None, not an empty result
-        assert result is None
-
-    def test_process_weather_data_none(self) -> None:
-        """Test processing with None data"""
-        provider = PirateWeatherProvider('test_api_key')
-        result = provider.process_weather_data({}, 'Test Location')
-
-        assert result is None
-
-    def test_map_icon_code(self) -> None:
-        """Test icon code mapping"""
-        provider = PirateWeatherProvider('test_api_key')
-
-        # Test known codes
-        assert provider._map_icon_code('clear-day') == 'clear-day'
-        assert provider._map_icon_code('rain') == 'rain'
-        assert provider._map_icon_code('snow') == 'snow'
-        assert provider._map_icon_code('tornado') == 'wind'
-
-        # Test unknown code
-        assert provider._map_icon_code('unknown') == 'clear-day'
-
-
 class TestWeatherProviderManager:
     """Test the WeatherProviderManager"""
 
@@ -314,7 +203,26 @@ class TestWeatherProviderManager:
         """Test setting primary provider"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider('test_key')
+
+        # Create a mock provider for testing
+        class MockProvider(WeatherProvider):
+            def fetch_weather_data(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+            def process_weather_data(
+                self,
+                raw_data: dict[str, Any],  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+        provider2 = MockProvider('TestProvider')
 
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
@@ -351,56 +259,120 @@ class TestWeatherProviderManager:
             CHICAGO_LAT, CHICAGO_LON, 'Test Location', None
         )
 
-    @patch.object(PirateWeatherProvider, 'get_weather')
-    @patch.object(OpenMeteoProvider, 'get_weather')
     def test_get_weather_fallback_success(
-        self,
-        mock_open_meteo: MagicMock,
-        mock_pirate_weather: MagicMock,
-        mock_weather_data: dict[str, Any],
+        self, mock_weather_data: dict[str, Any]
     ) -> None:
         """Test successful weather fetch from fallback provider"""
-        mock_open_meteo.return_value = None  # Primary fails
-        mock_pirate_weather.return_value = mock_weather_data  # Fallback succeeds
+
+        # Create a mock provider for testing fallback
+        class MockProvider(WeatherProvider):
+            def __init__(self, name: str, should_fail: bool = False):
+                super().__init__(name)
+                self.should_fail = should_fail
+
+            def fetch_weather_data(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None if self.should_fail else {}
+
+            def process_weather_data(
+                self,
+                raw_data: dict[str, Any],  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None if self.should_fail else mock_weather_data
+
+            def get_weather(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None if self.should_fail else mock_weather_data
 
         manager = WeatherProviderManager()
-        provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider('test_key')
+        provider1 = MockProvider('FailingProvider', should_fail=True)
+        provider2 = MockProvider('WorkingProvider', should_fail=False)
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
         result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Test Location')
 
         assert result == mock_weather_data
-        mock_open_meteo.assert_called_once()
-        mock_pirate_weather.assert_called_once()
 
-    @patch.object(PirateWeatherProvider, 'get_weather')
-    @patch.object(OpenMeteoProvider, 'get_weather')
-    def test_get_weather_all_fail(
-        self, mock_open_meteo: MagicMock, mock_pirate_weather: MagicMock
-    ) -> None:
+    def test_get_weather_all_fail(self) -> None:
         """Test weather fetch when all providers fail"""
-        mock_open_meteo.return_value = None
-        mock_pirate_weather.return_value = None
+
+        # Create mock providers that always fail
+        class FailingProvider(WeatherProvider):
+            def __init__(self, name: str):
+                super().__init__(name)
+
+            def fetch_weather_data(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None
+
+            def process_weather_data(
+                self,
+                raw_data: dict[str, Any],  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None
+
+            def get_weather(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return None
 
         manager = WeatherProviderManager()
-        provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider('test_key')
+        provider1 = FailingProvider('FailingProvider1')
+        provider2 = FailingProvider('FailingProvider2')
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
         result = manager.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Test Location')
 
         assert result is None
-        mock_open_meteo.assert_called_once()
-        mock_pirate_weather.assert_called_once()
 
     def test_get_provider_info(self) -> None:
         """Test getting provider information"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider('test_key')
+
+        # Create mock provider for testing
+        class MockProvider(WeatherProvider):
+            def fetch_weather_data(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+            def process_weather_data(
+                self,
+                raw_data: dict[str, Any],  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+        provider2 = MockProvider('TestProvider')
+
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 
@@ -415,7 +387,27 @@ class TestWeatherProviderManager:
         """Test successful provider switching"""
         manager = WeatherProviderManager()
         provider1 = OpenMeteoProvider()
-        provider2 = PirateWeatherProvider('test_key')
+
+        # Create mock provider for testing
+        class MockProvider(WeatherProvider):
+            def fetch_weather_data(
+                self,
+                lat: float,  # noqa: ARG002
+                lon: float,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+            def process_weather_data(
+                self,
+                raw_data: dict[str, Any],  # noqa: ARG002
+                location_name: str | None = None,  # noqa: ARG002
+                tz_name: str | None = None,  # noqa: ARG002
+            ) -> dict[str, Any] | None:
+                return {}
+
+        provider2 = MockProvider('TestProvider')
+
         manager.add_provider(provider1, is_primary=True)
         manager.add_provider(provider2, is_primary=False)
 

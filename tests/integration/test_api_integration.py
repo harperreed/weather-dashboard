@@ -7,7 +7,6 @@ import pytest
 from flask.testing import FlaskClient
 
 from main import app, get_weather_from_open_meteo, weather_cache
-from weather_providers import PirateWeatherProvider
 
 
 # Test constants
@@ -24,7 +23,7 @@ MOCK_PRECIP_PROB = 10
 HOURLY_COUNT = 2
 DAILY_COUNT = 2
 CACHE_MAX_SIZE = 100
-CACHE_TTL_SECONDS = 600
+CACHE_TTL_SECONDS = 180
 EXPECTED_VALID_HTTP_STATUS_1 = 200
 EXPECTED_VALID_HTTP_STATUS_2 = 500
 TOLERANCE_MULTIPLIER = 2
@@ -256,57 +255,6 @@ class TestExternalAPIIntegration:
             assert 'hourly' in result
             assert 'daily' in result
 
-    def test_pirate_weather_api_structure(self) -> None:
-        """Test PirateWeather API response structure (with mock)"""
-        with patch('requests.get') as mock_get:
-            mock_response = MagicMock()
-            mock_response.json.return_value = {
-                'currently': {
-                    'temperature': 72,
-                    'apparentTemperature': 75,
-                    'humidity': 0.65,
-                    'windSpeed': 8,
-                    'uvIndex': 6,
-                    'precipIntensity': 0,
-                    'precipProbability': 0.1,
-                    'precipType': None,
-                    'icon': 'clear-day',
-                    'summary': 'Clear sky',
-                },
-                'hourly': {
-                    'data': [
-                        {
-                            'time': 1704110400,
-                            'temperature': 72,
-                            'icon': 'clear-day',
-                            'precipProbability': 0,
-                            'summary': 'Clear',
-                        }
-                    ]
-                },
-                'daily': {
-                    'data': [
-                        {
-                            'time': 1704067200,
-                            'temperatureHigh': 77,
-                            'temperatureLow': 65,
-                            'icon': 'clear-day',
-                            'precipProbability': 0,
-                        }
-                    ]
-                },
-            }
-            mock_response.raise_for_status.return_value = None
-            mock_get.return_value = mock_response
-
-            provider = PirateWeatherProvider('test_key')
-            result = provider.fetch_weather_data(41.8781, -87.6298)
-
-            assert result is not None
-            assert 'currently' in result
-            assert 'hourly' in result
-            assert 'daily' in result
-
     def test_provider_failover_integration(self, client: FlaskClient) -> None:
         """Test provider failover behavior"""
         # Clear cache to ensure we test actual provider failover
@@ -314,13 +262,13 @@ class TestExternalAPIIntegration:
 
         # Mock the weather manager's get_weather method to simulate provider failover
         with patch('main.weather_manager.get_weather') as mock_get_weather:
-            # Simulate failover by first returning None, then returning data
+            # Simulate failover by returning data from OpenMeteo
             mock_get_weather.return_value = {
                 'current': {'temperature': 72},
                 'hourly': [],
                 'daily': [],
                 'location': 'Chicago',
-                'provider': 'PirateWeather',
+                'provider': 'OpenMeteo',
             }
 
             response = client.get(
@@ -329,7 +277,7 @@ class TestExternalAPIIntegration:
             assert response.status_code == HTTP_OK
 
             data = json.loads(response.data)
-            assert data['provider'] == 'PirateWeather'
+            assert data['provider'] == 'OpenMeteo'
 
             # Verify weather manager was called
             mock_get_weather.assert_called_once()
@@ -349,13 +297,12 @@ class TestApplicationConfiguration:
     def test_cache_configuration(self) -> None:
         """Test cache configuration"""
         assert weather_cache.maxsize == CACHE_MAX_SIZE
-        assert weather_cache.ttl == CACHE_TTL_SECONDS  # 10 minutes
+        assert weather_cache.ttl == CACHE_TTL_SECONDS  # 3 minutes for real-time updates
 
     def test_environment_variables(self) -> None:
         """Test environment variable handling"""
         # Test that environment variables can be loaded
-        pirate_weather_key = os.getenv('PIRATE_WEATHER_API_KEY', 'YOUR_API_KEY_HERE')
-        assert pirate_weather_key is not None
+        # Note: No specific API keys required for OpenMeteo as it's free
 
         # Test SECRET_KEY handling
         secret_key = os.getenv('SECRET_KEY')

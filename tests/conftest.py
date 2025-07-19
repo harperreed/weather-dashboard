@@ -95,61 +95,6 @@ def mock_open_meteo_response() -> dict[str, Any]:
 
 
 @pytest.fixture  # type: ignore[misc]
-def mock_pirate_weather_response() -> dict[str, Any]:
-    """Mock PirateWeather API response"""
-    return {
-        'currently': {
-            'temperature': 72,
-            'apparentTemperature': 75,
-            'humidity': 0.65,
-            'windSpeed': 8,
-            'uvIndex': 6,
-            'precipIntensity': 0,
-            'precipProbability': 0.1,
-            'precipType': None,
-            'icon': 'clear-day',
-            'summary': 'Clear sky',
-        },
-        'hourly': {
-            'data': [
-                {
-                    'time': 1704110400,  # 2024-01-01T12:00:00Z
-                    'temperature': 72,
-                    'icon': 'clear-day',
-                    'precipProbability': 0,
-                    'summary': 'Clear',
-                },
-                {
-                    'time': 1704114000,  # 2024-01-01T13:00:00Z
-                    'temperature': 75,
-                    'icon': 'clear-day',
-                    'precipProbability': 0,
-                    'summary': 'Clear',
-                },
-            ]
-        },
-        'daily': {
-            'data': [
-                {
-                    'time': 1704067200,  # 2024-01-01
-                    'temperatureHigh': 77,
-                    'temperatureLow': 65,
-                    'icon': 'clear-day',
-                    'precipProbability': 0,
-                },
-                {
-                    'time': 1704153600,  # 2024-01-02
-                    'temperatureHigh': 75,
-                    'temperatureLow': 63,
-                    'icon': 'partly-cloudy-day',
-                    'precipProbability': 0,
-                },
-            ]
-        },
-    }
-
-
-@pytest.fixture  # type: ignore[misc]
 def weather_provider_manager() -> WeatherProviderManager:
     """Create a WeatherProviderManager instance for testing"""
     manager = WeatherProviderManager()

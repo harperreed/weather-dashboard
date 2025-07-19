@@ -1,7 +1,7 @@
 import os
 import subprocess  # nosec B404 # Safe subprocess usage for git commands
 import time
-from datetime import datetime, timezone
+from datetime import datetime
 from typing import Any
 
 
@@ -25,6 +25,7 @@ from flask_compress import Compress
 from flask_socketio import SocketIO, emit
 
 from weather_providers import (
+    HybridWeatherProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
     WeatherProviderManager,
@@ -54,31 +55,40 @@ cors_origins = os.getenv(
 ).split(',')
 socketio = SocketIO(app, cors_allowed_origins=cors_origins)
 
-# Primary weather API: Open-Meteo (free and accurate)
+# Weather API: Open-Meteo (free and accurate)
 OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast'
-
-# Fallback API: PirateWeather (if needed)
-PIRATE_WEATHER_BASE_URL = 'https://api.pirateweather.net/forecast'
 
 # Chicago coordinates
 CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
 
-# Cache for weather API responses (10 minutes TTL, max 100 entries)
-weather_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=600)
+# Cache for weather API responses (3 minutes TTL for real-time updates, max 100 entries)
+weather_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=180)
 
 # Initialize weather provider manager
 weather_manager = WeatherProviderManager()
 
-# Add OpenMeteo as primary provider
+# Initialize individual providers
 open_meteo = OpenMeteoProvider()
-weather_manager.add_provider(open_meteo, is_primary=True)
 
-# Add PirateWeather as fallback provider
+# Check for PirateWeather API key and create hybrid provider if available
 pirate_weather_api_key = os.getenv('PIRATE_WEATHER_API_KEY', 'YOUR_API_KEY_HERE')
+
 if pirate_weather_api_key and pirate_weather_api_key != 'YOUR_API_KEY_HERE':
+    print('🏴‍☠️ PirateWeather API key found - creating hybrid provider')
     pirate_weather = PirateWeatherProvider(pirate_weather_api_key)
-    weather_manager.add_provider(pirate_weather)
+    hybrid_provider = HybridWeatherProvider(pirate_weather, open_meteo)
+
+    # Set up hybrid with fallbacks
+    weather_manager.add_provider(hybrid_provider, is_primary=True)
+    weather_manager.add_provider(open_meteo, is_primary=False)  # Fallback
+    weather_manager.add_provider(pirate_weather, is_primary=False)  # Secondary fallback
+
+    print('✨ Using Hybrid Provider (PirateWeather current + OpenMeteo forecasts)')
+    print('🔄 Fallbacks: OpenMeteo → PirateWeather')
+else:
+    print('🌤️  No PirateWeather API key - using OpenMeteo only')
+    weather_manager.add_provider(open_meteo, is_primary=True)
 
 
 def get_git_hash() -> str:
@@ -190,44 +200,6 @@ def get_weather_icon(icon_code: str) -> str:
     return icon_map.get(icon_code, 'clear-day')
 
 
-def get_weather_data(lat: float | None = None, lon: float | None = None) -> dict | None:
-    """Fetch weather data from Pirate Weather API with caching"""
-    # Use provided coordinates or default to Chicago
-    if lat is None or lon is None:
-        lat, lon = CHICAGO_LAT, CHICAGO_LON
-
-    # Create cache key from coordinates
-    # (rounded to 4 decimal places for better cache hits)
-    cache_key = f'{round(lat, 4)},{round(lon, 4)}'
-
-    # Check cache first
-    if cache_key in weather_cache:
-        print(f'Cache hit for {cache_key}')
-        return weather_cache[cache_key]  # type: ignore[no-any-return]
-
-    try:
-        print(f'Cache miss for {cache_key}, fetching from API...')
-        url = f'{PIRATE_WEATHER_BASE_URL}/{pirate_weather_api_key}/{lat},{lon}'
-        params = {
-            'units': 'us',  # Fahrenheit
-            'exclude': 'minutely,alerts',
-        }
-
-        response = requests.get(url, params=params, timeout=10)
-        response.raise_for_status()
-        data = response.json()
-
-        # Store in cache
-        weather_cache[cache_key] = data
-        print(f'Cached weather data for {cache_key}')
-
-    except requests.exceptions.RequestException as e:
-        print(f'Error fetching weather data: {e}')
-        return None
-    else:
-        return data  # type: ignore[no-any-return]
-
-
 def process_open_meteo_data(
     data: dict | None, location_name: str | None = None
 ) -> dict | None:
@@ -333,78 +305,6 @@ def get_weather_description(weather_code: int) -> str:
     return descriptions.get(weather_code, 'Unknown')
 
 
-def process_weather_data(data: dict, location_name: str | None = None) -> dict | None:
-    """Process raw weather data into format needed for the UI"""
-    if not data:
-        return None
-
-    current = data.get('currently', {})
-    hourly = data.get('hourly', {}).get('data', [])
-    daily = data.get('daily', {}).get('data', [])
-
-    # Current weather
-    current_weather = {
-        'temperature': round(current.get('temperature', 0)),
-        'feels_like': round(current.get('apparentTemperature', 0)),
-        'icon': get_weather_icon(current.get('icon', 'clear-day')),
-        'summary': current.get('summary', 'Clear'),
-        'humidity': round(current.get('humidity', 0) * 100),
-        'wind_speed': round(current.get('windSpeed', 0)),
-        'pressure': round(current.get('pressure', 0)),
-        'visibility': round(current.get('visibility', 0)),
-        'uv_index': round(current.get('uvIndex', 0)),
-        'precipitation_prob': round(current.get('precipProbability', 0) * 100),
-        'precipitation_rate': round(current.get('precipIntensity', 0), 2),
-        'precipitation_type': current.get('precipType', 'none'),
-    }
-
-    # Hourly forecast (next 12 hours only for better performance)
-    hourly_forecast = []
-    for hour in hourly[:12]:
-        time = datetime.fromtimestamp(hour['time'], tz=timezone.utc)
-        hourly_forecast.append(
-            {
-                't': (
-                    time.astimezone(zoneinfo.ZoneInfo('America/Chicago'))
-                    .strftime('%I%p')
-                    .lower()
-                    .lstrip('0')
-                ),  # compressed field names
-                'temp': round(hour.get('temperature', 0)),
-                'icon': get_weather_icon(hour.get('icon', 'clear-day')),
-                'rain': round(hour.get('precipProbability', 0) * 100),
-                'desc': hour.get('summary', '')[:30],  # truncate long descriptions
-            }
-        )
-
-    # Daily forecast (next 5 days for better performance)
-    daily_forecast = []
-    for day in daily[:5]:
-        date = datetime.fromtimestamp(day['time'], tz=timezone.utc)
-        daily_forecast.append(
-            {
-                'd': (
-                    date.astimezone(zoneinfo.ZoneInfo('America/Chicago'))
-                    .strftime('%a')
-                    .upper()
-                ),  # compressed field names
-                'h': round(day.get('temperatureHigh', 0)),
-                'l': round(day.get('temperatureLow', 0)),
-                'icon': get_weather_icon(day.get('icon', 'clear-day')),
-                'rain': round(day.get('precipProbability', 0) * 100),
-                # removed summary and date to reduce payload
-            }
-        )
-
-    return {
-        'current': current_weather,
-        'hourly': hourly_forecast,
-        'daily': daily_forecast,
-        'location': location_name or 'Unknown Location',
-        'last_updated': datetime.now(timezone.utc).strftime('%I:%M %p'),
-    }
-
-
 # Common city shortcuts (timezone auto-detected by OpenMeteo API)
 CITY_COORDS = {
     'chicago': (41.8781, -87.6298, 'Chicago'),
@@ -472,7 +372,7 @@ def weather_api() -> Response:
         cached_data = weather_cache[cache_key]
         cached_data['location'] = location_name  # Update location name
         response = jsonify(cached_data)
-        response.headers['Cache-Control'] = 'public, max-age=300'
+        response.headers['Cache-Control'] = 'public, max-age=180'
         etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 300)))
         response.headers['ETag'] = f'"{etag_value}"'
         return response
@@ -487,7 +387,7 @@ def weather_api() -> Response:
         print(f'💾 Cached weather data for {cache_key}')
 
         response = jsonify(processed_data)
-        response.headers['Cache-Control'] = 'public, max-age=300'
+        response.headers['Cache-Control'] = 'public, max-age=180'
         etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 300)))
         response.headers['ETag'] = f'"{etag_value}"'
         return response
