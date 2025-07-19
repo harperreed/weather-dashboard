@@ -801,6 +801,7 @@ class HourlyTimelineWidget extends WeatherWidget {
 class WeatherApp {
     constructor() {
         this.activeRequests = new Map();
+        this.geolocationRequested = false;
         this.cityCoords = {
             'chicago': [41.8781, -87.6298, 'Chicago'],
             'nyc': [40.7128, -74.0060, 'New York City'],
@@ -815,7 +816,162 @@ class WeatherApp {
         };
     }
 
+    // Save location to localStorage
+    saveLocationToStorage(lat, lon, location) {
+        try {
+            const locationData = {
+                lat: lat,
+                lon: lon,
+                location: location,
+                timestamp: Date.now()
+            };
+            localStorage.setItem('weather_location', JSON.stringify(locationData));
+            console.log('📍 Location saved to localStorage:', locationData);
+        } catch (error) {
+            console.error('Failed to save location to localStorage:', error);
+        }
+    }
+
+    // Load location from localStorage
+    loadLocationFromStorage() {
+        try {
+            const stored = localStorage.getItem('weather_location');
+            if (stored) {
+                const locationData = JSON.parse(stored);
+                
+                // Check if location is less than 24 hours old
+                const twentyFourHours = 24 * 60 * 60 * 1000;
+                if (Date.now() - locationData.timestamp < twentyFourHours) {
+                    console.log('📍 Loaded location from localStorage:', locationData);
+                    return locationData;
+                } else {
+                    console.log('📍 Stored location is too old, removing from localStorage');
+                    localStorage.removeItem('weather_location');
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load location from localStorage:', error);
+        }
+        return null;
+    }
+
+    // Request user's geolocation
+    async requestGeolocation() {
+        if (!navigator.geolocation) {
+            console.log('❌ Geolocation is not supported by this browser');
+            return null;
+        }
+
+        if (this.geolocationRequested) {
+            console.log('📍 Geolocation already requested');
+            return null;
+        }
+
+        this.geolocationRequested = true;
+        console.log('📍 Requesting geolocation permission...');
+
+        return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+                    console.log('📍 Geolocation success:', lat, lon);
+                    
+                    // Use reverse geocoding to get a readable location name
+                    this.reverseGeocode(lat, lon)
+                        .then(location => {
+                            const locationData = { lat, lon, location };
+                            this.saveLocationToStorage(lat, lon, location);
+                            this.updateUrlWithLocation(lat, lon, location);
+                            resolve(locationData);
+                        })
+                        .catch(() => {
+                            const locationData = { lat, lon, location: 'Your Location' };
+                            this.saveLocationToStorage(lat, lon, 'Your Location');
+                            this.updateUrlWithLocation(lat, lon, 'Your Location');
+                            resolve(locationData);
+                        });
+                },
+                (error) => {
+                    console.log('❌ Geolocation error:', error.message);
+                    resolve(null);
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 600000 // 10 minutes
+                }
+            );
+        });
+    }
+
+    // Simple reverse geocoding using OpenStreetMap Nominatim
+    async reverseGeocode(lat, lon) {
+        try {
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
+            const data = await response.json();
+            
+            if (data && data.address) {
+                const address = data.address;
+                const city = address.city || address.town || address.village || address.county;
+                const state = address.state || address.region;
+                const country = address.country;
+                
+                if (city && state && country === 'United States') {
+                    return `${city}, ${state}`;
+                } else if (city && country) {
+                    return `${city}, ${country}`;
+                } else if (city) {
+                    return city;
+                }
+            }
+            
+            return 'Your Location';
+        } catch (error) {
+            console.error('Reverse geocoding failed:', error);
+            return 'Your Location';
+        }
+    }
+
+    // Update URL with detected location
+    updateUrlWithLocation(lat, lon, location) {
+        const currentUrl = new URL(window.location);
+        
+        // Don't update URL if it already has coordinates or city parameters
+        if (currentUrl.pathname !== '/' && currentUrl.pathname !== '') {
+            console.log('📍 URL already has location, not updating');
+            return;
+        }
+
+        // Don't update URL if it already has lat/lon parameters
+        if (currentUrl.searchParams.has('lat') && currentUrl.searchParams.has('lon')) {
+            console.log('📍 URL already has lat/lon parameters, not updating');
+            return;
+        }
+
+        // Update URL with coordinates
+        const newUrl = `${currentUrl.origin}/${lat},${lon}/${location.replace(/\s+/g, '-')}`;
+        console.log('📍 Updating URL to:', newUrl);
+        window.history.replaceState({}, '', newUrl);
+    }
+
     async init() {
+        // Try to get location from localStorage first, then geolocation
+        const storedLocation = this.loadLocationFromStorage();
+        if (storedLocation) {
+            console.log('📍 Using stored location:', storedLocation);
+            // Update URL if we're on the root page
+            if (window.location.pathname === '/' || window.location.pathname === '') {
+                this.updateUrlWithLocation(storedLocation.lat, storedLocation.lon, storedLocation.location);
+            }
+        } else {
+            // Request geolocation if no stored location and we're on the root page
+            if (window.location.pathname === '/' || window.location.pathname === '') {
+                console.log('📍 No stored location, requesting geolocation...');
+                await this.requestGeolocation();
+            }
+        }
+
         await this.fetchWeatherData();
 
         // Create connection status indicator
@@ -937,6 +1093,17 @@ class WeatherApp {
             lon = urlParams.get('lon');
             location = urlParams.get('location');
             timezone = urlParams.get('timezone'); // Optional override
+        }
+
+        // Check localStorage if no location found in URL
+        if (!lat && !lon && !location) {
+            const storedLocation = this.loadLocationFromStorage();
+            if (storedLocation) {
+                lat = storedLocation.lat;
+                lon = storedLocation.lon;
+                location = storedLocation.location;
+                console.log('📍 Using stored location for weather data:', storedLocation);
+            }
         }
 
         // Default to Chicago if no location provided
