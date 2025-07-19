@@ -5,16 +5,16 @@
 [![Security](https://github.com/harperreed/weather-dashboard/actions/workflows/security.yml/badge.svg)](https://github.com/harperreed/weather-dashboard/actions/workflows/security.yml)
 [![Docker](https://github.com/harperreed/weather-dashboard/actions/workflows/docker.yml/badge.svg)](https://github.com/harperreed/weather-dashboard/actions/workflows/docker.yml)
 
-A modern, real-time weather dashboard built with Flask and featuring WebSocket updates, multiple weather provider support, and comprehensive testing.
+A modern, real-time weather dashboard built with Flask and featuring WebSocket updates, reliable weather data from OpenMeteo, and comprehensive testing.
 
 ## Features
 
 - ⚡ **Real-time Weather Updates** - WebSocket-powered live updates with polling fallback
-- 🌤️ **Multiple Weather Providers** - Support for OpenMeteo and PirateWeather APIs with automatic failover
+- 🌤️ **Reliable Weather Data** - Powered by OpenMeteo API for accurate and free weather information
 - 📱 **Responsive Design** - Web components-based UI that works on all devices
 - 🚀 **Fast Performance** - Intelligent caching and optimized API calls
-- 🔄 **Provider Management** - Switch between weather providers on-the-fly
-- 📊 **Comprehensive Monitoring** - Built-in cache statistics and provider health checks
+- 🔄 **Real-time Updates** - Automatic weather data refresh with intelligent caching
+- 📊 **Comprehensive Monitoring** - Built-in cache statistics and API health monitoring
 - 🐳 **Docker Ready** - Containerized deployment with Docker Compose support
 - ✅ **Fully Tested** - 95 tests with 73% code coverage
 
@@ -50,8 +50,6 @@ Visit `http://localhost:5001` to see your weather dashboard!
 
 - `GET /` - Main weather dashboard
 - `GET /api/weather` - Current weather data (supports lat/lon and location params)
-- `GET /api/providers` - Available weather providers
-- `POST /api/providers/switch` - Switch active weather provider
 - `GET /api/cache/stats` - Cache statistics
 - `GET /{city}` - Weather for predefined cities (chicago, nyc, sf, etc.)
 
@@ -60,23 +58,17 @@ Visit `http://localhost:5001` to see your weather dashboard!
 The dashboard automatically updates using WebSockets with the following features:
 
 - **Live weather updates** every 10 minutes
-- **Provider switch notifications** when changing weather sources
 - **Connection status indicators** showing WebSocket/polling status
 - **Automatic reconnection** with exponential backoff
 
-## Weather Providers
+## Weather Provider
 
-### OpenMeteo (Primary)
+### OpenMeteo
 
 - **Free** European weather service
 - **No API key required**
 - Excellent data quality and reliability
-
-### PirateWeather (Fallback)
-
-- Dark Sky API replacement
-- Requires API key (set `PIRATE_WEATHER_API_KEY` environment variable)
-- Automatic failover when OpenMeteo is unavailable
+- Global weather coverage with high accuracy
 
 ## Configuration
 
@@ -84,8 +76,9 @@ Set these environment variables:
 
 ```bash
 SECRET_KEY=your-secret-key-here
-PIRATE_WEATHER_API_KEY=your-pirate-weather-key  # Optional
 ```
+
+No API keys are required as the application uses OpenMeteo's free API service.
 
 ## Testing
 
@@ -162,23 +155,13 @@ This project includes comprehensive GitHub Actions workflows:
 
 ## Development
 
-### Adding a New Weather Provider
+### Extending Weather Functionality
 
-1. Create a new provider class in `weather_providers.py`:
+The weather provider system is designed for extensibility:
 
-```python
-class NewProvider(WeatherProvider):
-    def fetch_weather_data(self, lat, lon):
-        # Implement API call
-        pass
-
-    def process_weather_data(self, raw_data, location_name=None):
-        # Process and normalize data
-        pass
-```
-
-2. Add the provider to the manager in `main.py`
-3. Add tests in `tests/unit/test_weather_providers.py`
+1. The `OpenMeteoProvider` class in `weather_providers.py` handles all OpenMeteo API interactions
+2. Weather data processing and caching logic is centralized in the provider
+3. All weather-related tests are in `tests/unit/test_weather_providers.py`
 
 ### Project Structure
 
@@ -220,6 +203,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Weather data provided by [Open-Meteo](https://open-meteo.com/) and [PirateWeather](https://pirateweather.net/)
+- Weather data provided by [Open-Meteo](https://open-meteo.com/)
 - Weather icons from [Meteocons](https://bas.dev/work/meteocons)
 - Built with [Flask](https://flask.palletsprojects.com/), [uv](https://docs.astral.sh/uv/), and [Docker](https://www.docker.com/)

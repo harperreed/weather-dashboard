@@ -154,7 +154,7 @@ python run_tests.py --parallel 4
 2. **Integration Tests** (`tests/integration/`):
    - Test complete application flow
    - Test API endpoints
-   - Test provider failover
+   - Test OpenMeteo API integration
    - Cache behavior testing
 
 3. **Frontend Tests** (`tests/test_frontend.py`):
@@ -192,8 +192,8 @@ def mock_open_meteo_response():
     """Mock OpenMeteo API response"""
 
 @pytest.fixture
-def mock_pirate_weather_response():
-    """Mock PirateWeather API response"""
+def mock_openmeteo_response():
+    """Mock OpenMeteo API response"""
 ```
 
 ### Provider Fixtures
@@ -213,8 +213,8 @@ def mock_requests_get():
 ### Example Unit Test
 
 ```python
-def test_weather_provider_functionality(mock_weather_data):
-    """Test weather provider functionality"""
+def test_openmeteo_provider_functionality(mock_weather_data):
+    """Test OpenMeteo provider functionality"""
     provider = OpenMeteoProvider()
 
     with patch('requests.get') as mock_get:
@@ -234,7 +234,7 @@ def test_weather_provider_functionality(mock_weather_data):
 ```python
 @pytest.mark.integration
 def test_weather_api_integration(client, mock_weather_data):
-    """Test complete weather API integration"""
+    """Test complete weather API integration with OpenMeteo"""
     with patch('main.weather_manager.get_weather') as mock_get_weather:
         mock_get_weather.return_value = mock_weather_data
 
@@ -243,6 +243,7 @@ def test_weather_api_integration(client, mock_weather_data):
         assert response.status_code == 200
         data = json.loads(response.data)
         assert data['location'] == 'Chicago'
+        assert 'current' in data
 ```
 
 ## Best Practices

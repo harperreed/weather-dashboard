@@ -4,11 +4,11 @@ This weather app is containerized using Docker with UV for fast Python dependenc
 
 ## Quick Start
 
-1. **Set up environment variables:**
+1. **Set up environment variables (optional):**
 
    ```bash
    cp .env.example .env
-   # Edit .env and add your PIRATE_WEATHER_API_KEY
+   # Edit .env and add any additional configuration
    ```
 
 2. **Build and run with Docker Compose:**
@@ -84,9 +84,11 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 
 ### Environment Variables
 
-- `PIRATE_WEATHER_API_KEY`: Required API key from pirateweather.net
+- `SECRET_KEY`: Flask secret key for session management
 - `FLASK_ENV`: Set to `production` or `development`
 - `FLASK_DEBUG`: Enable/disable debug mode
+
+Note: No API keys are required as the application uses OpenMeteo's free service.
 
 ### Docker Compose Services
 
@@ -134,7 +136,7 @@ docker-compose exec weather-app uv run python -c "import requests; print(request
 ### Common Issues
 
 1. **Build fails**: Ensure Docker daemon is running and you have internet access
-2. **API errors**: Check that `PIRATE_WEATHER_API_KEY` is set correctly in `.env`
+2. **API errors**: Check your internet connection and OpenMeteo service availability
 3. **Port conflicts**: Change port mapping in docker-compose.yml if 5000 is in use
 
 ### Debug Commands
