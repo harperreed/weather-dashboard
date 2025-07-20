@@ -25,6 +25,7 @@ from flask_compress import Compress
 from flask_socketio import SocketIO, emit
 
 from weather_providers import (
+    AirQualityProvider,
     HybridWeatherProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
@@ -70,6 +71,15 @@ weather_manager = WeatherProviderManager()
 
 # Initialize individual providers
 open_meteo = OpenMeteoProvider()
+
+# Initialize EPA AirNow air quality provider (API key required)
+airnow_api_key = os.getenv('AIRNOW_API_KEY')
+if airnow_api_key:
+    air_quality_provider = AirQualityProvider(airnow_api_key)
+    print('🏛️ AirNow API key found - official EPA air quality data available')
+else:
+    air_quality_provider = None
+    print('🏛️ No AirNow API key found - air quality service unavailable')
 
 # Check for PirateWeather API key and create hybrid provider if available
 pirate_weather_api_key = os.getenv('PIRATE_WEATHER_API_KEY', 'YOUR_API_KEY_HERE')
@@ -117,11 +127,11 @@ def get_weather_from_open_meteo(lat: float, lon: float) -> dict | None:
         url += (
             '&current=temperature_2m,relative_humidity_2m,apparent_temperature,'
             'precipitation,weather_code,cloud_cover,wind_speed_10m,'
-            'wind_direction_10m,uv_index'
+            'wind_direction_10m,uv_index,pressure_msl'
         )
         url += (
             '&hourly=temperature_2m,precipitation_probability,precipitation,'
-            'weather_code,cloud_cover,wind_speed_10m'
+            'weather_code,cloud_cover,wind_speed_10m,pressure_msl'
         )
         url += (
             '&daily=weather_code,temperature_2m_max,temperature_2m_min,'
@@ -224,14 +234,17 @@ def process_open_meteo_data(
             'precipitation_type': (
                 'rain' if current.get('precipitation', 0) > 0 else None
             ),
+            'pressure': round(current.get('pressure_msl', 0), 1),  # Sea level pressure in hPa
             'icon': map_open_meteo_weather_code(current.get('weather_code', 0)),
             'summary': get_weather_description(current.get('weather_code', 0)),
         }
 
         # Process hourly forecast (next 24 hours)
         hourly_forecast = []
+        pressure_history = []  # Store pressure readings for trend analysis
         if hourly.get('time'):
             for i in range(min(24, len(hourly['time']))):
+                pressure_value = hourly.get('pressure_msl', [0] * len(hourly['time']))[i]
                 hour_data = {
                     'temp': round(hourly['temperature_2m'][i]),
                     'icon': map_open_meteo_weather_code(hourly['weather_code'][i]),
@@ -248,8 +261,13 @@ def process_open_meteo_data(
                         .replace('0', '')
                     ),
                     'desc': get_weather_description(hourly['weather_code'][i]),
+                    'pressure': round(pressure_value, 1),
                 }
                 hourly_forecast.append(hour_data)
+                pressure_history.append({
+                    'time': hourly['time'][i],
+                    'pressure': round(pressure_value, 1)
+                })
 
         # Process daily forecast
         daily_forecast = []
@@ -263,6 +281,9 @@ def process_open_meteo_data(
                 }
                 daily_forecast.append(day_data)
 
+        # Calculate pressure trends
+        pressure_trend = calculate_pressure_trend(pressure_history)
+
     except Exception as e:
         print(f'❌ Error processing Open-Meteo data: {str(e)}')
         return None
@@ -272,7 +293,82 @@ def process_open_meteo_data(
             'hourly': hourly_forecast,
             'daily': daily_forecast,
             'location': location_name or 'Unknown Location',
+            'pressure_trend': pressure_trend,
         }
+
+
+def calculate_pressure_trend(pressure_history: list[dict]) -> dict:
+    """Calculate pressure trend indicators from historical data"""
+    if len(pressure_history) < 3:
+        return {
+            'trend': 'steady',
+            'rate': 0.0,
+            'prediction': 'Unable to determine trend - insufficient data'
+        }
+    
+    # Get current pressure and 3-hour ago pressure for trend calculation
+    current_pressure = pressure_history[0]['pressure'] if pressure_history else 0
+    three_hours_ago = pressure_history[min(3, len(pressure_history) - 1)]['pressure']
+    
+    # Calculate rate of change in hPa per hour
+    pressure_change = current_pressure - three_hours_ago
+    rate_per_hour = pressure_change / 3.0  # 3-hour change divided by 3
+    
+    # Determine trend direction
+    if abs(rate_per_hour) < 0.1:  # Less than 0.1 hPa/hour is considered steady
+        trend = 'steady'
+    elif rate_per_hour > 0.1:
+        trend = 'rising'
+    else:
+        trend = 'falling'
+    
+    # Generate weather prediction based on pressure trend
+    prediction = get_pressure_prediction(trend, rate_per_hour, current_pressure)
+    
+    return {
+        'trend': trend,
+        'rate': round(rate_per_hour, 2),
+        'prediction': prediction,
+        'current_pressure': current_pressure,
+        'history': pressure_history[:12]  # Last 12 hours for mini-chart
+    }
+
+
+def get_pressure_prediction(trend: str, rate: float, current_pressure: float) -> str:
+    """Generate weather prediction based on pressure trends"""
+    predictions = {
+        'rising_fast': 'Improving weather expected - clearing skies likely',
+        'rising_slow': 'Weather gradually improving',
+        'steady_high': 'Continued fair weather',
+        'steady_normal': 'Current weather conditions expected to persist',
+        'steady_low': 'Unsettled weather may continue',
+        'falling_slow': 'Weather may deteriorate gradually',
+        'falling_fast': 'Stormy weather approaching - expect precipitation'
+    }
+    
+    # Categorize pressure levels (typical sea level pressure ranges)
+    if current_pressure > 1020:
+        pressure_level = 'high'
+    elif current_pressure > 1000:
+        pressure_level = 'normal'
+    else:
+        pressure_level = 'low'
+    
+    # Categorize rate of change
+    if abs(rate) < 0.1:
+        rate_category = 'steady'
+    elif abs(rate) > 0.5:  # More than 0.5 hPa/hour is significant
+        rate_category = f'{trend}_fast'
+    else:
+        rate_category = f'{trend}_slow'
+    
+    # Combine trend and pressure level for prediction
+    if rate_category == 'steady':
+        prediction_key = f'steady_{pressure_level}'
+    else:
+        prediction_key = rate_category
+    
+    return predictions.get(prediction_key, 'Weather pattern uncertain')
 
 
 def get_weather_description(weather_code: int) -> str:
@@ -431,6 +527,58 @@ def cache_stats() -> Response:
 def get_providers() -> Response:
     """API endpoint to get weather provider information"""
     return jsonify(weather_manager.get_provider_info())
+
+
+@app.route('/api/air-quality')  # type: ignore[misc]
+def air_quality_api() -> Response:
+    """API endpoint for air quality data"""
+    # AirNow requires API key - service unavailable without it
+    if not air_quality_provider:
+        response = jsonify({'error': 'Air quality service unavailable - AirNow API key required'})
+        response.status_code = 503
+        return response
+    
+    # Get lat/lon from URL parameters
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    location_name = request.args.get('location', 'Unknown Location')
+    
+    # Default to Chicago if no coordinates provided
+    if not lat or not lon:
+        lat = CHICAGO_LAT
+        lon = CHICAGO_LON
+    
+    # Create cache key for air quality
+    cache_key = f'air_quality_{lat:.4f},{lon:.4f}'
+    
+    # Check cache first (air quality updates less frequently - 30 min TTL)
+    air_quality_cache_ttl = 1800  # 30 minutes
+    cache_time = int(time.time() // air_quality_cache_ttl)
+    cache_key_with_time = f'{cache_key}_{cache_time}'
+    
+    if cache_key_with_time in weather_cache:
+        print(f'📦 Returning cached air quality data for {cache_key}')
+        cached_data = weather_cache[cache_key_with_time]
+        response = jsonify(cached_data)
+        response.headers['Cache-Control'] = f'public, max-age={air_quality_cache_ttl}'
+        return response
+    
+    # Fetch fresh air quality data
+    print(f'🌬️  Fetching air quality for {location_name}')
+    air_quality_data = air_quality_provider.get_weather(lat, lon, location_name)
+    
+    if air_quality_data:
+        # Cache the result
+        weather_cache[cache_key_with_time] = air_quality_data
+        print(f'💾 Cached air quality data for {cache_key}')
+        
+        response = jsonify(air_quality_data)
+        response.headers['Cache-Control'] = f'public, max-age={air_quality_cache_ttl}'
+        return response
+    
+    response = jsonify({'error': 'Failed to fetch air quality data'})
+    response.status_code = 500
+    return response
 
 
 @app.route('/api/providers/switch', methods=['POST'])  # type: ignore[misc]

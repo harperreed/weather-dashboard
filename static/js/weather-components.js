@@ -167,7 +167,10 @@ class WeatherWidget extends HTMLElement {
             current: true,
             hourly: true,
             daily: true,
-            timeline: true
+            timeline: true,
+            airquality: true,
+            wind: true,
+            pressure: true
         };
     }
 
@@ -213,7 +216,10 @@ class WeatherWidget extends HTMLElement {
                 current: false,
                 hourly: false,
                 daily: false,
-                timeline: false
+                timeline: false,
+                airquality: false,
+                wind: false,
+                pressure: false
             };
 
             const requestedWidgets = widgetsParam.split(',').map(w => w.trim().toLowerCase());
@@ -236,6 +242,22 @@ class WeatherWidget extends HTMLElement {
                     case 'list':
                         this.config.timeline = true;
                         break;
+                    case 'air-quality':
+                    case 'airquality':
+                    case 'air':
+                    case 'aqi':
+                        this.config.airquality = true;
+                        break;
+                    case 'wind-direction':
+                    case 'wind':
+                    case 'compass':
+                        this.config.wind = true;
+                        break;
+                    case 'pressure-trends':
+                    case 'pressure':
+                    case 'trends':
+                        this.config.pressure = true;
+                        break;
                 }
             });
         }
@@ -245,6 +267,9 @@ class WeatherWidget extends HTMLElement {
         if (urlParams.has('hourly')) this.config.hourly = urlParams.get('hourly') !== 'false';
         if (urlParams.has('daily')) this.config.daily = urlParams.get('daily') !== 'false';
         if (urlParams.has('timeline')) this.config.timeline = urlParams.get('timeline') !== 'false';
+        if (urlParams.has('air-quality') || urlParams.has('airquality')) this.config.airquality = urlParams.get('air-quality') !== 'false' && urlParams.get('airquality') !== 'false';
+        if (urlParams.has('wind-direction') || urlParams.has('wind')) this.config.wind = urlParams.get('wind-direction') !== 'false' && urlParams.get('wind') !== 'false';
+        if (urlParams.has('pressure-trends') || urlParams.has('pressure')) this.config.pressure = urlParams.get('pressure-trends') !== 'false' && urlParams.get('pressure') !== 'false';
     }
 
     setupEventListeners() {
@@ -607,10 +632,36 @@ class HourlyForecastWidget extends WeatherWidget {
             pathData += (index === 0 ? 'M' : 'L') + x + ',' + y;
         });
 
+        // Draw temperature line
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
         path.setAttribute('d', pathData);
         path.setAttribute('class', 'chart-line');
         svg.appendChild(path);
+
+        // Add vertical line to show current time position
+        // Current time is at the first data point (index 0)
+        const currentTimeX = 0; // First hour position
+        const currentTimeLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        currentTimeLine.setAttribute('x1', currentTimeX);
+        currentTimeLine.setAttribute('y1', 0);
+        currentTimeLine.setAttribute('x2', currentTimeX);
+        currentTimeLine.setAttribute('y2', height);
+        currentTimeLine.setAttribute('stroke', '#f59e0b');
+        currentTimeLine.setAttribute('stroke-width', '2');
+        currentTimeLine.setAttribute('stroke-dasharray', '4,4');
+        currentTimeLine.setAttribute('opacity', '0.8');
+        svg.appendChild(currentTimeLine);
+
+        // Add "NOW" label at the top of the current time line
+        const nowLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        nowLabel.setAttribute('x', currentTimeX);
+        nowLabel.setAttribute('y', 15);
+        nowLabel.setAttribute('text-anchor', 'middle');
+        nowLabel.setAttribute('font-size', '10px');
+        nowLabel.setAttribute('font-weight', 'bold');
+        nowLabel.setAttribute('fill', '#f59e0b');
+        nowLabel.textContent = 'NOW';
+        svg.appendChild(nowLabel);
     }
 }
 
@@ -796,6 +847,623 @@ class HourlyTimelineWidget extends WeatherWidget {
         this.hideLoading();
     }
 }
+
+// Air Quality Widget Component
+class AirQualityWidget extends WeatherWidget {
+    render() {
+        this.style.display = 'block';
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+            
+            <style>
+                .air-quality-widget {
+                    margin: 1rem 0;
+                }
+                
+                .aqi-display {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    margin-bottom: 1rem;
+                }
+                
+                .aqi-value {
+                    font-size: 2.5rem;
+                    font-weight: 900;
+                    line-height: 1;
+                    padding: 0.5rem 1rem;
+                    border-radius: 0.5rem;
+                    color: white;
+                    text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+                }
+                
+                .aqi-info {
+                    text-align: right;
+                    flex: 1;
+                    margin-left: 1rem;
+                }
+                
+                .aqi-category {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    margin-bottom: 0.5rem;
+                }
+                
+                .health-recommendation {
+                    font-size: 0.875rem;
+                    opacity: 0.8;
+                    line-height: 1.4;
+                }
+                
+                .pollutants-grid {
+                    display: grid;
+                    grid-template-columns: repeat(3, 1fr);
+                    gap: 0.5rem;
+                    margin-top: 1rem;
+                }
+                
+                .pollutant-card {
+                    padding: 0.75rem;
+                    border-radius: 0.5rem;
+                    text-align: center;
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                }
+                
+                .pollutant-name {
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    opacity: 0.7;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .pollutant-value {
+                    font-size: 1rem;
+                    font-weight: 700;
+                }
+                
+                .pollutant-unit {
+                    font-size: 0.75rem;
+                    opacity: 0.6;
+                }
+                
+                .loading-message, .error-message {
+                    text-align: center;
+                    padding: 2rem;
+                    opacity: 0.7;
+                }
+                
+                @media (max-width: 640px) {
+                    .aqi-display {
+                        flex-direction: column;
+                        text-align: center;
+                    }
+                    
+                    .aqi-info {
+                        margin-left: 0;
+                        margin-top: 1rem;
+                        text-align: center;
+                    }
+                    
+                    .pollutants-grid {
+                        grid-template-columns: repeat(2, 1fr);
+                    }
+                }
+            </style>
+
+            <div class="air-quality-widget widget-content">
+                <div class="loading-message" id="loading">Loading air quality data...</div>
+                
+                <div class="aqi-content" id="aqi-content" style="display: none;">
+                    <div class="aqi-display">
+                        <div class="aqi-value" id="aqi-value">--</div>
+                        <div class="aqi-info">
+                            <div class="aqi-category" id="aqi-category">Loading...</div>
+                            <div class="health-recommendation" id="health-recommendation">Fetching recommendations...</div>
+                        </div>
+                    </div>
+                    
+                    <div class="pollutants-grid" id="pollutants-grid">
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">PM2.5</div>
+                            <div class="pollutant-value" id="pm25-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">PM10</div>
+                            <div class="pollutant-value" id="pm10-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">O₃</div>
+                            <div class="pollutant-value" id="o3-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">NO₂</div>
+                            <div class="pollutant-value" id="no2-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">SO₂</div>
+                            <div class="pollutant-value" id="so2-value">--</div>
+                            <div class="pollutant-unit">μg/m³</div>
+                        </div>
+                        <div class="pollutant-card theme-card">
+                            <div class="pollutant-name">CO</div>
+                            <div class="pollutant-value" id="co-value">--</div>
+                            <div class="pollutant-unit">mg/m³</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="error-message error hidden" id="error"></div>
+            </div>
+        `;
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        
+        // Check if this widget should be displayed
+        if (!this.config.airquality) {
+            this.style.display = 'none';
+            return;
+        }
+
+        this.style.display = 'block';
+        this.fetchAirQuality();
+        
+        // Refresh air quality every 30 minutes
+        setInterval(() => this.fetchAirQuality(), 30 * 60 * 1000);
+    }
+
+    async fetchAirQuality() {
+        try {
+            // Get location parameters from the main weather app
+            const weatherApp = document.querySelector('weather-app');
+            const { lat, lon, location } = weatherApp ? weatherApp.parseLocationParams() : this.getFallbackLocation();
+            
+            const params = new URLSearchParams();
+            if (lat && lon) {
+                params.append('lat', lat);
+                params.append('lon', lon);
+            }
+            if (location) {
+                params.append('location', location);
+            }
+            
+            const response = await fetch(`/api/air-quality?${params}`);
+            const data = await response.json();
+            
+            if (response.ok && data.aqi) {
+                this.updateAirQuality(data);
+                this.hideError();
+            } else {
+                this.showError(data.error || 'Failed to load air quality data');
+            }
+        } catch (error) {
+            console.error('Air quality fetch error:', error);
+            this.showError('Network error - unable to fetch air quality data');
+        }
+    }
+
+    updateAirQuality(data) {
+        const loadingEl = this.shadowRoot.getElementById('loading');
+        const contentEl = this.shadowRoot.getElementById('aqi-content');
+        
+        // Hide loading, show content
+        if (loadingEl) loadingEl.style.display = 'none';
+        if (contentEl) contentEl.style.display = 'block';
+        
+        // Update AQI display
+        const aqiValueEl = this.shadowRoot.getElementById('aqi-value');
+        const aqiCategoryEl = this.shadowRoot.getElementById('aqi-category');
+        const healthRecommendationEl = this.shadowRoot.getElementById('health-recommendation');
+        
+        if (aqiValueEl && data.aqi) {
+            aqiValueEl.textContent = data.aqi.us_aqi;
+            aqiValueEl.style.backgroundColor = data.aqi.color;
+        }
+        
+        if (aqiCategoryEl && data.aqi) {
+            aqiCategoryEl.textContent = data.aqi.category;
+        }
+        
+        if (healthRecommendationEl && data.aqi) {
+            healthRecommendationEl.textContent = data.aqi.health_recommendation;
+        }
+        
+        // Update pollutant values
+        if (data.pollutants) {
+            const pollutantElements = {
+                'pm25-value': Math.round(data.pollutants.pm25),
+                'pm10-value': Math.round(data.pollutants.pm10),
+                'o3-value': Math.round(data.pollutants.o3),
+                'no2-value': Math.round(data.pollutants.no2),
+                'so2-value': Math.round(data.pollutants.so2),
+                'co-value': (data.pollutants.co / 1000).toFixed(1), // Convert to mg/m³
+            };
+            
+            Object.entries(pollutantElements).forEach(([id, value]) => {
+                const el = this.shadowRoot.getElementById(id);
+                if (el) el.textContent = value;
+            });
+        }
+    }
+
+    parseLocationParams() {
+        // Use same city mapping as main weather app
+        const cityCoords = {
+            'chicago': [41.8781, -87.6298, 'Chicago'],
+            'nyc': [40.7128, -74.0060, 'New York City'],
+            'sf': [37.7749, -122.4194, 'San Francisco'],
+            'london': [51.5074, -0.1278, 'London'],
+            'paris': [48.8566, 2.3522, 'Paris'],
+            'tokyo': [35.6762, 139.6503, 'Tokyo'],
+            'sydney': [-33.8688, 151.2093, 'Sydney'],
+            'berlin': [52.5200, 13.4050, 'Berlin'],
+            'rome': [41.9028, 12.4964, 'Rome'],
+            'madrid': [40.4168, -3.7038, 'Madrid'],
+        };
+        
+        let lat, lon, location;
+        
+        const pathParts = window.location.pathname.split('/').filter(part => part);
+        if (pathParts.length >= 1 && pathParts[0].includes(',')) {
+            // Format: /lat,lon or /lat,lon/location
+            const [latStr, lonStr] = pathParts[0].split(',');
+            lat = latStr;
+            lon = lonStr;
+            if (pathParts.length >= 2) {
+                location = pathParts[1].replace(/-/g, ' ');
+            }
+        } else if (pathParts.length >= 1 && cityCoords[pathParts[0].toLowerCase()]) {
+            // Format: /city (like /london, /nyc, etc.)
+            const cityData = cityCoords[pathParts[0].toLowerCase()];
+            lat = cityData[0];
+            lon = cityData[1]; 
+            location = cityData[2];
+        } else {
+            // Query parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            lat = urlParams.get('lat');
+            lon = urlParams.get('lon');
+            location = urlParams.get('location');
+            
+            // Only use defaults if no parameters at all are provided
+            if (!lat && !lon && !location) {
+                lat = '41.8781';
+                lon = '-87.6298';
+                location = 'Chicago';
+            }
+        }
+        
+        return { lat, lon, location };
+    }
+
+    showError(message) {
+        const errorEl = this.shadowRoot.getElementById('error');
+        const contentEl = this.shadowRoot.getElementById('aqi-content');
+        const loadingEl = this.shadowRoot.getElementById('loading');
+        
+        if (errorEl) {
+            errorEl.textContent = message;
+            errorEl.classList.remove('hidden');
+        }
+        if (contentEl) contentEl.style.display = 'none';
+        if (loadingEl) loadingEl.style.display = 'none';
+    }
+
+    hideError() {
+        const errorEl = this.shadowRoot.getElementById('error');
+        if (errorEl) errorEl.classList.add('hidden');
+    }
+}
+
+
+// Wind Direction Compass Component
+class WindDirectionWidget extends WeatherWidget {
+    connectedCallback() {
+        super.connectedCallback();
+        
+        // Check if this widget should be displayed
+        if (!this.config.wind) {
+            this.style.display = 'none';
+            return;
+        }
+
+        this.style.display = 'block';
+    }
+
+    render() {
+        this.style.display = 'block';
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+            
+            <style>
+                .wind-widget {
+                    margin: 1rem 0;
+                    text-align: center;
+                }
+                
+                .wind-compass {
+                    width: 120px;
+                    height: 120px;
+                    margin: 0 auto 1rem;
+                    position: relative;
+                }
+                
+                .compass-svg {
+                    width: 100%;
+                    height: 100%;
+                    transform: rotate(-90deg); /* North at top */
+                }
+                
+                .compass-circle {
+                    fill: none;
+                    stroke: var(--text-primary);
+                    stroke-width: 2;
+                    opacity: 0.3;
+                }
+                
+                .compass-tick {
+                    stroke: var(--text-primary);
+                    stroke-width: 1;
+                    opacity: 0.5;
+                }
+                
+                .compass-tick-major {
+                    stroke-width: 2;
+                    opacity: 0.7;
+                }
+                
+                .compass-label {
+                    fill: var(--text-primary);
+                    font-size: 12px;
+                    font-weight: 600;
+                    text-anchor: middle;
+                    dominant-baseline: central;
+                    transform: rotate(90deg);
+                }
+                
+                .wind-arrow {
+                    fill: #3b82f6;
+                    stroke: #1d4ed8;
+                    stroke-width: 1;
+                    opacity: 0.9;
+                    transition: transform 0.5s ease;
+                    transform-origin: 60px 60px;
+                }
+                
+                .wind-info {
+                    display: flex;
+                    justify-content: space-around;
+                    margin: 1rem 0;
+                }
+                
+                .wind-detail {
+                    text-align: center;
+                }
+                
+                .wind-value {
+                    font-size: 1.25rem;
+                    font-weight: 700;
+                    margin-bottom: 0.25rem;
+                }
+                
+                .wind-label {
+                    font-size: 0.75rem;
+                    opacity: 0.7;
+                    text-transform: uppercase;
+                    font-weight: 600;
+                }
+                
+                .wind-description {
+                    font-size: 0.875rem;
+                    opacity: 0.8;
+                    margin-top: 0.5rem;
+                }
+                
+                .beaufort-scale {
+                    font-size: 0.75rem;
+                    opacity: 0.6;
+                    font-style: italic;
+                }
+                
+                @media (max-width: 640px) {
+                    .wind-compass {
+                        width: 100px;
+                        height: 100px;
+                    }
+                    
+                    .compass-label {
+                        font-size: 10px;
+                    }
+                    
+                    .wind-info {
+                        flex-wrap: wrap;
+                        gap: 0.5rem;
+                    }
+                }
+            </style>
+
+            <div class="wind-widget widget-content">
+                <div class="wind-compass">
+                    <svg class="compass-svg" viewBox="0 0 120 120">
+                        <!-- Compass circle -->
+                        <circle class="compass-circle" cx="60" cy="60" r="50"></circle>
+                        
+                        <!-- Compass ticks and labels -->
+                        <!-- North -->
+                        <line class="compass-tick-major" x1="60" y1="10" x2="60" y2="20"></line>
+                        <text class="compass-label" x="60" y="15">N</text>
+                        
+                        <!-- Northeast -->
+                        <line class="compass-tick" x1="95.36" y1="24.64" x2="88.64" y2="31.36"></line>
+                        
+                        <!-- East -->
+                        <line class="compass-tick-major" x1="110" y1="60" x2="100" y2="60"></line>
+                        <text class="compass-label" x="105" y="60">E</text>
+                        
+                        <!-- Southeast -->
+                        <line class="compass-tick" x1="95.36" y1="95.36" x2="88.64" y2="88.64"></line>
+                        
+                        <!-- South -->
+                        <line class="compass-tick-major" x1="60" y1="110" x2="60" y2="100"></line>
+                        <text class="compass-label" x="60" y="105">S</text>
+                        
+                        <!-- Southwest -->
+                        <line class="compass-tick" x1="24.64" y1="95.36" x2="31.36" y2="88.64"></line>
+                        
+                        <!-- West -->
+                        <line class="compass-tick-major" x1="10" y1="60" x2="20" y2="60"></line>
+                        <text class="compass-label" x="15" y="60">W</text>
+                        
+                        <!-- Northwest -->
+                        <line class="compass-tick" x1="24.64" y1="24.64" x2="31.36" y2="31.36"></line>
+                        
+                        <!-- Wind arrow (pointing in wind direction) -->
+                        <path class="wind-arrow" id="wind-arrow" 
+                              d="M60,25 L65,35 L60,30 L55,35 Z M60,30 L60,85 M55,80 L60,85 L65,80"
+                              style="display: none;">
+                        </path>
+                        
+                        <!-- Center dot -->
+                        <circle cx="60" cy="60" r="3" fill="var(--text-primary)" opacity="0.5"></circle>
+                    </svg>
+                </div>
+                
+                <div class="wind-info">
+                    <div class="wind-detail">
+                        <div class="wind-value" id="wind-speed">-- mph</div>
+                        <div class="wind-label">Speed</div>
+                    </div>
+                    <div class="wind-detail">
+                        <div class="wind-value" id="wind-direction">--</div>
+                        <div class="wind-label">Direction</div>
+                    </div>
+                    <div class="wind-detail">
+                        <div class="wind-value" id="wind-gust">-- mph</div>
+                        <div class="wind-label">Gusts</div>
+                    </div>
+                </div>
+                
+                <div class="wind-description" id="wind-description">Wind data loading...</div>
+                <div class="beaufort-scale" id="beaufort-scale"></div>
+                
+                <div class="error-message error hidden" id="error"></div>
+            </div>
+        `;
+    }
+
+    update() {
+        if (!this.data || !this.data.current) return;
+
+        const current = this.data.current;
+        
+        // Update wind speed
+        const windSpeedEl = this.shadowRoot.getElementById('wind-speed');
+        if (windSpeedEl && current.wind_speed !== undefined) {
+            windSpeedEl.textContent = `${current.wind_speed} mph`;
+        }
+        
+        // Update wind direction
+        const windDirectionEl = this.shadowRoot.getElementById('wind-direction');
+        const windArrow = this.shadowRoot.getElementById('wind-arrow');
+        
+        if (current.wind_direction !== undefined) {
+            const direction = current.wind_direction;
+            const directionText = this.getWindDirectionText(direction);
+            
+            if (windDirectionEl) {
+                windDirectionEl.textContent = `${direction}° ${directionText}`;
+            }
+            
+            // Rotate arrow to show wind direction
+            if (windArrow) {
+                windArrow.style.display = 'block';
+                windArrow.style.transform = `rotate(${direction}deg)`;
+            }
+        } else {
+            if (windDirectionEl) windDirectionEl.textContent = '--';
+            if (windArrow) windArrow.style.display = 'none';
+        }
+        
+        // Update wind gusts (if available)
+        const windGustEl = this.shadowRoot.getElementById('wind-gust');
+        if (windGustEl) {
+            if (current.wind_gust !== undefined) {
+                windGustEl.textContent = `${current.wind_gust} mph`;
+            } else {
+                // Estimate gusts as 1.3x sustained wind for display
+                const estimatedGust = Math.round(current.wind_speed * 1.3);
+                windGustEl.textContent = `~${estimatedGust} mph`;
+            }
+        }
+        
+        // Update wind description and Beaufort scale
+        this.updateWindDescription(current.wind_speed);
+        
+        this.hideError();
+        this.hideLoading();
+    }
+
+    getWindDirectionText(degrees) {
+        const directions = [
+            'N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+            'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'
+        ];
+        const index = Math.round(degrees / 22.5) % 16;
+        return directions[index];
+    }
+
+    updateWindDescription(windSpeed) {
+        const descriptionEl = this.shadowRoot.getElementById('wind-description');
+        const beaufortEl = this.shadowRoot.getElementById('beaufort-scale');
+        
+        if (!descriptionEl || !beaufortEl) return;
+        
+        const beaufort = this.getBeaufortData(windSpeed);
+        descriptionEl.textContent = beaufort.description;
+        beaufortEl.textContent = `Beaufort Scale: ${beaufort.scale} - ${beaufort.name}`;
+    }
+
+    getBeaufortData(windSpeedMph) {
+        // Convert mph to m/s for Beaufort calculation, then back
+        const windSpeedMs = windSpeedMph * 0.44704;
+        
+        if (windSpeedMs < 0.3) {
+            return { scale: 0, name: 'Calm', description: 'Smoke rises vertically' };
+        } else if (windSpeedMs < 1.5) {
+            return { scale: 1, name: 'Light air', description: 'Smoke drift indicates wind direction' };
+        } else if (windSpeedMs < 3.3) {
+            return { scale: 2, name: 'Light breeze', description: 'Wind felt on face, leaves rustle' };
+        } else if (windSpeedMs < 5.5) {
+            return { scale: 3, name: 'Gentle breeze', description: 'Leaves and twigs move, flags extend' };
+        } else if (windSpeedMs < 7.9) {
+            return { scale: 4, name: 'Moderate breeze', description: 'Small branches move, dust rises' };
+        } else if (windSpeedMs < 10.7) {
+            return { scale: 5, name: 'Fresh breeze', description: 'Small trees sway, waves on water' };
+        } else if (windSpeedMs < 13.8) {
+            return { scale: 6, name: 'Strong breeze', description: 'Large branches move, whistling in wires' };
+        } else if (windSpeedMs < 17.1) {
+            return { scale: 7, name: 'Near gale', description: 'Whole trees move, resistance walking' };
+        } else if (windSpeedMs < 20.7) {
+            return { scale: 8, name: 'Gale', description: 'Twigs break off trees, difficult to walk' };
+        } else if (windSpeedMs < 24.4) {
+            return { scale: 9, name: 'Strong gale', description: 'Slight structural damage, chimney pots fall' };
+        } else if (windSpeedMs < 28.4) {
+            return { scale: 10, name: 'Storm', description: 'Trees uprooted, considerable damage' };
+        } else if (windSpeedMs < 32.6) {
+            return { scale: 11, name: 'Violent storm', description: 'Widespread damage, rare on land' };
+        } else {
+            return { scale: 12, name: 'Hurricane', description: 'Devastating damage, extreme danger' };
+        }
+    }
+}
+
 
 // Weather App Main Controller
 class WeatherApp {
@@ -1301,7 +1969,7 @@ class HelpSection extends HTMLElement {
                     <ul class="param-list">
                         <li>
                             <span class="param-name">widgets</span> - Comma-separated list of widgets to show
-                            <span class="param-example">?widgets=current,hourly,daily</span>
+                            <span class="param-example">?widgets=current,hourly,daily,air-quality,wind,pressure</span>
                         </li>
                         <li>
                             <span class="param-name">current</span> - Show/hide current weather (true/false)
@@ -1318,6 +1986,18 @@ class HelpSection extends HTMLElement {
                         <li>
                             <span class="param-name">timeline</span> - Show/hide hourly timeline (true/false)
                             <span class="param-example">?timeline=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">air-quality</span> - Show/hide air quality index (true/false)
+                            <span class="param-example">?air-quality=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">wind-direction</span> - Show/hide wind compass (true/false)
+                            <span class="param-example">?wind-direction=false</span>
+                        </li>
+                        <li>
+                            <span class="param-name">pressure-trends</span> - Show/hide atmospheric pressure (true/false)
+                            <span class="param-example">?pressure-trends=false</span>
                         </li>
                     </ul>
                 </div>
@@ -1384,12 +2064,339 @@ class HelpSection extends HTMLElement {
     }
 }
 
+/**
+ * Pressure Trends Widget - displays atmospheric pressure with trends and predictions
+ */
+class PressureTrendsWidget extends WeatherWidget {
+    constructor() {
+        super();
+        this.weatherData = null;
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        
+        // Check if this widget should be displayed
+        if (!this.config.pressure) {
+            this.style.display = 'none';
+            return;
+        }
+
+        this.style.display = 'block';
+        this.render();
+        
+        // Listen for weather data updates
+        document.addEventListener('weather-data-updated', (event) => {
+            this.updateWeatherData(event.detail);
+        });
+
+        // Listen for theme changes
+        document.addEventListener('theme-changed', () => {
+            this.render();
+        });
+    }
+
+    updateWeatherData(data) {
+        this.weatherData = data;
+        this.render();
+    }
+
+    getTrendArrow(trend) {
+        switch(trend) {
+            case 'rising': return '↗';
+            case 'falling': return '↘';
+            case 'steady': 
+            default: return '→';
+        }
+    }
+
+    getTrendColor(trend, rate) {
+        if (trend === 'steady') return 'var(--text-primary)';
+        
+        const absRate = Math.abs(rate);
+        if (absRate > 0.5) {
+            // Fast change - red for falling, green for rising
+            return trend === 'rising' ? '#10b981' : '#ef4444';
+        } else {
+            // Slow change - yellow for caution
+            return '#f59e0b';
+        }
+    }
+
+    createMiniChart(history) {
+        if (!history || history.length < 3) return '<div class="no-chart">Insufficient data</div>';
+
+        const width = 100;
+        const height = 30;
+        const padding = 5;
+
+        const values = history.map(h => h.pressure);
+        const minValue = Math.min(...values);
+        const maxValue = Math.max(...values);
+        const range = maxValue - minValue || 1; // Avoid division by zero
+
+        // Create SVG path for pressure line
+        const points = history.map((h, index) => {
+            const x = padding + ((width - 2 * padding) * index) / (history.length - 1);
+            const y = height - padding - ((h.pressure - minValue) / range) * (height - 2 * padding);
+            return `${x},${y}`;
+        });
+
+        const pathData = `M ${points.join(' L ')}`;
+
+        return `
+            <svg class="pressure-chart" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+                <path d="${pathData}" 
+                      stroke="var(--text-primary)" 
+                      stroke-width="1" 
+                      fill="none" 
+                      opacity="0.8"/>
+                ${points.map((point, index) => 
+                    `<circle cx="${point.split(',')[0]}" 
+                             cy="${point.split(',')[1]}" 
+                             r="1" 
+                             fill="var(--text-primary)" 
+                             opacity="0.6"/>`
+                ).join('')}
+            </svg>
+        `;
+    }
+
+    render() {
+        if (!this.weatherData?.pressure_trend) {
+            this.shadowRoot.innerHTML = `
+                <style>
+                    :host {
+                        display: block;
+                        margin-bottom: 1rem;
+                    }
+                    .loading {
+                        padding: 1rem;
+                        text-align: center;
+                        opacity: 0.6;
+                        font-size: 0.9rem;
+                    }
+                </style>
+                <div class="loading">Loading pressure data...</div>
+            `;
+            return;
+        }
+
+        const trend = this.weatherData.pressure_trend;
+        const currentPressure = this.weatherData.current?.pressure || trend.current_pressure;
+        
+        // Convert pressure from hPa to inHg for US users
+        const pressureInHg = (currentPressure * 0.02953).toFixed(2);
+        const trendArrow = this.getTrendArrow(trend.trend);
+        const trendColor = this.getTrendColor(trend.trend, trend.rate);
+
+        this.shadowRoot.innerHTML = `
+            <style>
+                :host {
+                    display: block;
+                    margin-bottom: 1rem;
+                }
+
+                .pressure-card {
+                    background: var(--card-bg);
+                    backdrop-filter: blur(10px);
+                    border-radius: 1rem;
+                    border: 1px solid var(--card-border);
+                    padding: 1rem;
+                    margin-bottom: 1rem;
+                }
+
+                .pressure-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                }
+
+                .pressure-title {
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    opacity: 0.9;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .pressure-main {
+                    display: grid;
+                    grid-template-columns: 1fr auto 1fr;
+                    gap: 1rem;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                }
+
+                .pressure-current {
+                    text-align: center;
+                }
+
+                .pressure-value {
+                    font-size: 1.8rem;
+                    font-weight: 700;
+                    color: var(--text-primary);
+                    line-height: 1;
+                }
+
+                .pressure-unit {
+                    font-size: 0.8rem;
+                    opacity: 0.7;
+                    margin-top: 0.25rem;
+                }
+
+                .pressure-hpa {
+                    font-size: 0.7rem;
+                    opacity: 0.6;
+                    margin-top: 0.1rem;
+                }
+
+                .pressure-trend {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .trend-arrow {
+                    font-size: 2rem;
+                    color: ${trendColor};
+                    line-height: 1;
+                }
+
+                .trend-rate {
+                    font-size: 0.8rem;
+                    color: ${trendColor};
+                    font-weight: 600;
+                    text-align: center;
+                }
+
+                .pressure-chart-container {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 0.25rem;
+                }
+
+                .chart-label {
+                    font-size: 0.7rem;
+                    opacity: 0.7;
+                    text-align: center;
+                }
+
+                .pressure-chart {
+                    width: 100px;
+                    height: 30px;
+                    opacity: 0.8;
+                }
+
+                .pressure-prediction {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 0.75rem;
+                    text-align: center;
+                    margin-top: 0.5rem;
+                }
+
+                .prediction-text {
+                    font-size: 0.85rem;
+                    color: var(--text-primary);
+                    opacity: 0.9;
+                    font-weight: 500;
+                }
+
+                .no-chart {
+                    font-size: 0.7rem;
+                    opacity: 0.5;
+                    text-align: center;
+                    padding: 0.5rem;
+                }
+
+                /* Mobile optimizations */
+                @media (max-width: 640px) {
+                    .pressure-main {
+                        grid-template-columns: 1fr;
+                        gap: 0.75rem;
+                        text-align: center;
+                    }
+
+                    .pressure-value {
+                        font-size: 1.5rem;
+                    }
+
+                    .trend-arrow {
+                        font-size: 1.5rem;
+                    }
+
+                    .pressure-chart {
+                        width: 80px;
+                        height: 25px;
+                    }
+                }
+
+                /* Dashboard theme adjustments */
+                [data-theme="dashboard"] .pressure-card {
+                    border: 2px solid var(--card-border);
+                    background: var(--card-bg);
+                }
+
+                [data-theme="dashboard"] .pressure-prediction {
+                    background: rgba(0, 0, 0, 0.1);
+                    border: 1px solid var(--card-border);
+                }
+            </style>
+
+            <div class="pressure-card">
+                <div class="pressure-header">
+                    <div class="pressure-title">
+                        📊 Atmospheric Pressure
+                    </div>
+                </div>
+
+                <div class="pressure-main">
+                    <div class="pressure-current">
+                        <div class="pressure-value">${pressureInHg}</div>
+                        <div class="pressure-unit">inHg</div>
+                        <div class="pressure-hpa">${currentPressure} hPa</div>
+                    </div>
+
+                    <div class="pressure-trend">
+                        <div class="trend-arrow" title="Pressure ${trend.trend} at ${trend.rate} hPa/hour">
+                            ${trendArrow}
+                        </div>
+                        <div class="trend-rate">
+                            ${trend.rate > 0 ? '+' : ''}${trend.rate} hPa/h
+                        </div>
+                    </div>
+
+                    <div class="pressure-chart-container">
+                        <div class="chart-label">12hr trend</div>
+                        ${this.createMiniChart(trend.history)}
+                    </div>
+                </div>
+
+                <div class="pressure-prediction">
+                    <div class="prediction-text">
+                        ${trend.prediction}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+}
+
 // Register all components
 customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
 customElements.define('hourly-forecast', HourlyForecastWidget);
 customElements.define('daily-forecast', DailyForecastWidget);
 customElements.define('hourly-timeline', HourlyTimelineWidget);
+customElements.define('air-quality', AirQualityWidget);
+customElements.define('wind-direction', WindDirectionWidget);
+customElements.define('pressure-trends', PressureTrendsWidget);
 customElements.define('help-section', HelpSection);
 
 // Initialize the weather app

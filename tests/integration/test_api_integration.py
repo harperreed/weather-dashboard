@@ -328,6 +328,111 @@ class TestApplicationConfiguration:
 
 
 @pytest.mark.integration
+class TestAirQualityIntegration:
+    """Test air quality API integration"""
+    
+    def test_air_quality_api_without_key(self, client: FlaskClient) -> None:
+        """Test air quality API response without API key (should return 503)"""
+        response = client.get('/api/air-quality')
+        # PurpleAir requires API key - should return 503 Service Unavailable
+        assert response.status_code == 503
+        
+        data = response.get_json()
+        assert data is not None
+        assert 'error' in data
+        assert 'API key required' in data['error']
+    
+    @patch('main.air_quality_provider')
+    def test_air_quality_api_success(self, mock_provider: MagicMock, client: FlaskClient) -> None:
+        """Test successful air quality API response"""
+        mock_air_quality_data = {
+            'aqi': {
+                'us_aqi': 45,
+                'category': 'Good',
+                'health_recommendation': 'Air quality is satisfactory for most people',
+                'color': '#00e400'
+            },
+            'pollutants': {
+                'pm25': 12.5,
+                'pm10': 25.0,
+                'o3': 80.0,
+                'no2': 15.0,
+                'so2': 5.0,
+                'co': 200.0
+            },
+            'location': 'Chicago',
+            'provider': 'AirQuality'
+        }
+        
+        # Mock the provider instance
+        mock_provider_instance = MagicMock()
+        mock_provider_instance.get_weather.return_value = mock_air_quality_data
+        mock_provider.return_value = mock_provider_instance
+        
+        # Make the provider available
+        with patch('main.air_quality_provider', mock_provider_instance):
+            response = client.get('/api/air-quality?lat=41.8781&lon=-87.6298&location=Chicago')
+        
+        assert response.status_code == 200
+        data = response.get_json()
+        
+        assert data is not None
+        assert 'aqi' in data
+        assert data['aqi']['us_aqi'] == 45
+        assert data['aqi']['category'] == 'Good'
+        assert 'pollutants' in data
+        assert data['pollutants']['pm25'] == 12.5
+        
+        # Check cache headers
+        assert 'Cache-Control' in response.headers
+        assert 'public' in response.headers['Cache-Control']
+    
+    @patch('main.air_quality_provider')
+    @patch('main.weather_cache')
+    def test_air_quality_api_failure(self, mock_cache: MagicMock, mock_provider: MagicMock, client: FlaskClient) -> None:
+        """Test air quality API when provider fails"""
+        mock_cache.__contains__.return_value = False  # No cache hit
+        
+        mock_provider_instance = MagicMock()
+        mock_provider_instance.get_weather.return_value = None
+        
+        with patch('main.air_quality_provider', mock_provider_instance):
+            response = client.get('/api/air-quality?lat=42.0&lon=-88.0')  # Use different coordinates
+        
+        assert response.status_code == 500
+        data = response.get_json()
+        assert data is not None
+        assert 'error' in data
+        assert 'Failed to fetch air quality data' in data['error']
+    
+    @patch('main.air_quality_provider')
+    @patch('main.weather_cache')
+    def test_air_quality_api_default_location(self, mock_cache: MagicMock, mock_provider: MagicMock, client: FlaskClient) -> None:
+        """Test air quality API with default location (Chicago)"""
+        mock_cache.__contains__.return_value = False  # No cache hit
+        
+        mock_air_quality_data = {
+            'aqi': {'us_aqi': 50},
+            'pollutants': {},
+            'location': 'Unknown Location',
+            'provider': 'AirQuality'
+        }
+        
+        mock_provider_instance = MagicMock()
+        mock_provider_instance.get_weather.return_value = mock_air_quality_data
+        
+        with patch('main.air_quality_provider', mock_provider_instance):
+            response = client.get('/api/air-quality?lat=40.0&lon=-89.0')  # Use different coordinates
+        
+        assert response.status_code == 200
+        
+        # Verify the provider was called with the coordinates
+        mock_provider_instance.get_weather.assert_called_once()
+        call_args = mock_provider_instance.get_weather.call_args
+        assert call_args[0][0] == 40.0  # Test latitude
+        assert call_args[0][1] == -89.0  # Test longitude
+
+
 class TestEndToEndScenarios:
     """End-to-end integration test scenarios"""
 

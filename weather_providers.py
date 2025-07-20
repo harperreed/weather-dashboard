@@ -95,7 +95,8 @@ class OpenMeteoProvider(WeatherProvider):
                 ),
                 'hourly': (
                     'temperature_2m,precipitation_probability,precipitation,'
-                    'rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m'
+                    'rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,'
+                    'pressure_msl'
                 ),
                 'daily': (
                     'weather_code,temperature_2m_max,temperature_2m_min,'
@@ -194,7 +195,9 @@ class OpenMeteoProvider(WeatherProvider):
                         break
 
                 # Get next 24 hours starting from current/next hour
+                pressure_history = []  # Store for trend analysis
                 for i in range(start_index, min(start_index + 24, len(hourly['time']))):
+                    pressure_value = hourly.get('pressure_msl', [0] * len(hourly['time']))[i]
                     hour_data = {
                         'temp': round(hourly['temperature_2m'][i]),
                         'icon': self._map_weather_code(hourly['weather_code'][i]),
@@ -211,8 +214,13 @@ class OpenMeteoProvider(WeatherProvider):
                         'desc': self._get_weather_description(
                             hourly['weather_code'][i]
                         ),
+                        'pressure': round(pressure_value, 1),
                     }
                     hourly_forecast.append(hour_data)
+                    pressure_history.append({
+                        'time': hourly['time'][i],
+                        'pressure': round(pressure_value, 1)
+                    })
 
             # Process daily forecast
             daily_forecast = []
@@ -249,12 +257,17 @@ class OpenMeteoProvider(WeatherProvider):
                 raw_data.get('minutely_15', {}), tz_name
             )
 
+            # Calculate pressure trends
+            from main import calculate_pressure_trend
+            pressure_trend = calculate_pressure_trend(pressure_history)
+
             return {
                 'current': current_weather,
                 'hourly': hourly_forecast,
                 'daily': daily_forecast,
                 'minutely': minutely_data,
                 'sun': sun_data,
+                'pressure_trend': pressure_trend,
                 'location': location_name or 'Unknown Location',
                 'provider': self.name,
             }
@@ -686,6 +699,172 @@ class HybridWeatherProvider(WeatherProvider):
         blended['location'] = location_name or 'Unknown Location'
 
         return blended
+
+
+class AirQualityProvider(WeatherProvider):
+    """EPA AirNow API for official, accurate air quality index data"""
+    
+    def __init__(self, api_key: str):
+        super().__init__('AirQuality')
+        self.api_key = api_key  # Required for AirNow API
+        self.base_url = 'http://www.airnowapi.org/aq/observation'
+        
+    def fetch_weather_data(
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Fetch air quality data from EPA AirNow API"""
+        try:
+            # Try latitude/longitude endpoint first
+            lat_lon_url = f'{self.base_url}/latLong/current/'
+            params = {
+                'format': 'application/json',
+                'latitude': lat,
+                'longitude': lon,
+                'distance': 25,  # 25 mile radius
+                'API_KEY': self.api_key
+            }
+            
+            response = requests.get(lat_lon_url, params=params, timeout=self.timeout)
+            print(f'🌬️  AirNow API URL: {response.url}')
+            response.raise_for_status()
+            
+            data = response.json()
+            if data:  # If we got data, return it
+                return data
+            
+            # If no data by coordinates, try to find a nearby zip code as fallback
+            print('🌬️  No AirNow data by coordinates, trying zip code lookup fallback')
+            return self._try_zip_code_fallback(lat, lon)
+            
+        except Exception as e:
+            print(f'❌ AirNow API error: {str(e)}')
+            return None
+    
+    def process_weather_data(
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Process EPA AirNow API response to extract AQI data"""
+        if not raw_data:
+            print('❌ No AirNow data available for this location')
+            return None
+            
+        try:
+            # raw_data is a list of observations from AirNow API
+            observations = raw_data if isinstance(raw_data, list) else []
+            
+            if not observations:
+                print('❌ No AirNow observations found in area')
+                return None
+            
+            # Process AirNow observations - find highest AQI from available pollutants
+            highest_aqi = 0
+            primary_pollutant = None
+            reporting_area = location_name
+            pollutant_data = {}
+            
+            for obs in observations:
+                parameter = obs.get('ParameterName', '')
+                aqi = obs.get('AQI', 0)
+                
+                # Store pollutant data
+                pollutant_data[parameter] = aqi
+                
+                # Track highest AQI (this is the overall AQI)
+                if aqi > highest_aqi:
+                    highest_aqi = aqi
+                    primary_pollutant = parameter
+                
+                # Use reporting area from API if available
+                if not reporting_area or reporting_area == 'Unknown Location':
+                    reporting_area = obs.get('ReportingArea', location_name)
+            
+            if highest_aqi == 0:
+                print('❌ No valid AQI readings from AirNow')
+                return None
+                
+            return {
+                'aqi': {
+                    'us_aqi': highest_aqi,
+                    'category': self._get_aqi_category(highest_aqi),
+                    'health_recommendation': self._get_health_recommendation(highest_aqi),
+                    'color': self._get_aqi_color(highest_aqi),
+                    'primary_pollutant': primary_pollutant
+                },
+                'pollutants': {
+                    'pm25': pollutant_data.get('PM2.5', 0),
+                    'pm10': pollutant_data.get('PM10', 0),
+                    'o3': pollutant_data.get('O3', 0),
+                    'no2': pollutant_data.get('NO2', 0),
+                    'so2': pollutant_data.get('SO2', 0),
+                    'co': pollutant_data.get('CO', 0)
+                },
+                'observation_count': len(observations),
+                'location': reporting_area or location_name or 'Unknown Location',
+                'provider': f'{self.name} (EPA AirNow)'
+            }
+            
+        except Exception as e:
+            print(f'❌ Error processing AirNow data: {str(e)}')
+            return None
+    
+    def _try_zip_code_fallback(self, lat: float, lon: float) -> dict | None:
+        """Try to get data using a nearby zip code as fallback"""
+        # This is a simplified fallback - in a real implementation, you'd use a
+        # geocoding service to convert coordinates to zip codes
+        # For now, we'll just return None to indicate no fallback data
+        print(f'🌬️  Zip code fallback not implemented for lat={lat}, lon={lon}')
+        return None
+    
+    def _get_aqi_category(self, aqi: int) -> str:
+        """Get AQI category name"""
+        if aqi <= 50:
+            return 'Good'
+        elif aqi <= 100:
+            return 'Moderate'
+        elif aqi <= 150:
+            return 'Unhealthy for Sensitive Groups'
+        elif aqi <= 200:
+            return 'Unhealthy'
+        elif aqi <= 300:
+            return 'Very Unhealthy'
+        else:
+            return 'Hazardous'
+    
+    def _get_health_recommendation(self, aqi: int) -> str:
+        """Get health recommendation based on AQI"""
+        if aqi <= 50:
+            return 'Air quality is satisfactory for most people'
+        elif aqi <= 100:
+            return 'Sensitive individuals may experience minor symptoms'
+        elif aqi <= 150:
+            return 'Sensitive groups should reduce outdoor activities'
+        elif aqi <= 200:
+            return 'Everyone should limit outdoor activities'
+        elif aqi <= 300:
+            return 'Avoid outdoor activities; stay indoors'
+        else:
+            return 'Emergency conditions - avoid all outdoor activities'
+    
+    def _get_aqi_color(self, aqi: int) -> str:
+        """Get color code for AQI visualization"""
+        if aqi <= 50:
+            return '#00e400'  # Green
+        elif aqi <= 100:
+            return '#ffff00'  # Yellow  
+        elif aqi <= 150:
+            return '#ff7e00'  # Orange
+        elif aqi <= 200:
+            return '#ff0000'  # Red
+        elif aqi <= 300:
+            return '#99004c'  # Purple
+        else:
+            return '#7e0023'  # Maroon
 
 
 class WeatherProviderManager:
