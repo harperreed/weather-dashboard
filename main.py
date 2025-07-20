@@ -75,7 +75,7 @@ open_meteo = OpenMeteoProvider()
 # Initialize EPA AirNow air quality provider (API key required)
 airnow_api_key = os.getenv('AIRNOW_API_KEY')
 if airnow_api_key:
-    air_quality_provider = AirQualityProvider(airnow_api_key)
+    air_quality_provider: AirQualityProvider | None = AirQualityProvider(airnow_api_key)
     print('🏛️ AirNow API key found - official EPA air quality data available')
 else:
     air_quality_provider = None
@@ -301,9 +301,17 @@ def process_open_meteo_data(
         }
 
 
+# Pressure trend analysis constants
+MIN_PRESSURE_HISTORY_POINTS = 3
+PRESSURE_TREND_STEADY_THRESHOLD = 0.1  # hPa/hour
+PRESSURE_TREND_SIGNIFICANT_THRESHOLD = 0.5  # hPa/hour
+PRESSURE_HIGH_THRESHOLD = 1020  # hPa
+PRESSURE_NORMAL_THRESHOLD = 1000  # hPa
+
+
 def calculate_pressure_trend(pressure_history: list[dict]) -> dict:
     """Calculate pressure trend indicators from historical data"""
-    if len(pressure_history) < 3:
+    if len(pressure_history) < MIN_PRESSURE_HISTORY_POINTS:
         return {
             'trend': 'steady',
             'rate': 0.0,
@@ -319,9 +327,9 @@ def calculate_pressure_trend(pressure_history: list[dict]) -> dict:
     rate_per_hour = pressure_change / 3.0  # 3-hour change divided by 3
 
     # Determine trend direction
-    if abs(rate_per_hour) < 0.1:  # Less than 0.1 hPa/hour is considered steady
+    if abs(rate_per_hour) < PRESSURE_TREND_STEADY_THRESHOLD:
         trend = 'steady'
-    elif rate_per_hour > 0.1:
+    elif rate_per_hour > PRESSURE_TREND_STEADY_THRESHOLD:
         trend = 'rising'
     else:
         trend = 'falling'
@@ -351,17 +359,17 @@ def get_pressure_prediction(trend: str, rate: float, current_pressure: float) ->
     }
 
     # Categorize pressure levels (typical sea level pressure ranges)
-    if current_pressure > 1020:
+    if current_pressure > PRESSURE_HIGH_THRESHOLD:
         pressure_level = 'high'
-    elif current_pressure > 1000:
+    elif current_pressure > PRESSURE_NORMAL_THRESHOLD:
         pressure_level = 'normal'
     else:
         pressure_level = 'low'
 
     # Categorize rate of change
-    if abs(rate) < 0.1:
+    if abs(rate) < PRESSURE_TREND_STEADY_THRESHOLD:
         rate_category = 'steady'
-    elif abs(rate) > 0.5:  # More than 0.5 hPa/hour is significant
+    elif abs(rate) > PRESSURE_TREND_SIGNIFICANT_THRESHOLD:
         rate_category = f'{trend}_fast'
     else:
         rate_category = f'{trend}_slow'

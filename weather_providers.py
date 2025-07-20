@@ -139,9 +139,10 @@ class OpenMeteoProvider(WeatherProvider):
             daily = raw_data.get('daily', {})
 
             # Debug: Check what wind data we're getting
-            print(
-                f'🌬️  Wind data from OpenMeteo: speed={current.get("wind_speed_10m")}, direction={current.get("wind_direction_10m")}'
-            )
+            wind_speed = current.get('wind_speed_10m')
+            wind_direction = current.get('wind_direction_10m')
+            wind_msg = f'Wind: speed={wind_speed}, direction={wind_direction}'
+            print(f'🌬️  {wind_msg}')
 
             # Extract timezone from OpenMeteo response (overrides parameter)
             api_timezone = raw_data.get('timezone')
@@ -536,7 +537,7 @@ class PirateWeatherProvider(WeatherProvider):
             }
 
     def _determine_is_day(self, icon: str) -> bool:
-        """Determine if it's day based on icon (PirateWeather includes day/night in icons)"""
+        """Determine if it's day based on icon (PW includes day/night in icons)"""
         return 'night' not in icon
 
     def _calculate_data_age(self, timestamp: int) -> int:
@@ -616,9 +617,8 @@ class HybridWeatherProvider(WeatherProvider):
         has_pirate = pirate_data is not None
         has_openmeteo = openmeteo_data is not None
 
-        print(
-            f'🔍 Data sources available: PirateWeather={has_pirate}, OpenMeteo={has_openmeteo}'
-        )
+        sources_msg = f'PirateWeather={has_pirate}, OpenMeteo={has_openmeteo}'
+        print(f'🔍 Data sources available: {sources_msg}')
 
         # Start with OpenMeteo as base (reliable forecasts)
         if openmeteo_data:
@@ -699,9 +699,9 @@ class HybridWeatherProvider(WeatherProvider):
             }
 
             blended['current'] = blended_current
-            print(
-                f'🔀 Blended current conditions: PirateWeather + OpenMeteo (data age: {blended_current.get("data_age", 0)}min)'
-            )
+            data_age = blended_current.get('data_age', 0)
+            blend_msg = f'Blended PirateWeather + OpenMeteo (age: {data_age}min)'
+            print(f'🔀 {blend_msg}')
 
         # Keep OpenMeteo's forecasts (they're excellent)
         # Keep OpenMeteo's minutely data (15-min precipitation)
@@ -711,6 +711,14 @@ class HybridWeatherProvider(WeatherProvider):
         blended['location'] = location_name or 'Unknown Location'
 
         return blended
+
+
+# AQI threshold constants
+AQI_GOOD = 50
+AQI_MODERATE = 100
+AQI_UNHEALTHY_SENSITIVE = 150
+AQI_UNHEALTHY = 200
+AQI_VERY_UNHEALTHY = 300
 
 
 class AirQualityProvider(WeatherProvider):
@@ -726,16 +734,16 @@ class AirQualityProvider(WeatherProvider):
         lat: float,
         lon: float,
         tz_name: str | None = None,  # noqa: ARG002
-    ) -> dict | None:
+    ) -> dict[str, Any] | None:
         """Fetch air quality data from EPA AirNow API"""
         try:
             # Try latitude/longitude endpoint first
             lat_lon_url = f'{self.base_url}/latLong/current/'
             params = {
                 'format': 'application/json',
-                'latitude': lat,
-                'longitude': lon,
-                'distance': 25,  # 25 mile radius
+                'latitude': str(lat),
+                'longitude': str(lon),
+                'distance': '25',  # 25 mile radius
                 'API_KEY': self.api_key,
             }
 
@@ -743,9 +751,9 @@ class AirQualityProvider(WeatherProvider):
             print(f'🌬️  AirNow API URL: {response.url}')
             response.raise_for_status()
 
-            data = response.json()
+            data: list[dict[str, Any]] = response.json()
             if data:  # If we got data, return it
-                return data
+                return {'observations': data}
 
             # If no data by coordinates, try to find a nearby zip code as fallback
             print('🌬️  No AirNow data by coordinates, trying zip code lookup fallback')
@@ -757,7 +765,7 @@ class AirQualityProvider(WeatherProvider):
 
     def process_weather_data(
         self,
-        raw_data: dict,
+        raw_data: dict[str, Any],
         location_name: str | None = None,
         tz_name: str | None = None,  # noqa: ARG002
     ) -> dict | None:
@@ -767,8 +775,8 @@ class AirQualityProvider(WeatherProvider):
             return None
 
         try:
-            # raw_data is a list of observations from AirNow API
-            observations = raw_data if isinstance(raw_data, list) else []
+            # Extract observations from wrapped data structure
+            observations: list[dict[str, Any]] = raw_data.get('observations', [])
 
             if not observations:
                 print('❌ No AirNow observations found in area')
@@ -827,7 +835,7 @@ class AirQualityProvider(WeatherProvider):
             print(f'❌ Error processing AirNow data: {str(e)}')
             return None
 
-    def _try_zip_code_fallback(self, lat: float, lon: float) -> dict | None:
+    def _try_zip_code_fallback(self, lat: float, lon: float) -> dict[str, Any] | None:
         """Try to get data using a nearby zip code as fallback"""
         # This is a simplified fallback - in a real implementation, you'd use a
         # geocoding service to convert coordinates to zip codes
@@ -837,43 +845,43 @@ class AirQualityProvider(WeatherProvider):
 
     def _get_aqi_category(self, aqi: int) -> str:
         """Get AQI category name"""
-        if aqi <= 50:
+        if aqi <= AQI_GOOD:
             return 'Good'
-        if aqi <= 100:
+        if aqi <= AQI_MODERATE:
             return 'Moderate'
-        if aqi <= 150:
+        if aqi <= AQI_UNHEALTHY_SENSITIVE:
             return 'Unhealthy for Sensitive Groups'
-        if aqi <= 200:
+        if aqi <= AQI_UNHEALTHY:
             return 'Unhealthy'
-        if aqi <= 300:
+        if aqi <= AQI_VERY_UNHEALTHY:
             return 'Very Unhealthy'
         return 'Hazardous'
 
     def _get_health_recommendation(self, aqi: int) -> str:
         """Get health recommendation based on AQI"""
-        if aqi <= 50:
+        if aqi <= AQI_GOOD:
             return 'Air quality is satisfactory for most people'
-        if aqi <= 100:
+        if aqi <= AQI_MODERATE:
             return 'Sensitive individuals may experience minor symptoms'
-        if aqi <= 150:
+        if aqi <= AQI_UNHEALTHY_SENSITIVE:
             return 'Sensitive groups should reduce outdoor activities'
-        if aqi <= 200:
+        if aqi <= AQI_UNHEALTHY:
             return 'Everyone should limit outdoor activities'
-        if aqi <= 300:
+        if aqi <= AQI_VERY_UNHEALTHY:
             return 'Avoid outdoor activities; stay indoors'
         return 'Emergency conditions - avoid all outdoor activities'
 
     def _get_aqi_color(self, aqi: int) -> str:
         """Get color code for AQI visualization"""
-        if aqi <= 50:
+        if aqi <= AQI_GOOD:
             return '#00e400'  # Green
-        if aqi <= 100:
+        if aqi <= AQI_MODERATE:
             return '#ffff00'  # Yellow
-        if aqi <= 150:
+        if aqi <= AQI_UNHEALTHY_SENSITIVE:
             return '#ff7e00'  # Orange
-        if aqi <= 200:
+        if aqi <= AQI_UNHEALTHY:
             return '#ff0000'  # Red
-        if aqi <= 300:
+        if aqi <= AQI_VERY_UNHEALTHY:
             return '#99004c'  # Purple
         return '#7e0023'  # Maroon
 

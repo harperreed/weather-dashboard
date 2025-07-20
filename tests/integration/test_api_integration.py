@@ -13,6 +13,7 @@ from main import app, get_weather_from_open_meteo, weather_cache
 HTTP_OK = 200
 HTTP_NOT_FOUND = 404
 HTTP_INTERNAL_SERVER_ERROR = 500
+HTTP_SERVICE_UNAVAILABLE = 503
 MOCK_TEMP = 72
 MOCK_FEELS_LIKE = 75
 MOCK_HUMIDITY = 65
@@ -20,6 +21,12 @@ MOCK_WIND_SPEED = 8
 MOCK_UV_INDEX = 6
 MOCK_PRECIP_RATE = 0
 MOCK_PRECIP_PROB = 10
+MOCK_AQI_VALUE = 45
+MOCK_PM25_VALUE = 12.5
+MOCK_TEST_LAT = 42.0
+MOCK_TEST_LON = -88.0
+MOCK_DEFAULT_LAT = 40.0
+MOCK_DEFAULT_LON = -89.0
 HOURLY_COUNT = 2
 DAILY_COUNT = 2
 CACHE_MAX_SIZE = 100
@@ -331,31 +338,29 @@ class TestApplicationConfiguration:
 class TestAirQualityIntegration:
     """Test air quality API integration"""
 
+    @patch('main.air_quality_provider', None)
     def test_air_quality_api_without_key(self, client: FlaskClient) -> None:
         """Test air quality API response without API key (should return 503)"""
         response = client.get('/api/air-quality')
-        # PurpleAir requires API key - should return 503 Service Unavailable
-        assert response.status_code == 503
+        # AirNow requires API key - should return 503 Service Unavailable
+        assert response.status_code == HTTP_SERVICE_UNAVAILABLE
 
         data = response.get_json()
         assert data is not None
         assert 'error' in data
         assert 'API key required' in data['error']
 
-    @patch('main.air_quality_provider')
-    def test_air_quality_api_success(
-        self, mock_provider: MagicMock, client: FlaskClient
-    ) -> None:
+    def test_air_quality_api_success(self, client: FlaskClient) -> None:
         """Test successful air quality API response"""
         mock_air_quality_data = {
             'aqi': {
-                'us_aqi': 45,
+                'us_aqi': MOCK_AQI_VALUE,
                 'category': 'Good',
                 'health_recommendation': 'Air quality is satisfactory for most people',
                 'color': '#00e400',
             },
             'pollutants': {
-                'pm25': 12.5,
+                'pm25': MOCK_PM25_VALUE,
                 'pm10': 25.0,
                 'o3': 80.0,
                 'no2': 15.0,
@@ -369,32 +374,35 @@ class TestAirQualityIntegration:
         # Mock the provider instance
         mock_provider_instance = MagicMock()
         mock_provider_instance.get_weather.return_value = mock_air_quality_data
-        mock_provider.return_value = mock_provider_instance
 
-        # Make the provider available
-        with patch('main.air_quality_provider', mock_provider_instance):
-            response = client.get(
-                '/api/air-quality?lat=41.8781&lon=-87.6298&location=Chicago'
-            )
+        # Clear cache first to ensure we test the API call
+        with patch('main.weather_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False  # Cache miss
+            mock_cache.__setitem__.return_value = None
 
-        assert response.status_code == 200
+            # Make the provider available
+            with patch('main.air_quality_provider', mock_provider_instance):
+                response = client.get(
+                    f'/api/air-quality?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}&location=TestCity'
+                )
+
+        assert response.status_code == HTTP_OK
         data = response.get_json()
 
         assert data is not None
         assert 'aqi' in data
-        assert data['aqi']['us_aqi'] == 45
+        assert data['aqi']['us_aqi'] == MOCK_AQI_VALUE
         assert data['aqi']['category'] == 'Good'
         assert 'pollutants' in data
-        assert data['pollutants']['pm25'] == 12.5
+        assert data['pollutants']['pm25'] == MOCK_PM25_VALUE
 
         # Check cache headers
         assert 'Cache-Control' in response.headers
         assert 'public' in response.headers['Cache-Control']
 
-    @patch('main.air_quality_provider')
     @patch('main.weather_cache')
     def test_air_quality_api_failure(
-        self, mock_cache: MagicMock, mock_provider: MagicMock, client: FlaskClient
+        self, mock_cache: MagicMock, client: FlaskClient
     ) -> None:
         """Test air quality API when provider fails"""
         mock_cache.__contains__.return_value = False  # No cache hit
@@ -407,16 +415,15 @@ class TestAirQualityIntegration:
                 '/api/air-quality?lat=42.0&lon=-88.0'
             )  # Use different coordinates
 
-        assert response.status_code == 500
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
         data = response.get_json()
         assert data is not None
         assert 'error' in data
         assert 'Failed to fetch air quality data' in data['error']
 
-    @patch('main.air_quality_provider')
     @patch('main.weather_cache')
     def test_air_quality_api_default_location(
-        self, mock_cache: MagicMock, mock_provider: MagicMock, client: FlaskClient
+        self, mock_cache: MagicMock, client: FlaskClient
     ) -> None:
         """Test air quality API with default location (Chicago)"""
         mock_cache.__contains__.return_value = False  # No cache hit
@@ -433,16 +440,16 @@ class TestAirQualityIntegration:
 
         with patch('main.air_quality_provider', mock_provider_instance):
             response = client.get(
-                '/api/air-quality?lat=40.0&lon=-89.0'
+                f'/api/air-quality?lat={MOCK_DEFAULT_LAT}&lon={MOCK_DEFAULT_LON}'
             )  # Use different coordinates
 
-        assert response.status_code == 200
+        assert response.status_code == HTTP_OK
 
         # Verify the provider was called with the coordinates
         mock_provider_instance.get_weather.assert_called_once()
         call_args = mock_provider_instance.get_weather.call_args
-        assert call_args[0][0] == 40.0  # Test latitude
-        assert call_args[0][1] == -89.0  # Test longitude
+        assert call_args[0][0] == MOCK_DEFAULT_LAT  # Test latitude
+        assert call_args[0][1] == MOCK_DEFAULT_LON  # Test longitude
 
 
 class TestEndToEndScenarios:

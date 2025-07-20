@@ -9,6 +9,15 @@ from weather_providers import AirQualityProvider
 MOCK_API_KEY = 'test_airnow_api_key'
 CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
+DEFAULT_TIMEOUT = 10
+EXPECTED_OBSERVATIONS = 2
+EXPECTED_AQI_PM25 = 45
+EXPECTED_AQI_O3 = 52
+EXPECTED_AQI_O3_HIGH = 75
+EXPECTED_AQI_PM25_VERY_HIGH = 150
+EXPECTED_AQI_O3_VERY_HIGH = 125
+EXPECTED_AQI_NO2 = 25
+EXPECTED_AQI_PM25_LOW = 35
 
 
 class TestAirQualityProvider:
@@ -20,7 +29,7 @@ class TestAirQualityProvider:
         assert provider.name == 'AirQuality'
         assert provider.api_key == MOCK_API_KEY
         assert provider.base_url == 'http://www.airnowapi.org/aq/observation'
-        assert provider.timeout == 10
+        assert provider.timeout == DEFAULT_TIMEOUT
 
     def test_init_requires_api_key(self) -> None:
         """Test initialization requires API key"""
@@ -68,8 +77,9 @@ class TestAirQualityProvider:
         result = provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
 
         assert result is not None
-        assert isinstance(result, list)
-        assert len(result) == 2
+        assert isinstance(result, dict)
+        assert 'observations' in result
+        assert len(result['observations']) == EXPECTED_OBSERVATIONS
         mock_get.assert_called_once()
 
         # Check that the request was made with correct parameters
@@ -123,7 +133,9 @@ class TestAirQualityProvider:
         ]
 
         provider = AirQualityProvider(MOCK_API_KEY)
-        result = provider.process_weather_data(mock_data, 'Unknown Location')
+        result = provider.process_weather_data(
+            {'observations': mock_data}, 'Unknown Location'
+        )
 
         assert result is not None
         assert result['location'] == 'Chicago'  # Should use reporting area from API
@@ -133,7 +145,7 @@ class TestAirQualityProvider:
 
         # Test AQI data - should use highest AQI from all pollutants
         aqi_data = result['aqi']
-        assert aqi_data['us_aqi'] == 52  # Higher of PM2.5(45) and O3(52)
+        assert aqi_data['us_aqi'] == EXPECTED_AQI_O3  # Higher of PM2.5 and O3
         assert aqi_data['primary_pollutant'] == 'O3'
         assert aqi_data['category'] in [
             'Good',
@@ -148,26 +160,26 @@ class TestAirQualityProvider:
 
         # Test pollutant data (EPA AirNow provides multiple pollutants)
         pollutants = result['pollutants']
-        assert pollutants['pm25'] == 45  # From PM2.5 observation
-        assert pollutants['o3'] == 52  # From O3 observation
+        assert pollutants['pm25'] == EXPECTED_AQI_PM25  # From PM2.5 observation
+        assert pollutants['o3'] == EXPECTED_AQI_O3  # From O3 observation
         assert pollutants['pm10'] == 0  # Not in this sample data
         assert pollutants['no2'] == 0  # Not in this sample data
         assert pollutants['so2'] == 0  # Not in this sample data
         assert pollutants['co'] == 0  # Not in this sample data
 
         # Test observation count
-        assert result['observation_count'] == 2
+        assert result['observation_count'] == EXPECTED_OBSERVATIONS
 
     def test_process_weather_data_empty(self) -> None:
         """Test processing with empty data"""
         provider = AirQualityProvider(MOCK_API_KEY)
-        result = provider.process_weather_data([], 'Test Location')
+        result = provider.process_weather_data({'observations': []}, 'Test Location')
         assert result is None
 
     def test_process_weather_data_missing_list(self) -> None:
         """Test processing with None data"""
         provider = AirQualityProvider(MOCK_API_KEY)
-        result = provider.process_weather_data(None, 'Test Location')
+        result = provider.process_weather_data({}, 'Test Location')
         assert result is None
 
     def test_aqi_processing_logic(self) -> None:
@@ -181,15 +193,17 @@ class TestAirQualityProvider:
             {'ParameterName': 'NO2', 'AQI': 25, 'ReportingArea': 'Test'},
         ]
 
-        result = provider.process_weather_data(test_data, 'Test Location')
+        result = provider.process_weather_data(
+            {'observations': test_data}, 'Test Location'
+        )
         assert result is not None
 
         # Should use highest AQI (75 from O3)
-        assert result['aqi']['us_aqi'] == 75
+        assert result['aqi']['us_aqi'] == EXPECTED_AQI_O3_HIGH
         assert result['aqi']['primary_pollutant'] == 'O3'
-        assert result['pollutants']['pm25'] == 35
-        assert result['pollutants']['o3'] == 75
-        assert result['pollutants']['no2'] == 25
+        assert result['pollutants']['pm25'] == EXPECTED_AQI_PM25_LOW
+        assert result['pollutants']['o3'] == EXPECTED_AQI_O3_HIGH
+        assert result['pollutants']['no2'] == EXPECTED_AQI_NO2
 
     def test_get_aqi_category(self) -> None:
         """Test AQI category mapping"""
@@ -263,7 +277,7 @@ class TestAirQualityProvider:
         info = provider.get_provider_info()
 
         assert info['name'] == 'AirQuality'
-        assert info['timeout'] == 10
+        assert info['timeout'] == DEFAULT_TIMEOUT
         assert 'description' in info
         assert (
             'air quality' in info['description'].lower()
@@ -275,20 +289,20 @@ class TestAirQualityProvider:
         provider = AirQualityProvider(MOCK_API_KEY)
 
         # Test with no observation data
-        empty_data = []
-        result = provider.process_weather_data(empty_data, 'Test')
+        empty_data: list[dict[str, str]] = []
+        result = provider.process_weather_data({'observations': empty_data}, 'Test')
         assert result is None
 
         # Test with invalid observation data (missing fields)
         invalid_data = [
             {'ParameterName': 'PM2.5'}  # Missing AQI field
         ]
-        result = provider.process_weather_data(invalid_data, 'Test')
+        result = provider.process_weather_data({'observations': invalid_data}, 'Test')
         assert result is None
 
         # Test with zero AQI values
         zero_data = [{'ParameterName': 'PM2.5', 'AQI': 0, 'ReportingArea': 'Test'}]
-        result = provider.process_weather_data(zero_data, 'Test')
+        result = provider.process_weather_data({'observations': zero_data}, 'Test')
         assert result is None
 
     def test_multiple_pollutant_priority(self) -> None:
@@ -300,8 +314,11 @@ class TestAirQualityProvider:
             {'ParameterName': 'PM2.5', 'AQI': 150, 'ReportingArea': 'Test'},
             {'ParameterName': 'O3', 'AQI': 75, 'ReportingArea': 'Test'},
         ]
-        result = provider.process_weather_data(pm25_higher_data, 'Test')
-        assert result['aqi']['us_aqi'] == 150
+        result = provider.process_weather_data(
+            {'observations': pm25_higher_data}, 'Test'
+        )
+        assert result is not None
+        assert result['aqi']['us_aqi'] == EXPECTED_AQI_PM25_VERY_HIGH
         assert result['aqi']['primary_pollutant'] == 'PM2.5'
 
         # Test with O3 higher than PM2.5
@@ -309,6 +326,7 @@ class TestAirQualityProvider:
             {'ParameterName': 'PM2.5', 'AQI': 35, 'ReportingArea': 'Test'},
             {'ParameterName': 'O3', 'AQI': 125, 'ReportingArea': 'Test'},
         ]
-        result = provider.process_weather_data(o3_higher_data, 'Test')
-        assert result['aqi']['us_aqi'] == 125
+        result = provider.process_weather_data({'observations': o3_higher_data}, 'Test')
+        assert result is not None
+        assert result['aqi']['us_aqi'] == EXPECTED_AQI_O3_VERY_HIGH
         assert result['aqi']['primary_pollutant'] == 'O3'
