@@ -1,7 +1,3 @@
-from unittest.mock import MagicMock
-
-import pytest
-
 from main import calculate_pressure_trend, get_pressure_prediction
 
 
@@ -17,9 +13,7 @@ class TestPressureTrends:
         assert 'insufficient data' in result['prediction'].lower()
 
         # Test with insufficient data points
-        short_history = [
-            {'time': '2024-01-01T12:00:00Z', 'pressure': 1013.2}
-        ]
+        short_history = [{'time': '2024-01-01T12:00:00Z', 'pressure': 1013.2}]
         result = calculate_pressure_trend(short_history)
         assert result['trend'] == 'steady'
         assert result['rate'] == 0.0
@@ -133,10 +127,10 @@ class TestPressureTrends:
         test_cases = [
             ('rising', 1.0, 1025.0),  # rising_fast, high pressure
             ('rising', 0.3, 1015.0),  # rising_slow, normal pressure
-            ('falling', -1.0, 995.0), # falling_fast, low pressure
-            ('falling', -0.3, 1015.0), # falling_slow, normal pressure
-            ('steady', 0.05, 1025.0), # steady_high
-            ('steady', 0.05, 1015.0), # steady_normal
+            ('falling', -1.0, 995.0),  # falling_fast, low pressure
+            ('falling', -0.3, 1015.0),  # falling_slow, normal pressure
+            ('steady', 0.05, 1025.0),  # steady_high
+            ('steady', 0.05, 1015.0),  # steady_normal
             ('steady', 0.05, 995.0),  # steady_low
         ]
 
@@ -165,10 +159,16 @@ class TestPressureTrends:
         """Test pressure trend with realistic weather approaching scenario"""
         # Simulate pressure drop before storm (common weather pattern)
         history = [
-            {'time': '2024-01-01T18:00:00Z', 'pressure': 1003.5},  # Current - storm approaching
+            {
+                'time': '2024-01-01T18:00:00Z',
+                'pressure': 1003.5,
+            },  # Current - storm approaching
             {'time': '2024-01-01T17:00:00Z', 'pressure': 1005.0},
             {'time': '2024-01-01T16:00:00Z', 'pressure': 1007.2},
-            {'time': '2024-01-01T15:00:00Z', 'pressure': 1010.5},  # 3 hours ago - was normal
+            {
+                'time': '2024-01-01T15:00:00Z',
+                'pressure': 1010.5,
+            },  # 3 hours ago - was normal
             {'time': '2024-01-01T14:00:00Z', 'pressure': 1012.0},
             {'time': '2024-01-01T13:00:00Z', 'pressure': 1013.0},
         ]
@@ -176,4 +176,7 @@ class TestPressureTrends:
         result = calculate_pressure_trend(history)
         assert result['trend'] == 'falling'
         assert result['rate'] < -1.0  # Significant drop
-        assert 'storm' in result['prediction'].lower() or 'precipitation' in result['prediction'].lower()
+        assert (
+            'storm' in result['prediction'].lower()
+            or 'precipitation' in result['prediction'].lower()
+        )

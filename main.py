@@ -228,13 +228,16 @@ def process_open_meteo_data(
             'feels_like': round(current.get('apparent_temperature', 0)),
             'humidity': current.get('relative_humidity_2m', 0),
             'wind_speed': round(current.get('wind_speed_10m', 0)),
+            'wind_direction': current.get('wind_direction_10m'),
             'uv_index': current.get('uv_index', 0),
             'precipitation_rate': current.get('precipitation', 0),
             'precipitation_prob': 0,  # Current doesn't have probability
             'precipitation_type': (
                 'rain' if current.get('precipitation', 0) > 0 else None
             ),
-            'pressure': round(current.get('pressure_msl', 0), 1),  # Sea level pressure in hPa
+            'pressure': round(
+                current.get('pressure_msl', 0), 1
+            ),  # Sea level pressure in hPa
             'icon': map_open_meteo_weather_code(current.get('weather_code', 0)),
             'summary': get_weather_description(current.get('weather_code', 0)),
         }
@@ -244,7 +247,9 @@ def process_open_meteo_data(
         pressure_history = []  # Store pressure readings for trend analysis
         if hourly.get('time'):
             for i in range(min(24, len(hourly['time']))):
-                pressure_value = hourly.get('pressure_msl', [0] * len(hourly['time']))[i]
+                pressure_value = hourly.get('pressure_msl', [0] * len(hourly['time']))[
+                    i
+                ]
                 hour_data = {
                     'temp': round(hourly['temperature_2m'][i]),
                     'icon': map_open_meteo_weather_code(hourly['weather_code'][i]),
@@ -264,10 +269,9 @@ def process_open_meteo_data(
                     'pressure': round(pressure_value, 1),
                 }
                 hourly_forecast.append(hour_data)
-                pressure_history.append({
-                    'time': hourly['time'][i],
-                    'pressure': round(pressure_value, 1)
-                })
+                pressure_history.append(
+                    {'time': hourly['time'][i], 'pressure': round(pressure_value, 1)}
+                )
 
         # Process daily forecast
         daily_forecast = []
@@ -303,17 +307,17 @@ def calculate_pressure_trend(pressure_history: list[dict]) -> dict:
         return {
             'trend': 'steady',
             'rate': 0.0,
-            'prediction': 'Unable to determine trend - insufficient data'
+            'prediction': 'Unable to determine trend - insufficient data',
         }
-    
+
     # Get current pressure and 3-hour ago pressure for trend calculation
     current_pressure = pressure_history[0]['pressure'] if pressure_history else 0
     three_hours_ago = pressure_history[min(3, len(pressure_history) - 1)]['pressure']
-    
+
     # Calculate rate of change in hPa per hour
     pressure_change = current_pressure - three_hours_ago
     rate_per_hour = pressure_change / 3.0  # 3-hour change divided by 3
-    
+
     # Determine trend direction
     if abs(rate_per_hour) < 0.1:  # Less than 0.1 hPa/hour is considered steady
         trend = 'steady'
@@ -321,16 +325,16 @@ def calculate_pressure_trend(pressure_history: list[dict]) -> dict:
         trend = 'rising'
     else:
         trend = 'falling'
-    
+
     # Generate weather prediction based on pressure trend
     prediction = get_pressure_prediction(trend, rate_per_hour, current_pressure)
-    
+
     return {
         'trend': trend,
         'rate': round(rate_per_hour, 2),
         'prediction': prediction,
         'current_pressure': current_pressure,
-        'history': pressure_history[:12]  # Last 12 hours for mini-chart
+        'history': pressure_history[:12],  # Last 12 hours for mini-chart
     }
 
 
@@ -343,9 +347,9 @@ def get_pressure_prediction(trend: str, rate: float, current_pressure: float) ->
         'steady_normal': 'Current weather conditions expected to persist',
         'steady_low': 'Unsettled weather may continue',
         'falling_slow': 'Weather may deteriorate gradually',
-        'falling_fast': 'Stormy weather approaching - expect precipitation'
+        'falling_fast': 'Stormy weather approaching - expect precipitation',
     }
-    
+
     # Categorize pressure levels (typical sea level pressure ranges)
     if current_pressure > 1020:
         pressure_level = 'high'
@@ -353,7 +357,7 @@ def get_pressure_prediction(trend: str, rate: float, current_pressure: float) ->
         pressure_level = 'normal'
     else:
         pressure_level = 'low'
-    
+
     # Categorize rate of change
     if abs(rate) < 0.1:
         rate_category = 'steady'
@@ -361,13 +365,13 @@ def get_pressure_prediction(trend: str, rate: float, current_pressure: float) ->
         rate_category = f'{trend}_fast'
     else:
         rate_category = f'{trend}_slow'
-    
+
     # Combine trend and pressure level for prediction
     if rate_category == 'steady':
         prediction_key = f'steady_{pressure_level}'
     else:
         prediction_key = rate_category
-    
+
     return predictions.get(prediction_key, 'Weather pattern uncertain')
 
 
@@ -534,48 +538,50 @@ def air_quality_api() -> Response:
     """API endpoint for air quality data"""
     # AirNow requires API key - service unavailable without it
     if not air_quality_provider:
-        response = jsonify({'error': 'Air quality service unavailable - AirNow API key required'})
+        response = jsonify(
+            {'error': 'Air quality service unavailable - AirNow API key required'}
+        )
         response.status_code = 503
         return response
-    
+
     # Get lat/lon from URL parameters
     lat = request.args.get('lat', type=float)
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Unknown Location')
-    
+
     # Default to Chicago if no coordinates provided
     if not lat or not lon:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
-    
+
     # Create cache key for air quality
     cache_key = f'air_quality_{lat:.4f},{lon:.4f}'
-    
+
     # Check cache first (air quality updates less frequently - 30 min TTL)
     air_quality_cache_ttl = 1800  # 30 minutes
     cache_time = int(time.time() // air_quality_cache_ttl)
     cache_key_with_time = f'{cache_key}_{cache_time}'
-    
+
     if cache_key_with_time in weather_cache:
         print(f'📦 Returning cached air quality data for {cache_key}')
         cached_data = weather_cache[cache_key_with_time]
         response = jsonify(cached_data)
         response.headers['Cache-Control'] = f'public, max-age={air_quality_cache_ttl}'
         return response
-    
+
     # Fetch fresh air quality data
     print(f'🌬️  Fetching air quality for {location_name}')
     air_quality_data = air_quality_provider.get_weather(lat, lon, location_name)
-    
+
     if air_quality_data:
         # Cache the result
         weather_cache[cache_key_with_time] = air_quality_data
         print(f'💾 Cached air quality data for {cache_key}')
-        
+
         response = jsonify(air_quality_data)
         response.headers['Cache-Control'] = f'public, max-age={air_quality_cache_ttl}'
         return response
-    
+
     response = jsonify({'error': 'Failed to fetch air quality data'})
     response.status_code = 500
     return response

@@ -854,19 +854,19 @@ class AirQualityWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            
+
             <style>
                 .air-quality-widget {
                     margin: 1rem 0;
                 }
-                
+
                 .aqi-display {
                     display: flex;
                     align-items: center;
                     justify-content: space-between;
                     margin-bottom: 1rem;
                 }
-                
+
                 .aqi-value {
                     font-size: 2.5rem;
                     font-weight: 900;
@@ -876,32 +876,32 @@ class AirQualityWidget extends WeatherWidget {
                     color: white;
                     text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
                 }
-                
+
                 .aqi-info {
                     text-align: right;
                     flex: 1;
                     margin-left: 1rem;
                 }
-                
+
                 .aqi-category {
                     font-size: 1.25rem;
                     font-weight: 700;
                     margin-bottom: 0.5rem;
                 }
-                
+
                 .health-recommendation {
                     font-size: 0.875rem;
                     opacity: 0.8;
                     line-height: 1.4;
                 }
-                
+
                 .pollutants-grid {
                     display: grid;
                     grid-template-columns: repeat(3, 1fr);
                     gap: 0.5rem;
                     margin-top: 1rem;
                 }
-                
+
                 .pollutant-card {
                     padding: 0.75rem;
                     border-radius: 0.5rem;
@@ -909,7 +909,7 @@ class AirQualityWidget extends WeatherWidget {
                     background: var(--card-bg);
                     border: 1px solid var(--card-border);
                 }
-                
+
                 .pollutant-name {
                     font-size: 0.75rem;
                     font-weight: 600;
@@ -917,35 +917,35 @@ class AirQualityWidget extends WeatherWidget {
                     opacity: 0.7;
                     margin-bottom: 0.25rem;
                 }
-                
+
                 .pollutant-value {
                     font-size: 1rem;
                     font-weight: 700;
                 }
-                
+
                 .pollutant-unit {
                     font-size: 0.75rem;
                     opacity: 0.6;
                 }
-                
+
                 .loading-message, .error-message {
                     text-align: center;
                     padding: 2rem;
                     opacity: 0.7;
                 }
-                
+
                 @media (max-width: 640px) {
                     .aqi-display {
                         flex-direction: column;
                         text-align: center;
                     }
-                    
+
                     .aqi-info {
                         margin-left: 0;
                         margin-top: 1rem;
                         text-align: center;
                     }
-                    
+
                     .pollutants-grid {
                         grid-template-columns: repeat(2, 1fr);
                     }
@@ -954,7 +954,7 @@ class AirQualityWidget extends WeatherWidget {
 
             <div class="air-quality-widget widget-content">
                 <div class="loading-message" id="loading">Loading air quality data...</div>
-                
+
                 <div class="aqi-content" id="aqi-content" style="display: none;">
                     <div class="aqi-display">
                         <div class="aqi-value" id="aqi-value">--</div>
@@ -963,7 +963,7 @@ class AirQualityWidget extends WeatherWidget {
                             <div class="health-recommendation" id="health-recommendation">Fetching recommendations...</div>
                         </div>
                     </div>
-                    
+
                     <div class="pollutants-grid" id="pollutants-grid">
                         <div class="pollutant-card theme-card">
                             <div class="pollutant-name">PM2.5</div>
@@ -997,7 +997,7 @@ class AirQualityWidget extends WeatherWidget {
                         </div>
                     </div>
                 </div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -1005,7 +1005,7 @@ class AirQualityWidget extends WeatherWidget {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         // Check if this widget should be displayed
         if (!this.config.airquality) {
             this.style.display = 'none';
@@ -1014,7 +1014,7 @@ class AirQualityWidget extends WeatherWidget {
 
         this.style.display = 'block';
         this.fetchAirQuality();
-        
+
         // Refresh air quality every 30 minutes
         setInterval(() => this.fetchAirQuality(), 30 * 60 * 1000);
     }
@@ -1023,8 +1023,8 @@ class AirQualityWidget extends WeatherWidget {
         try {
             // Get location parameters from the main weather app
             const weatherApp = document.querySelector('weather-app');
-            const { lat, lon, location } = weatherApp ? weatherApp.parseLocationParams() : this.getFallbackLocation();
-            
+            const { lat, lon, location } = weatherApp ? weatherApp.parseLocationParams() : this.parseLocationParams();
+
             const params = new URLSearchParams();
             if (lat && lon) {
                 params.append('lat', lat);
@@ -1033,48 +1033,50 @@ class AirQualityWidget extends WeatherWidget {
             if (location) {
                 params.append('location', location);
             }
-            
+
             const response = await fetch(`/api/air-quality?${params}`);
             const data = await response.json();
-            
+
             if (response.ok && data.aqi) {
                 this.updateAirQuality(data);
                 this.hideError();
             } else {
-                this.showError(data.error || 'Failed to load air quality data');
+                // Hide the widget completely if service is unavailable
+                this.style.display = 'none';
             }
         } catch (error) {
             console.error('Air quality fetch error:', error);
-            this.showError('Network error - unable to fetch air quality data');
+            // Hide the widget completely on network errors too
+            this.style.display = 'none';
         }
     }
 
     updateAirQuality(data) {
         const loadingEl = this.shadowRoot.getElementById('loading');
         const contentEl = this.shadowRoot.getElementById('aqi-content');
-        
+
         // Hide loading, show content
         if (loadingEl) loadingEl.style.display = 'none';
         if (contentEl) contentEl.style.display = 'block';
-        
+
         // Update AQI display
         const aqiValueEl = this.shadowRoot.getElementById('aqi-value');
         const aqiCategoryEl = this.shadowRoot.getElementById('aqi-category');
         const healthRecommendationEl = this.shadowRoot.getElementById('health-recommendation');
-        
+
         if (aqiValueEl && data.aqi) {
             aqiValueEl.textContent = data.aqi.us_aqi;
             aqiValueEl.style.backgroundColor = data.aqi.color;
         }
-        
+
         if (aqiCategoryEl && data.aqi) {
             aqiCategoryEl.textContent = data.aqi.category;
         }
-        
+
         if (healthRecommendationEl && data.aqi) {
             healthRecommendationEl.textContent = data.aqi.health_recommendation;
         }
-        
+
         // Update pollutant values
         if (data.pollutants) {
             const pollutantElements = {
@@ -1085,7 +1087,7 @@ class AirQualityWidget extends WeatherWidget {
                 'so2-value': Math.round(data.pollutants.so2),
                 'co-value': (data.pollutants.co / 1000).toFixed(1), // Convert to mg/m³
             };
-            
+
             Object.entries(pollutantElements).forEach(([id, value]) => {
                 const el = this.shadowRoot.getElementById(id);
                 if (el) el.textContent = value;
@@ -1107,9 +1109,9 @@ class AirQualityWidget extends WeatherWidget {
             'rome': [41.9028, 12.4964, 'Rome'],
             'madrid': [40.4168, -3.7038, 'Madrid'],
         };
-        
+
         let lat, lon, location;
-        
+
         const pathParts = window.location.pathname.split('/').filter(part => part);
         if (pathParts.length >= 1 && pathParts[0].includes(',')) {
             // Format: /lat,lon or /lat,lon/location
@@ -1123,7 +1125,7 @@ class AirQualityWidget extends WeatherWidget {
             // Format: /city (like /london, /nyc, etc.)
             const cityData = cityCoords[pathParts[0].toLowerCase()];
             lat = cityData[0];
-            lon = cityData[1]; 
+            lon = cityData[1];
             location = cityData[2];
         } else {
             // Query parameters
@@ -1131,7 +1133,7 @@ class AirQualityWidget extends WeatherWidget {
             lat = urlParams.get('lat');
             lon = urlParams.get('lon');
             location = urlParams.get('location');
-            
+
             // Only use defaults if no parameters at all are provided
             if (!lat && !lon && !location) {
                 lat = '41.8781';
@@ -1139,7 +1141,7 @@ class AirQualityWidget extends WeatherWidget {
                 location = 'Chicago';
             }
         }
-        
+
         return { lat, lon, location };
     }
 
@@ -1147,7 +1149,7 @@ class AirQualityWidget extends WeatherWidget {
         const errorEl = this.shadowRoot.getElementById('error');
         const contentEl = this.shadowRoot.getElementById('aqi-content');
         const loadingEl = this.shadowRoot.getElementById('loading');
-        
+
         if (errorEl) {
             errorEl.textContent = message;
             errorEl.classList.remove('hidden');
@@ -1167,7 +1169,7 @@ class AirQualityWidget extends WeatherWidget {
 class WindDirectionWidget extends WeatherWidget {
     connectedCallback() {
         super.connectedCallback();
-        
+
         // Check if this widget should be displayed
         if (!this.config.wind) {
             this.style.display = 'none';
@@ -1181,44 +1183,44 @@ class WindDirectionWidget extends WeatherWidget {
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
-            
+
             <style>
                 .wind-widget {
                     margin: 1rem 0;
                     text-align: center;
                 }
-                
+
                 .wind-compass {
                     width: 120px;
                     height: 120px;
                     margin: 0 auto 1rem;
                     position: relative;
                 }
-                
+
                 .compass-svg {
                     width: 100%;
                     height: 100%;
                     transform: rotate(-90deg); /* North at top */
                 }
-                
+
                 .compass-circle {
                     fill: none;
                     stroke: var(--text-primary);
                     stroke-width: 2;
                     opacity: 0.3;
                 }
-                
+
                 .compass-tick {
                     stroke: var(--text-primary);
                     stroke-width: 1;
                     opacity: 0.5;
                 }
-                
+
                 .compass-tick-major {
                     stroke-width: 2;
                     opacity: 0.7;
                 }
-                
+
                 .compass-label {
                     fill: var(--text-primary);
                     font-size: 12px;
@@ -1227,7 +1229,7 @@ class WindDirectionWidget extends WeatherWidget {
                     dominant-baseline: central;
                     transform: rotate(90deg);
                 }
-                
+
                 .wind-arrow {
                     fill: #3b82f6;
                     stroke: #1d4ed8;
@@ -1236,52 +1238,52 @@ class WindDirectionWidget extends WeatherWidget {
                     transition: transform 0.5s ease;
                     transform-origin: 60px 60px;
                 }
-                
+
                 .wind-info {
                     display: flex;
                     justify-content: space-around;
                     margin: 1rem 0;
                 }
-                
+
                 .wind-detail {
                     text-align: center;
                 }
-                
+
                 .wind-value {
                     font-size: 1.25rem;
                     font-weight: 700;
                     margin-bottom: 0.25rem;
                 }
-                
+
                 .wind-label {
                     font-size: 0.75rem;
                     opacity: 0.7;
                     text-transform: uppercase;
                     font-weight: 600;
                 }
-                
+
                 .wind-description {
                     font-size: 0.875rem;
                     opacity: 0.8;
                     margin-top: 0.5rem;
                 }
-                
+
                 .beaufort-scale {
                     font-size: 0.75rem;
                     opacity: 0.6;
                     font-style: italic;
                 }
-                
+
                 @media (max-width: 640px) {
                     .wind-compass {
                         width: 100px;
                         height: 100px;
                     }
-                    
+
                     .compass-label {
                         font-size: 10px;
                     }
-                    
+
                     .wind-info {
                         flex-wrap: wrap;
                         gap: 0.5rem;
@@ -1294,47 +1296,47 @@ class WindDirectionWidget extends WeatherWidget {
                     <svg class="compass-svg" viewBox="0 0 120 120">
                         <!-- Compass circle -->
                         <circle class="compass-circle" cx="60" cy="60" r="50"></circle>
-                        
+
                         <!-- Compass ticks and labels -->
                         <!-- North -->
                         <line class="compass-tick-major" x1="60" y1="10" x2="60" y2="20"></line>
                         <text class="compass-label" x="60" y="15">N</text>
-                        
+
                         <!-- Northeast -->
                         <line class="compass-tick" x1="95.36" y1="24.64" x2="88.64" y2="31.36"></line>
-                        
+
                         <!-- East -->
                         <line class="compass-tick-major" x1="110" y1="60" x2="100" y2="60"></line>
                         <text class="compass-label" x="105" y="60">E</text>
-                        
+
                         <!-- Southeast -->
                         <line class="compass-tick" x1="95.36" y1="95.36" x2="88.64" y2="88.64"></line>
-                        
+
                         <!-- South -->
                         <line class="compass-tick-major" x1="60" y1="110" x2="60" y2="100"></line>
                         <text class="compass-label" x="60" y="105">S</text>
-                        
+
                         <!-- Southwest -->
                         <line class="compass-tick" x1="24.64" y1="95.36" x2="31.36" y2="88.64"></line>
-                        
+
                         <!-- West -->
                         <line class="compass-tick-major" x1="10" y1="60" x2="20" y2="60"></line>
                         <text class="compass-label" x="15" y="60">W</text>
-                        
+
                         <!-- Northwest -->
                         <line class="compass-tick" x1="24.64" y1="24.64" x2="31.36" y2="31.36"></line>
-                        
+
                         <!-- Wind arrow (pointing in wind direction) -->
-                        <path class="wind-arrow" id="wind-arrow" 
+                        <path class="wind-arrow" id="wind-arrow"
                               d="M60,25 L65,35 L60,30 L55,35 Z M60,30 L60,85 M55,80 L60,85 L65,80"
                               style="display: none;">
                         </path>
-                        
+
                         <!-- Center dot -->
                         <circle cx="60" cy="60" r="3" fill="var(--text-primary)" opacity="0.5"></circle>
                     </svg>
                 </div>
-                
+
                 <div class="wind-info">
                     <div class="wind-detail">
                         <div class="wind-value" id="wind-speed">-- mph</div>
@@ -1349,10 +1351,10 @@ class WindDirectionWidget extends WeatherWidget {
                         <div class="wind-label">Gusts</div>
                     </div>
                 </div>
-                
+
                 <div class="wind-description" id="wind-description">Wind data loading...</div>
                 <div class="beaufort-scale" id="beaufort-scale"></div>
-                
+
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
@@ -1362,35 +1364,47 @@ class WindDirectionWidget extends WeatherWidget {
         if (!this.data || !this.data.current) return;
 
         const current = this.data.current;
-        
+
         // Update wind speed
         const windSpeedEl = this.shadowRoot.getElementById('wind-speed');
         if (windSpeedEl && current.wind_speed !== undefined) {
             windSpeedEl.textContent = `${current.wind_speed} mph`;
         }
-        
+
         // Update wind direction
         const windDirectionEl = this.shadowRoot.getElementById('wind-direction');
         const windArrow = this.shadowRoot.getElementById('wind-arrow');
-        
-        if (current.wind_direction !== undefined) {
-            const direction = current.wind_direction;
+
+        // Check if we have valid numeric wind direction
+        const windDirection = current.wind_direction;
+        const isValidDirection = windDirection !== undefined && 
+                               windDirection !== null && 
+                               typeof windDirection === 'number' && 
+                               !isNaN(windDirection) &&
+                               windDirection >= 0 && 
+                               windDirection <= 360;
+
+        if (isValidDirection) {
+            const direction = windDirection;
             const directionText = this.getWindDirectionText(direction);
-            
+
             if (windDirectionEl) {
                 windDirectionEl.textContent = `${direction}° ${directionText}`;
             }
-            
+
             // Rotate arrow to show wind direction
             if (windArrow) {
                 windArrow.style.display = 'block';
                 windArrow.style.transform = `rotate(${direction}deg)`;
             }
         } else {
-            if (windDirectionEl) windDirectionEl.textContent = '--';
+            // Handle case where wind direction is not available or invalid
+            if (windDirectionEl) {
+                windDirectionEl.textContent = current.wind_speed > 0 ? 'Variable' : '--';
+            }
             if (windArrow) windArrow.style.display = 'none';
         }
-        
+
         // Update wind gusts (if available)
         const windGustEl = this.shadowRoot.getElementById('wind-gust');
         if (windGustEl) {
@@ -1402,10 +1416,10 @@ class WindDirectionWidget extends WeatherWidget {
                 windGustEl.textContent = `~${estimatedGust} mph`;
             }
         }
-        
+
         // Update wind description and Beaufort scale
         this.updateWindDescription(current.wind_speed);
-        
+
         this.hideError();
         this.hideLoading();
     }
@@ -1422,9 +1436,9 @@ class WindDirectionWidget extends WeatherWidget {
     updateWindDescription(windSpeed) {
         const descriptionEl = this.shadowRoot.getElementById('wind-description');
         const beaufortEl = this.shadowRoot.getElementById('beaufort-scale');
-        
+
         if (!descriptionEl || !beaufortEl) return;
-        
+
         const beaufort = this.getBeaufortData(windSpeed);
         descriptionEl.textContent = beaufort.description;
         beaufortEl.textContent = `Beaufort Scale: ${beaufort.scale} - ${beaufort.name}`;
@@ -1433,7 +1447,7 @@ class WindDirectionWidget extends WeatherWidget {
     getBeaufortData(windSpeedMph) {
         // Convert mph to m/s for Beaufort calculation, then back
         const windSpeedMs = windSpeedMph * 0.44704;
-        
+
         if (windSpeedMs < 0.3) {
             return { scale: 0, name: 'Calm', description: 'Smoke rises vertically' };
         } else if (windSpeedMs < 1.5) {
@@ -1506,7 +1520,7 @@ class WeatherApp {
             const stored = localStorage.getItem('weather_location');
             if (stored) {
                 const locationData = JSON.parse(stored);
-                
+
                 // Check if location is less than 24 hours old
                 const twentyFourHours = 24 * 60 * 60 * 1000;
                 if (Date.now() - locationData.timestamp < twentyFourHours) {
@@ -1544,7 +1558,7 @@ class WeatherApp {
                     const lat = position.coords.latitude;
                     const lon = position.coords.longitude;
                     console.log('📍 Geolocation success:', lat, lon);
-                    
+
                     // Use reverse geocoding to get a readable location name
                     this.reverseGeocode(lat, lon)
                         .then(location => {
@@ -1578,13 +1592,13 @@ class WeatherApp {
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1`);
             const data = await response.json();
-            
+
             if (data && data.address) {
                 const address = data.address;
                 const city = address.city || address.town || address.village || address.county;
                 const state = address.state || address.region;
                 const country = address.country;
-                
+
                 if (city && state && country === 'United States') {
                     return `${city}, ${state}`;
                 } else if (city && country) {
@@ -1593,7 +1607,7 @@ class WeatherApp {
                     return city;
                 }
             }
-            
+
             return 'Your Location';
         } catch (error) {
             console.error('Reverse geocoding failed:', error);
@@ -1604,7 +1618,7 @@ class WeatherApp {
     // Update URL with detected location
     updateUrlWithLocation(lat, lon, location) {
         const currentUrl = new URL(window.location);
-        
+
         // Don't update URL if it already has coordinates or city parameters
         if (currentUrl.pathname !== '/' && currentUrl.pathname !== '') {
             console.log('📍 URL already has location, not updating');
@@ -2075,7 +2089,7 @@ class PressureTrendsWidget extends WeatherWidget {
 
     connectedCallback() {
         super.connectedCallback();
-        
+
         // Check if this widget should be displayed
         if (!this.config.pressure) {
             this.style.display = 'none';
@@ -2084,7 +2098,7 @@ class PressureTrendsWidget extends WeatherWidget {
 
         this.style.display = 'block';
         this.render();
-        
+
         // Listen for weather data updates
         document.addEventListener('weather-data-updated', (event) => {
             this.updateWeatherData(event.detail);
@@ -2105,14 +2119,14 @@ class PressureTrendsWidget extends WeatherWidget {
         switch(trend) {
             case 'rising': return '↗';
             case 'falling': return '↘';
-            case 'steady': 
+            case 'steady':
             default: return '→';
         }
     }
 
     getTrendColor(trend, rate) {
         if (trend === 'steady') return 'var(--text-primary)';
-        
+
         const absRate = Math.abs(rate);
         if (absRate > 0.5) {
             // Fast change - red for falling, green for rising
@@ -2146,16 +2160,16 @@ class PressureTrendsWidget extends WeatherWidget {
 
         return `
             <svg class="pressure-chart" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-                <path d="${pathData}" 
-                      stroke="var(--text-primary)" 
-                      stroke-width="1" 
-                      fill="none" 
+                <path d="${pathData}"
+                      stroke="var(--text-primary)"
+                      stroke-width="1"
+                      fill="none"
                       opacity="0.8"/>
-                ${points.map((point, index) => 
-                    `<circle cx="${point.split(',')[0]}" 
-                             cy="${point.split(',')[1]}" 
-                             r="1" 
-                             fill="var(--text-primary)" 
+                ${points.map((point, index) =>
+                    `<circle cx="${point.split(',')[0]}"
+                             cy="${point.split(',')[1]}"
+                             r="1"
+                             fill="var(--text-primary)"
                              opacity="0.6"/>`
                 ).join('')}
             </svg>
@@ -2184,7 +2198,7 @@ class PressureTrendsWidget extends WeatherWidget {
 
         const trend = this.weatherData.pressure_trend;
         const currentPressure = this.weatherData.current?.pressure || trend.current_pressure;
-        
+
         // Convert pressure from hPa to inHg for US users
         const pressureInHg = (currentPressure * 0.02953).toFixed(2);
         const trendArrow = this.getTrendArrow(trend.trend);
