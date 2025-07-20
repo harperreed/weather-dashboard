@@ -1,5 +1,5 @@
-# ABOUTME: Weather provider classes for OpenMeteo weather API
-# ABOUTME: Abstraction layer for weather data access with OpenMeteo provider
+# ABOUTME: Weather provider classes for OpenMeteo and National Weather Service APIs
+# ABOUTME: Abstraction layer for weather data access with multiple providers
 
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
@@ -884,6 +884,206 @@ class AirQualityProvider(WeatherProvider):
         if aqi <= AQI_VERY_UNHEALTHY:
             return '#99004c'  # Purple
         return '#7e0023'  # Maroon
+
+
+class NationalWeatherServiceProvider(WeatherProvider):
+    """National Weather Service provider for official weather alerts and warnings"""
+
+    def __init__(self) -> None:
+        super().__init__('NationalWeatherService')
+        self.base_url = 'https://api.weather.gov'
+        self.user_agent = (
+            'WeatherDashboard/1.0 (https://github.com/user/weather-dashboard)'
+        )
+
+    def fetch_weather_data(
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Fetch weather alerts and forecast data from NWS API"""
+        try:
+            headers = {'User-Agent': self.user_agent}
+
+            # First, get the grid point for this location
+            points_url = f'{self.base_url}/points/{lat:.4f},{lon:.4f}'
+            points_response = requests.get(
+                points_url, headers=headers, timeout=self.timeout
+            )
+
+            if points_response.status_code != 200:
+                print(f'❌ NWS points API returned {points_response.status_code}')
+                return None
+
+            points_data = points_response.json()
+            properties = points_data.get('properties', {})
+
+            # Extract grid info for forecast
+            grid_office = properties.get('cwa')
+            grid_x = properties.get('gridX')
+            grid_y = properties.get('gridY')
+
+            if not all([grid_office, grid_x, grid_y]):
+                print('❌ Could not get NWS grid coordinates')
+                return None
+
+            # Get active alerts for this location
+            alerts_url = f'{self.base_url}/alerts/active'
+            alerts_params = {
+                'point': f'{lat:.4f},{lon:.4f}',
+                'status': 'actual',
+                'limit': 20,
+            }
+
+            alerts_response = requests.get(
+                alerts_url, params=alerts_params, headers=headers, timeout=self.timeout
+            )
+
+            alerts_data = None
+            if alerts_response.status_code == 200:
+                alerts_data = alerts_response.json()
+            else:
+                print(f'⚠️  NWS alerts API returned {alerts_response.status_code}')
+
+            # Get current conditions and forecast (optional)
+            forecast_url = (
+                f'{self.base_url}/gridpoints/{grid_office}/{grid_x},{grid_y}/forecast'
+            )
+            forecast_response = requests.get(
+                forecast_url, headers=headers, timeout=self.timeout
+            )
+
+            forecast_data = None
+            if forecast_response.status_code == 200:
+                forecast_data = forecast_response.json()
+            else:
+                print(f'⚠️  NWS forecast API returned {forecast_response.status_code}')
+
+            print(f'🏛️  NWS API: Grid {grid_office}/{grid_x},{grid_y}')
+
+            return {
+                'points': points_data,
+                'alerts': alerts_data,
+                'forecast': forecast_data,
+                'grid_info': {'office': grid_office, 'x': grid_x, 'y': grid_y},
+            }
+
+        except Exception as e:
+            print(f'❌ NWS API error: {str(e)}')
+            return None
+
+    def process_weather_data(
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,
+    ) -> dict | None:
+        """Process NWS data into standardized format focusing on alerts"""
+        if not raw_data:
+            return None
+
+        try:
+            alerts = raw_data.get('alerts', {})
+            forecast = raw_data.get('forecast', {})
+
+            # Process alerts
+            processed_alerts = []
+            alert_features = alerts.get('features', []) if alerts else []
+
+            for alert_feature in alert_features:
+                alert_props = alert_feature.get('properties', {})
+
+                # Extract key alert information
+                alert_info = {
+                    'id': alert_props.get('id'),
+                    'type': alert_props.get('event'),
+                    'headline': alert_props.get('headline'),
+                    'description': alert_props.get('description'),
+                    'severity': alert_props.get('severity'),
+                    'certainty': alert_props.get('certainty'),
+                    'urgency': alert_props.get('urgency'),
+                    'start_time': alert_props.get('onset'),
+                    'end_time': alert_props.get('expires'),
+                    'sender': alert_props.get('senderName'),
+                    'areas': alert_props.get('areaDesc'),
+                    'instruction': alert_props.get('instruction'),
+                    'response': alert_props.get('response'),
+                }
+
+                # Add severity color coding
+                severity = alert_props.get('severity', '').lower()
+                if severity == 'extreme':
+                    alert_info['color'] = '#8B0000'  # Dark red
+                elif severity == 'severe':
+                    alert_info['color'] = '#FF0000'  # Red
+                elif severity == 'moderate':
+                    alert_info['color'] = '#FF8C00'  # Dark orange
+                elif severity == 'minor':
+                    alert_info['color'] = '#FFD700'  # Gold
+                else:
+                    alert_info['color'] = '#1E90FF'  # Dodger blue
+
+                processed_alerts.append(alert_info)
+
+            # Process basic forecast if available
+            forecast_periods = []
+            if forecast:
+                periods = forecast.get('properties', {}).get('periods', [])
+                for period in periods[:7]:  # Next 7 periods
+                    forecast_periods.append(
+                        {
+                            'name': period.get('name'),
+                            'temperature': period.get('temperature'),
+                            'temperature_unit': period.get('temperatureUnit'),
+                            'wind_speed': period.get('windSpeed'),
+                            'wind_direction': period.get('windDirection'),
+                            'short_forecast': period.get('shortForecast'),
+                            'detailed_forecast': period.get('detailedForecast'),
+                            'is_daytime': period.get('isDaytime'),
+                            'icon': period.get('icon'),
+                        }
+                    )
+
+            # Create standardized response
+            processed_data = {
+                'provider': self.name,
+                'location_name': location_name,
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'alerts': {
+                    'active_count': len(processed_alerts),
+                    'alerts': processed_alerts,
+                    'has_warnings': any(
+                        alert.get('severity', '').lower() in ['extreme', 'severe']
+                        for alert in processed_alerts
+                    ),
+                },
+                'forecast': {
+                    'periods': forecast_periods,
+                    'source': 'National Weather Service',
+                },
+            }
+
+            alert_count = len(processed_alerts)
+            severity_info = []
+            if processed_alerts:
+                severities = [
+                    alert.get('severity', 'Unknown') for alert in processed_alerts
+                ]
+                severity_counts: dict[str, int] = {}
+                for sev in severities:
+                    severity_counts[sev] = severity_counts.get(sev, 0) + 1
+                severity_info = [
+                    f'{count} {sev}' for sev, count in severity_counts.items()
+                ]
+
+            print(f'🚨 NWS Alerts: {alert_count} active ({", ".join(severity_info)})')
+
+            return processed_data
+
+        except Exception as e:
+            print(f'❌ NWS data processing error: {str(e)}')
+            return None
 
 
 class WeatherProviderManager:
