@@ -2402,6 +2402,312 @@ class PressureTrendsWidget extends WeatherWidget {
     }
 }
 
+// Weather Alerts Widget for National Weather Service alerts and warnings
+class WeatherAlertsWidget extends WeatherWidget {
+    constructor() {
+        super();
+        this.alertsData = null;
+        this.isExpanded = false;
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.loadAlerts();
+
+        // Listen for weather updates to refresh alerts
+        this.addEventListener('weather-data-updated', () => {
+            this.loadAlerts();
+        });
+    }
+
+    async loadAlerts() {
+        try {
+            // Get location from URL parameters or weather app
+            const params = this.getLocationParams();
+            const alertsUrl = `/api/weather/alerts?lat=${params.lat}&lon=${params.lon}&location=${params.location}`;
+
+            console.log('🚨 Loading weather alerts from:', alertsUrl);
+
+            const response = await fetch(alertsUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            this.alertsData = await response.json();
+            this.render();
+
+        } catch (error) {
+            console.error('❌ Failed to load weather alerts:', error);
+            this.alertsData = {
+                alerts: { active_count: 0, alerts: [], has_warnings: false }
+            };
+            this.render();
+        }
+    }
+
+    getLocationParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return {
+            lat: urlParams.get('lat') || '41.8781',
+            lon: urlParams.get('lon') || '-87.6298',
+            location: urlParams.get('location') || 'Chicago'
+        };
+    }
+
+    toggleExpanded() {
+        this.isExpanded = !this.isExpanded;
+        this.render();
+    }
+
+    render() {
+        if (!this.alertsData) {
+            this.shadowRoot.innerHTML = `
+                <style>
+                    ${this.getBaseStyles()}
+                    .loading {
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                        color: var(--text-muted);
+                        font-size: 0.9rem;
+                        padding: 0.75rem;
+                    }
+                    .loading-spinner {
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid var(--border-color);
+                        border-top: 2px solid var(--primary-color);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading weather alerts...
+                </div>
+            `;
+            return;
+        }
+
+        const alerts = this.alertsData.alerts || {};
+        const alertCount = alerts.active_count || 0;
+        const alertsList = alerts.alerts || [];
+        const hasWarnings = alerts.has_warnings || false;
+
+        // Determine widget state and styling
+        let statusIcon = '🟢';
+        let statusText = 'No Active Alerts';
+        let statusColor = '#22c55e';
+
+        if (alertCount > 0) {
+            if (hasWarnings) {
+                statusIcon = '🔴';
+                statusText = `${alertCount} Alert${alertCount > 1 ? 's' : ''} - Warnings Active`;
+                statusColor = '#ef4444';
+            } else {
+                statusIcon = '🟡';
+                statusText = `${alertCount} Alert${alertCount > 1 ? 's' : ''} Active`;
+                statusColor = '#f59e0b';
+            }
+        }
+
+        this.shadowRoot.innerHTML = `
+            <style>
+                ${this.getBaseStyles()}
+                .alerts-widget {
+                    background: var(--widget-background);
+                    border: 1px solid var(--border-color);
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                }
+                .alerts-header {
+                    padding: 1rem;
+                    cursor: ${alertCount > 0 ? 'pointer' : 'default'};
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    transition: background-color 0.2s ease;
+                }
+                .alerts-header:hover {
+                    background: ${alertCount > 0 ? 'var(--hover-background)' : 'transparent'};
+                }
+                .status-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                }
+                .status-icon {
+                    font-size: 1.25rem;
+                }
+                .status-text {
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    font-size: 0.95rem;
+                }
+                .alert-count {
+                    background: ${statusColor};
+                    color: white;
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 1rem;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    min-width: 1.5rem;
+                    text-align: center;
+                }
+                .expand-icon {
+                    font-size: 0.9rem;
+                    color: var(--text-muted);
+                    transform: rotate(${this.isExpanded ? '180deg' : '0deg'});
+                    transition: transform 0.2s ease;
+                }
+                .alerts-list {
+                    border-top: 1px solid var(--border-color);
+                    max-height: ${this.isExpanded ? '400px' : '0'};
+                    overflow-y: auto;
+                    transition: max-height 0.3s ease;
+                }
+                .alert-item {
+                    padding: 1rem;
+                    border-bottom: 1px solid var(--border-color);
+                    background: var(--widget-background);
+                }
+                .alert-item:last-child {
+                    border-bottom: none;
+                }
+                .alert-header {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    margin-bottom: 0.5rem;
+                }
+                .alert-severity {
+                    padding: 0.25rem 0.5rem;
+                    border-radius: 0.25rem;
+                    font-size: 0.75rem;
+                    font-weight: 600;
+                    text-transform: uppercase;
+                    color: white;
+                }
+                .alert-type {
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    flex-grow: 1;
+                }
+                .alert-time {
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                }
+                .alert-headline {
+                    font-size: 0.9rem;
+                    color: var(--text-primary);
+                    margin-bottom: 0.5rem;
+                    line-height: 1.4;
+                }
+                .alert-areas {
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                    font-style: italic;
+                }
+                .no-alerts-message {
+                    padding: 1rem;
+                    text-align: center;
+                    color: var(--text-muted);
+                    font-size: 0.9rem;
+                }
+            </style>
+            <div class="alerts-widget">
+                <div class="alerts-header" ${alertCount > 0 ? 'onclick="this.getRootNode().host.toggleExpanded()"' : ''}>
+                    <div class="status-indicator">
+                        <span class="status-icon">${statusIcon}</span>
+                        <span class="status-text">${statusText}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${alertCount > 0 ? `<span class="alert-count">${alertCount}</span>` : ''}
+                        ${alertCount > 0 ? '<span class="expand-icon">▼</span>' : ''}
+                    </div>
+                </div>
+                ${alertCount === 0 ? '' : `
+                    <div class="alerts-list">
+                        ${alertsList.map(alert => `
+                            <div class="alert-item">
+                                <div class="alert-header">
+                                    <span class="alert-severity" style="background-color: ${alert.color || '#6b7280'}">
+                                        ${alert.severity || 'Unknown'}
+                                    </span>
+                                    <span class="alert-type">${alert.type || 'Weather Alert'}</span>
+                                    <span class="alert-time">
+                                        ${this.formatAlertTime(alert.start_time, alert.end_time)}
+                                    </span>
+                                </div>
+                                ${alert.headline ? `<div class="alert-headline">${alert.headline}</div>` : ''}
+                                ${alert.areas ? `<div class="alert-areas">Areas: ${alert.areas}</div>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                `}
+            </div>
+        `;
+    }
+
+    formatAlertTime(startTime, endTime) {
+        try {
+            if (!startTime && !endTime) return '';
+
+            const formatTime = (timeStr) => {
+                if (!timeStr) return '';
+                const date = new Date(timeStr);
+                return date.toLocaleDateString('en-US', {
+                    month: 'short',
+                    day: 'numeric',
+                    hour: 'numeric',
+                    minute: '2-digit'
+                });
+            };
+
+            if (startTime && endTime) {
+                return `${formatTime(startTime)} - ${formatTime(endTime)}`;
+            } else if (startTime) {
+                return `From ${formatTime(startTime)}`;
+            } else if (endTime) {
+                return `Until ${formatTime(endTime)}`;
+            }
+            return '';
+        } catch (error) {
+            console.error('Error formatting alert time:', error);
+            return '';
+        }
+    }
+
+    getBaseStyles() {
+        return `
+            :host {
+                display: block;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+
+            :host([data-theme="dark"]) {
+                --widget-background: #1f2937;
+                --text-primary: #f9fafb;
+                --text-muted: #9ca3af;
+                --border-color: #374151;
+                --hover-background: #374151;
+            }
+
+            :host([data-theme="light"]) {
+                --widget-background: #ffffff;
+                --text-primary: #111827;
+                --text-muted: #6b7280;
+                --border-color: #e5e7eb;
+                --hover-background: #f9fafb;
+            }
+        `;
+    }
+}
+
 // Register all components
 customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
@@ -2411,6 +2717,7 @@ customElements.define('hourly-timeline', HourlyTimelineWidget);
 customElements.define('air-quality', AirQualityWidget);
 customElements.define('wind-direction', WindDirectionWidget);
 customElements.define('pressure-trends', PressureTrendsWidget);
+customElements.define('weather-alerts', WeatherAlertsWidget);
 customElements.define('help-section', HelpSection);
 
 // Initialize the weather app

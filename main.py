@@ -27,6 +27,7 @@ from flask_socketio import SocketIO, emit
 from weather_providers import (
     AirQualityProvider,
     HybridWeatherProvider,
+    NationalWeatherServiceProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
     WeatherProviderManager,
@@ -66,11 +67,15 @@ CHICAGO_LON = -87.6298
 # Cache for weather API responses (3 minutes TTL for real-time updates, max 100 entries)
 weather_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=180)
 
+# Cache for weather alerts (5 minutes TTL - alerts change less frequently)
+alerts_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=300)
+
 # Initialize weather provider manager
 weather_manager = WeatherProviderManager()
 
 # Initialize individual providers
 open_meteo = OpenMeteoProvider()
+nws_provider = NationalWeatherServiceProvider()
 
 # Initialize EPA AirNow air quality provider (API key required)
 airnow_api_key = os.getenv('AIRNOW_API_KEY')
@@ -518,6 +523,57 @@ def weather_api() -> Response:
         response.headers['ETag'] = f'"{etag_value}"'
         return response
     response = jsonify({'error': 'Failed to fetch weather data from all sources'})
+    response.status_code = 500
+    return response
+
+
+@app.route('/api/weather/alerts')  # type: ignore[misc]
+def weather_alerts_api() -> Response:
+    """API endpoint for weather alerts and warnings from National Weather Service"""
+    # Get lat/lon from URL parameters
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    location_name = request.args.get('location', 'Chicago')
+
+    # Default to Chicago if no coordinates provided
+    if not lat or not lon:
+        lat = CHICAGO_LAT
+        lon = CHICAGO_LON
+
+    # Create cache key
+    cache_key = f'alerts_{lat:.4f},{lon:.4f}'
+
+    # Check cache first
+    if cache_key in alerts_cache:
+        print(f'🚨 Returning cached alerts for {lat:.4f},{lon:.4f}')
+        cached_data = alerts_cache[cache_key]
+        response = jsonify(cached_data)
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 600)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+
+    # Fetch alerts from NWS
+    print(f'🚨 Fetching weather alerts for {location_name} from NWS')
+    alerts_data = nws_provider.get_weather(lat, lon, location_name)
+
+    if alerts_data:
+        # Cache the result
+        alerts_cache[cache_key] = alerts_data
+        print(f'💾 Cached alerts data for {cache_key}')
+
+        response = jsonify(alerts_data)
+        response.headers['Cache-Control'] = 'public, max-age=300'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 600)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+
+    response = jsonify(
+        {
+            'error': 'Failed to fetch weather alerts',
+            'alerts': {'active_count': 0, 'alerts': [], 'has_warnings': False},
+        }
+    )
     response.status_code = 500
     return response
 

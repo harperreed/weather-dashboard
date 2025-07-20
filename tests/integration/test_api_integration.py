@@ -562,3 +562,214 @@ class TestEndToEndScenarios:
             # Cache hit should be faster (or at least not significantly slower)
             # Allow some tolerance
             assert second_request_time <= first_request_time * TOLERANCE_MULTIPLIER
+
+
+@pytest.mark.integration
+class TestWeatherAlertsAPIIntegration:
+    """Test weather alerts API integration"""
+
+    def setup_method(self) -> None:
+        """Clear alerts cache before each test"""
+        from main import alerts_cache
+
+        alerts_cache.clear()
+
+    def test_weather_alerts_api_success(self, client: FlaskClient) -> None:
+        """Test successful weather alerts API response"""
+        mock_alerts_data = {
+            'provider': 'NationalWeatherService',
+            'location_name': 'Chicago',
+            'timestamp': '2024-07-20T18:00:00Z',
+            'alerts': {
+                'active_count': 2,
+                'alerts': [
+                    {
+                        'id': 'urn:oid:2.49.0.1.840.0.12345',
+                        'type': 'Severe Thunderstorm Warning',
+                        'headline': 'Severe Thunderstorm Warning for Cook County',
+                        'severity': 'Severe',
+                        'color': '#FF0000',
+                        'start_time': '2024-07-20T18:00:00Z',
+                        'end_time': '2024-07-20T21:00:00Z',
+                        'areas': 'Cook County, IL',
+                    },
+                    {
+                        'id': 'urn:oid:2.49.0.1.840.0.67890',
+                        'type': 'Winter Weather Advisory',
+                        'headline': 'Light snow expected',
+                        'severity': 'Minor',
+                        'color': '#FFD700',
+                        'start_time': '2024-07-20T22:00:00Z',
+                        'end_time': '2024-07-21T06:00:00Z',
+                        'areas': 'Northern Cook County, IL',
+                    },
+                ],
+                'has_warnings': True,
+            },
+            'forecast': {
+                'periods': [],
+                'source': 'National Weather Service',
+            },
+        }
+
+        # Mock the NWS provider instance
+        mock_nws_provider = MagicMock()
+        mock_nws_provider.get_weather.return_value = mock_alerts_data
+
+        # Clear cache to ensure we test the API call
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False  # Cache miss
+            mock_cache.__setitem__.return_value = None
+
+            with patch('main.nws_provider', mock_nws_provider):
+                response = client.get(
+                    f'/api/weather/alerts?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}&location=TestCity'
+                )
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'NationalWeatherService'
+        assert 'alerts' in data
+        assert data['alerts']['active_count'] == 2
+        assert data['alerts']['has_warnings'] is True
+        assert len(data['alerts']['alerts']) == 2
+
+        # Check first alert
+        severe_alert = data['alerts']['alerts'][0]
+        assert severe_alert['type'] == 'Severe Thunderstorm Warning'
+        assert severe_alert['severity'] == 'Severe'
+        assert severe_alert['color'] == '#FF0000'
+
+        # Check cache headers
+        assert 'Cache-Control' in response.headers
+        assert 'public' in response.headers['Cache-Control']
+        assert 'max-age=300' in response.headers['Cache-Control']
+
+    def test_weather_alerts_api_no_alerts(self, client: FlaskClient) -> None:
+        """Test weather alerts API when there are no active alerts"""
+        mock_alerts_data = {
+            'provider': 'NationalWeatherService',
+            'location_name': 'Chicago',
+            'timestamp': '2024-07-20T18:00:00Z',
+            'alerts': {
+                'active_count': 0,
+                'alerts': [],
+                'has_warnings': False,
+            },
+            'forecast': {
+                'periods': [],
+                'source': 'National Weather Service',
+            },
+        }
+
+        mock_nws_provider = MagicMock()
+        mock_nws_provider.get_weather.return_value = mock_alerts_data
+
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.nws_provider', mock_nws_provider):
+                response = client.get(
+                    f'/api/weather/alerts?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}&location=TestCity'
+                )
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['alerts']['active_count'] == 0
+        assert data['alerts']['has_warnings'] is False
+        assert len(data['alerts']['alerts']) == 0
+
+    def test_weather_alerts_api_failure(self, client: FlaskClient) -> None:
+        """Test weather alerts API when NWS provider fails"""
+        mock_nws_provider = MagicMock()
+        mock_nws_provider.get_weather.return_value = None
+
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.nws_provider', mock_nws_provider):
+                response = client.get('/api/weather/alerts?lat=42.0&lon=-88.0')
+
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+        data = response.get_json()
+
+        assert data is not None
+        assert 'error' in data
+        assert 'Failed to fetch weather alerts' in data['error']
+        # Should still provide empty alerts structure
+        assert 'alerts' in data
+        assert data['alerts']['active_count'] == 0
+
+    def test_weather_alerts_api_default_location(self, client: FlaskClient) -> None:
+        """Test weather alerts API with default location (Chicago)"""
+        mock_alerts_data = {
+            'provider': 'NationalWeatherService',
+            'location_name': 'Chicago',
+            'alerts': {'active_count': 0, 'alerts': [], 'has_warnings': False},
+        }
+
+        mock_nws_provider = MagicMock()
+        mock_nws_provider.get_weather.return_value = mock_alerts_data
+
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.nws_provider', mock_nws_provider):
+                response = client.get('/api/weather/alerts')  # No lat/lon provided
+
+        assert response.status_code == HTTP_OK
+
+        # Verify the provider was called with Chicago coordinates
+        mock_nws_provider.get_weather.assert_called_once()
+        call_args = mock_nws_provider.get_weather.call_args
+        assert call_args[0][0] == 41.8781  # Chicago latitude
+        assert call_args[0][1] == -87.6298  # Chicago longitude
+
+    def test_weather_alerts_api_cache_hit(self, client: FlaskClient) -> None:
+        """Test weather alerts API cache behavior"""
+        mock_alerts_data = {
+            'provider': 'NationalWeatherService',
+            'alerts': {'active_count': 1, 'alerts': [], 'has_warnings': False},
+        }
+
+        # Mock cache hit
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = True  # Cache hit
+            mock_cache.__getitem__.return_value = mock_alerts_data
+
+            response = client.get(
+                f'/api/weather/alerts?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+            )
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'NationalWeatherService'
+
+    def test_weather_alerts_api_etag_headers(self, client: FlaskClient) -> None:
+        """Test weather alerts API ETag header functionality"""
+        mock_alerts_data = {
+            'provider': 'NationalWeatherService',
+            'alerts': {'active_count': 0, 'alerts': [], 'has_warnings': False},
+        }
+
+        mock_nws_provider = MagicMock()
+        mock_nws_provider.get_weather.return_value = mock_alerts_data
+
+        with patch('main.alerts_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.nws_provider', mock_nws_provider):
+                response = client.get(
+                    f'/api/weather/alerts?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+                )
+
+        assert response.status_code == HTTP_OK
+        assert 'ETag' in response.headers
+        assert response.headers['ETag'].startswith('"')
+        assert response.headers['ETag'].endswith('"')
