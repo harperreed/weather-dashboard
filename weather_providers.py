@@ -137,9 +137,11 @@ class OpenMeteoProvider(WeatherProvider):
             current = raw_data.get('current', {})
             hourly = raw_data.get('hourly', {})
             daily = raw_data.get('daily', {})
-            
+
             # Debug: Check what wind data we're getting
-            print(f'🌬️  Wind data from OpenMeteo: speed={current.get("wind_speed_10m")}, direction={current.get("wind_direction_10m")}')
+            print(
+                f'🌬️  Wind data from OpenMeteo: speed={current.get("wind_speed_10m")}, direction={current.get("wind_direction_10m")}'
+            )
 
             # Extract timezone from OpenMeteo response (overrides parameter)
             api_timezone = raw_data.get('timezone')

@@ -1377,11 +1377,11 @@ class WindDirectionWidget extends WeatherWidget {
 
         // Check if we have valid numeric wind direction
         const windDirection = current.wind_direction;
-        const isValidDirection = windDirection !== undefined && 
-                               windDirection !== null && 
-                               typeof windDirection === 'number' && 
+        const isValidDirection = windDirection !== undefined &&
+                               windDirection !== null &&
+                               typeof windDirection === 'number' &&
                                !isNaN(windDirection) &&
-                               windDirection >= 0 && 
+                               windDirection >= 0 &&
                                windDirection <= 360;
 
         if (isValidDirection) {
