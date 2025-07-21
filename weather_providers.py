@@ -1,6 +1,7 @@
 # ABOUTME: Weather provider classes for OpenMeteo and National Weather Service APIs
 # ABOUTME: Abstraction layer for weather data access with multiple providers
 
+import time
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
 from typing import Any
@@ -884,6 +885,197 @@ class AirQualityProvider(WeatherProvider):
         if aqi <= AQI_VERY_UNHEALTHY:
             return '#99004c'  # Purple
         return '#7e0023'  # Maroon
+
+
+class RadarProvider(WeatherProvider):
+    """OpenWeatherMap radar tiles provider for precipitation visualization"""
+
+    def __init__(self, api_key: str) -> None:
+        super().__init__('RadarProvider')
+        self.api_key = api_key
+        self.base_url = 'https://maps.openweathermap.org/maps/2.0/radar'
+        self.tile_size = 256
+        
+    def fetch_weather_data(
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Fetch radar tile URLs and timestamps for animation"""
+        try:
+            # Get available timestamps for radar animation
+            timestamps_url = f'https://api.openweathermap.org/data/2.5/onecall'
+            params = {
+                'lat': lat,
+                'lon': lon,
+                'appid': self.api_key,
+                'exclude': 'minutely,daily,alerts',
+                'units': 'imperial'
+            }
+            
+            # First get basic weather data to ensure API key works
+            response = requests.get(timestamps_url, params=params, timeout=self.timeout)
+            
+            if response.status_code == 401:
+                print('❌ OpenWeatherMap API key invalid for radar')
+                return None
+            elif response.status_code != 200:
+                print(f'❌ OpenWeatherMap API returned {response.status_code}')
+                return None
+                
+            weather_data = response.json()
+            current_time = weather_data.get('current', {}).get('dt', int(time.time()))
+            
+            # Generate radar tile URLs for animation (2 hours back + 1 hour forward)
+            # OpenWeatherMap provides tiles at 10-minute intervals
+            timestamps = []
+            tile_urls = []
+            
+            # Historical frames (12 frames = 2 hours at 10-minute intervals)
+            for i in range(12, 0, -1):
+                timestamp = current_time - (i * 600)  # 600 seconds = 10 minutes
+                timestamps.append(timestamp)
+                
+            # Current frame
+            timestamps.append(current_time)
+            
+            # Forecast frames (6 frames = 1 hour at 10-minute intervals)
+            for i in range(1, 7):
+                timestamp = current_time + (i * 600)
+                timestamps.append(timestamp)
+            
+            # Calculate zoom level and tile coordinates for the location
+            zoom_levels = [6, 8, 10]  # Regional, local, detailed
+            
+            for zoom in zoom_levels:
+                level_tiles = []
+                for timestamp in timestamps:
+                    # Calculate tile coordinates for this lat/lon at this zoom level
+                    tile_x, tile_y = self._lat_lon_to_tile(lat, lon, zoom)
+                    
+                    # Generate tile URLs for radar data
+                    tile_url = (
+                        f'{self.base_url}/{zoom}/{tile_x}/{tile_y}'
+                        f'?appid={self.api_key}&date={timestamp}'
+                    )
+                    level_tiles.append({
+                        'url': tile_url,
+                        'timestamp': timestamp,
+                        'x': tile_x,
+                        'y': tile_y
+                    })
+                
+                tile_urls.append({
+                    'zoom': zoom,
+                    'tiles': level_tiles
+                })
+            
+            print(f'🌧️  Radar: Generated {len(timestamps)} frames for {len(zoom_levels)} zoom levels')
+            
+            return {
+                'timestamps': timestamps,
+                'tile_urls': tile_urls,
+                'current_time': current_time,
+                'zoom_levels': zoom_levels,
+                'center_lat': lat,
+                'center_lon': lon,
+                'weather_context': {
+                    'temperature': weather_data.get('current', {}).get('temp'),
+                    'precipitation': weather_data.get('current', {}).get('rain', {}).get('1h', 0),
+                    'description': weather_data.get('current', {}).get('weather', [{}])[0].get('description', '')
+                }
+            }
+
+        except Exception as e:
+            print(f'❌ Radar API error: {str(e)}')
+            return None
+    
+    def _lat_lon_to_tile(self, lat: float, lon: float, zoom: int) -> tuple[int, int]:
+        """Convert latitude/longitude to tile coordinates at given zoom level"""
+        import math
+        
+        lat_rad = math.radians(lat)
+        n = 2.0 ** zoom
+        tile_x = int((lon + 180.0) / 360.0 * n)
+        tile_y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
+        
+        return tile_x, tile_y
+    
+    def process_weather_data(
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Process radar data into standardized format for frontend"""
+        if not raw_data:
+            return None
+
+        try:
+            timestamps = raw_data.get('timestamps', [])
+            tile_urls = raw_data.get('tile_urls', [])
+            current_time = raw_data.get('current_time')
+            weather_context = raw_data.get('weather_context', {})
+            
+            # Calculate animation metadata
+            total_frames = len(timestamps)
+            
+            # Find current time in timestamps to properly count historical frames
+            current_frame_index = 0
+            if current_time:
+                for i, timestamp in enumerate(timestamps):
+                    if timestamp <= current_time:
+                        current_frame_index = i
+                    else:
+                        break
+            
+            historical_frames = current_frame_index
+            forecast_frames = max(0, total_frames - historical_frames - 1)  # -1 for current
+            
+            # Determine default zoom level (medium resolution for balance)
+            default_zoom = 8
+            default_tiles = None
+            for level in tile_urls:
+                if level['zoom'] == default_zoom:
+                    default_tiles = level['tiles']
+                    break
+            
+            if not default_tiles and tile_urls:
+                default_tiles = tile_urls[0]['tiles']  # Fallback to first available
+
+            processed_data = {
+                'provider': self.name,
+                'location_name': location_name,
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'radar': {
+                    'timestamps': timestamps,
+                    'tile_levels': tile_urls,
+                    'default_tiles': default_tiles,
+                    'animation_metadata': {
+                        'total_frames': total_frames,
+                        'historical_frames': historical_frames,
+                        'current_frame': current_frame_index,  # Index of current time
+                        'forecast_frames': forecast_frames,
+                        'interval_minutes': 10,
+                        'duration_hours': total_frames * 10 / 60
+                    },
+                    'map_bounds': {
+                        'center_lat': raw_data.get('center_lat'),
+                        'center_lon': raw_data.get('center_lon'),
+                        'zoom_levels': raw_data.get('zoom_levels', [])
+                    }
+                },
+                'weather_context': weather_context
+            }
+
+            print(f'🌦️  Processed radar: {total_frames} frames, {historical_frames}h history + {forecast_frames/6:.1f}h forecast')
+
+            return processed_data
+
+        except Exception as e:
+            print(f'❌ Radar data processing error: {str(e)}')
+            return None
 
 
 class NationalWeatherServiceProvider(WeatherProvider):
