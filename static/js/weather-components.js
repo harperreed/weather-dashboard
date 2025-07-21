@@ -2725,7 +2725,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
     connectedCallback() {
         super.connectedCallback();
         this.loadRadar();
-        
+
         // Listen for weather updates to refresh radar
         this.addEventListener('weather-data-updated', () => {
             this.loadRadar();
@@ -2743,28 +2743,28 @@ class PrecipitationRadarWidget extends WeatherWidget {
             // Get location from URL parameters or weather app
             const params = this.getLocationParams();
             const radarUrl = `/api/radar?lat=${params.lat}&lon=${params.lon}&location=${params.location}`;
-            
+
             console.log('🌧️ Loading precipitation radar from:', radarUrl);
-            
+
             const response = await fetch(radarUrl);
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             this.radarData = await response.json();
             this.currentFrame = this.radarData.radar?.animation_metadata?.current_frame || 0;
             this.render();
-            
+
         } catch (error) {
             console.error('❌ Failed to load precipitation radar:', error);
             this.radarData = {
-                radar: { 
+                radar: {
                     available: false,
-                    animation_metadata: { 
-                        total_frames: 0, 
-                        historical_frames: 0, 
-                        current_frame: 0, 
-                        forecast_frames: 0 
+                    animation_metadata: {
+                        total_frames: 0,
+                        historical_frames: 0,
+                        current_frame: 0,
+                        forecast_frames: 0
                     }
                 }
             };
@@ -2797,10 +2797,10 @@ class PrecipitationRadarWidget extends WeatherWidget {
 
     startAnimation() {
         if (!this.radarData?.radar?.animation_metadata) return;
-        
+
         this.isPlaying = true;
         const totalFrames = this.radarData.radar.animation_metadata.total_frames;
-        
+
         this.animationTimer = setInterval(() => {
             this.currentFrame = (this.currentFrame + 1) % totalFrames;
             this.updateRadarFrame();
@@ -2833,10 +2833,10 @@ class PrecipitationRadarWidget extends WeatherWidget {
 
         const ctx = canvas.getContext('2d');
         const radar = this.radarData.radar;
-        
+
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
+
         // Find the appropriate zoom level tiles
         let tiles = radar.default_tiles || [];
         for (const level of radar.tile_levels || []) {
@@ -2854,7 +2854,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
                 ctx.globalAlpha = 0.7; // Semi-transparent overlay
                 ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                 ctx.globalAlpha = 1.0;
-                
+
                 // Add location marker
                 this.drawLocationMarker(ctx, canvas.width / 2, canvas.height / 2);
             };
@@ -2892,32 +2892,32 @@ class PrecipitationRadarWidget extends WeatherWidget {
         const frameSlider = this.shadowRoot.querySelector('.frame-slider');
         const zoomSelect = this.shadowRoot.querySelector('.zoom-select');
         const frameInfo = this.shadowRoot.querySelector('.frame-info');
-        
+
         if (playButton) {
             playButton.textContent = this.isPlaying ? '⏸️' : '▶️';
         }
-        
+
         if (frameSlider) {
             frameSlider.value = this.currentFrame;
         }
-        
+
         if (zoomSelect) {
             zoomSelect.value = this.currentZoom;
         }
-        
+
         if (frameInfo && this.radarData?.radar) {
             const meta = this.radarData.radar.animation_metadata;
             const isHistorical = this.currentFrame < meta.current_frame;
             const isForecast = this.currentFrame > meta.current_frame;
             const timeOffset = (this.currentFrame - meta.current_frame) * meta.interval_minutes;
-            
+
             let timeLabel = 'Now';
             if (isHistorical) {
                 timeLabel = `${Math.abs(timeOffset)} min ago`;
             } else if (isForecast) {
                 timeLabel = `+${timeOffset} min`;
             }
-            
+
             frameInfo.textContent = `Frame ${this.currentFrame + 1}/${meta.total_frames} - ${timeLabel}`;
         }
     }
@@ -3105,8 +3105,8 @@ class PrecipitationRadarWidget extends WeatherWidget {
                                     </button>
                                 </div>
                                 <div class="control-group" style="flex: 1;">
-                                    <input type="range" class="frame-slider" 
-                                           min="0" max="${meta.total_frames - 1}" 
+                                    <input type="range" class="frame-slider"
+                                           min="0" max="${meta.total_frames - 1}"
                                            value="${this.currentFrame}"
                                            onchange="this.getRootNode().host.setFrame(parseInt(this.value))">
                                 </div>
@@ -3143,7 +3143,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
                 display: block;
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             }
-            
+
             :host([data-theme="dark"]) {
                 --widget-background: #1f2937;
                 --text-primary: #f9fafb;
@@ -3152,7 +3152,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
                 --hover-background: #374151;
                 --primary-color: #3b82f6;
             }
-            
+
             :host([data-theme="light"]) {
                 --widget-background: #ffffff;
                 --text-primary: #111827;
@@ -3208,3 +3208,278 @@ document.addEventListener('DOMContentLoaded', () => {
         window.realTimeWeather.requestWeatherUpdate({ lat, lon, location, timezone });
     }
 });
+
+/**
+ * Clothing Recommendations Widget - smart clothing suggestions based on weather conditions
+ */
+class ClothingRecommendationsWidget extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+        this.render();
+        this.fetchClothingRecommendations();
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="/static/css/weather-components.css">
+            <style>
+                .clothing-widget {
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 1rem 0;
+                    backdrop-filter: blur(10px);
+                }
+                
+                .clothing-header {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 1rem;
+                    gap: 0.75rem;
+                }
+                
+                .clothing-icon {
+                    font-size: 1.5rem;
+                }
+                
+                .clothing-title {
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    margin: 0;
+                }
+                
+                .primary-suggestion {
+                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
+                    border: 1px solid rgba(59, 130, 246, 0.3);
+                    border-radius: 8px;
+                    padding: 1rem;
+                    margin-bottom: 1rem;
+                    font-size: 1rem;
+                    font-weight: 500;
+                }
+                
+                .recommendation-section {
+                    margin-bottom: 1rem;
+                }
+                
+                .section-title {
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    margin-bottom: 0.5rem;
+                    opacity: 0.9;
+                }
+                
+                .items-list {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 0.5rem;
+                    margin-bottom: 0.75rem;
+                }
+                
+                .clothing-item {
+                    background: rgba(59, 130, 246, 0.2);
+                    color: var(--text-primary);
+                    padding: 0.25rem 0.75rem;
+                    border-radius: 20px;
+                    font-size: 0.85rem;
+                    font-weight: 500;
+                }
+                
+                .warnings {
+                    margin-bottom: 0.75rem;
+                }
+                
+                .warning-item {
+                    background: rgba(239, 68, 68, 0.15);
+                    border-left: 4px solid #ef4444;
+                    padding: 0.5rem 0.75rem;
+                    margin-bottom: 0.5rem;
+                    border-radius: 0 6px 6px 0;
+                    font-size: 0.9rem;
+                }
+                
+                .comfort-tips {
+                    margin-bottom: 1rem;
+                }
+                
+                .tip-item {
+                    background: rgba(34, 197, 94, 0.15);
+                    border-left: 4px solid #22c55e;
+                    padding: 0.5rem 0.75rem;
+                    margin-bottom: 0.5rem;
+                    border-radius: 0 6px 6px 0;
+                    font-size: 0.9rem;
+                }
+                
+                .activity-recommendations {
+                    display: grid;
+                    gap: 0.75rem;
+                    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                }
+                
+                .activity-card {
+                    background: rgba(99, 102, 241, 0.1);
+                    border: 1px solid rgba(99, 102, 241, 0.2);
+                    border-radius: 8px;
+                    padding: 0.75rem;
+                }
+                
+                .activity-title {
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    margin-bottom: 0.5rem;
+                    text-transform: capitalize;
+                }
+                
+                .activity-text {
+                    font-size: 0.85rem;
+                    opacity: 0.9;
+                    line-height: 1.4;
+                }
+                
+                .loading {
+                    text-align: center;
+                    padding: 2rem;
+                    color: var(--text-primary);
+                    opacity: 0.7;
+                }
+                
+                .error {
+                    text-align: center;
+                    padding: 1rem;
+                    color: var(--error-color);
+                    background: rgba(239, 68, 68, 0.1);
+                    border-radius: 8px;
+                    margin: 1rem 0;
+                }
+                
+                @media (max-width: 640px) {
+                    .clothing-widget {
+                        padding: 1rem;
+                    }
+                    
+                    .activity-recommendations {
+                        grid-template-columns: 1fr;
+                    }
+                }
+            </style>
+            
+            <div class="clothing-widget">
+                <div class="clothing-header">
+                    <span class="clothing-icon">👔</span>
+                    <h3 class="clothing-title">Clothing Recommendations</h3>
+                </div>
+                <div id="clothing-content">
+                    <div class="loading">
+                        Analyzing weather conditions...
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    async fetchClothingRecommendations() {
+        const content = this.shadowRoot.getElementById('clothing-content');
+        
+        try {
+            // Get current location from URL or use Chicago as default
+            const urlParams = new URLSearchParams(window.location.search);
+            const lat = urlParams.get('lat') || 41.8781;
+            const lon = urlParams.get('lon') || -87.6298;
+            const location = urlParams.get('location') || 'Chicago';
+            
+            const response = await fetch(`/api/clothing?lat=${lat}&lon=${lon}&location=${encodeURIComponent(location)}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            const data = await response.json();
+            this.renderRecommendations(data.clothing.recommendations);
+            
+        } catch (error) {
+            console.error('Failed to fetch clothing recommendations:', error);
+            content.innerHTML = `
+                <div class="error">
+                    Unable to load clothing recommendations. Please try again later.
+                </div>
+            `;
+        }
+    }
+
+    renderRecommendations(recommendations) {
+        const content = this.shadowRoot.getElementById('clothing-content');
+        
+        let html = `
+            <div class="primary-suggestion">
+                ${recommendations.primary_suggestion}
+            </div>
+        `;
+        
+        // Recommended items
+        if (recommendations.items && recommendations.items.length > 0) {
+            html += `
+                <div class="recommendation-section">
+                    <div class="section-title">Recommended Items</div>
+                    <div class="items-list">
+                        ${recommendations.items.map(item => `
+                            <span class="clothing-item">${item}</span>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Warnings
+        if (recommendations.warnings && recommendations.warnings.length > 0) {
+            html += `
+                <div class="recommendation-section warnings">
+                    <div class="section-title">Weather Warnings</div>
+                    ${recommendations.warnings.map(warning => `
+                        <div class="warning-item">${warning}</div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        // Comfort tips
+        if (recommendations.comfort_tips && recommendations.comfort_tips.length > 0) {
+            html += `
+                <div class="recommendation-section comfort-tips">
+                    <div class="section-title">Comfort Tips</div>
+                    ${recommendations.comfort_tips.map(tip => `
+                        <div class="tip-item">${tip}</div>
+                    `).join('')}
+                </div>
+            `;
+        }
+        
+        // Activity-specific recommendations
+        if (recommendations.activity_specific && Object.keys(recommendations.activity_specific).length > 0) {
+            html += `
+                <div class="recommendation-section">
+                    <div class="section-title">Activity-Specific Advice</div>
+                    <div class="activity-recommendations">
+                        ${Object.entries(recommendations.activity_specific).map(([activity, advice]) => `
+                            <div class="activity-card">
+                                <div class="activity-title">${activity.replace('_', ' ')}</div>
+                                <div class="activity-text">${advice}</div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        content.innerHTML = html;
+    }
+}
+
+// Register the clothing recommendations component
+customElements.define('clothing-recommendations', ClothingRecommendationsWidget);

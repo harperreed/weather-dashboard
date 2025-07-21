@@ -895,7 +895,7 @@ class RadarProvider(WeatherProvider):
         self.api_key = api_key
         self.base_url = 'https://maps.openweathermap.org/maps/2.0/radar'
         self.tile_size = 256
-        
+
     def fetch_weather_data(
         self,
         lat: float,
@@ -905,74 +905,75 @@ class RadarProvider(WeatherProvider):
         """Fetch radar tile URLs and timestamps for animation"""
         try:
             # Get available timestamps for radar animation
-            timestamps_url = f'https://api.openweathermap.org/data/2.5/onecall'
+            timestamps_url = 'https://api.openweathermap.org/data/2.5/onecall'
             params = {
                 'lat': lat,
                 'lon': lon,
                 'appid': self.api_key,
                 'exclude': 'minutely,daily,alerts',
-                'units': 'imperial'
+                'units': 'imperial',
             }
-            
+
             # First get basic weather data to ensure API key works
             response = requests.get(timestamps_url, params=params, timeout=self.timeout)
-            
+
             if response.status_code == 401:
                 print('❌ OpenWeatherMap API key invalid for radar')
                 return None
-            elif response.status_code != 200:
+            if response.status_code != 200:
                 print(f'❌ OpenWeatherMap API returned {response.status_code}')
                 return None
-                
+
             weather_data = response.json()
             current_time = weather_data.get('current', {}).get('dt', int(time.time()))
-            
+
             # Generate radar tile URLs for animation (2 hours back + 1 hour forward)
             # OpenWeatherMap provides tiles at 10-minute intervals
             timestamps = []
             tile_urls = []
-            
+
             # Historical frames (12 frames = 2 hours at 10-minute intervals)
             for i in range(12, 0, -1):
                 timestamp = current_time - (i * 600)  # 600 seconds = 10 minutes
                 timestamps.append(timestamp)
-                
+
             # Current frame
             timestamps.append(current_time)
-            
+
             # Forecast frames (6 frames = 1 hour at 10-minute intervals)
             for i in range(1, 7):
                 timestamp = current_time + (i * 600)
                 timestamps.append(timestamp)
-            
+
             # Calculate zoom level and tile coordinates for the location
             zoom_levels = [6, 8, 10]  # Regional, local, detailed
-            
+
             for zoom in zoom_levels:
                 level_tiles = []
                 for timestamp in timestamps:
                     # Calculate tile coordinates for this lat/lon at this zoom level
                     tile_x, tile_y = self._lat_lon_to_tile(lat, lon, zoom)
-                    
+
                     # Generate tile URLs for radar data
                     tile_url = (
                         f'{self.base_url}/{zoom}/{tile_x}/{tile_y}'
                         f'?appid={self.api_key}&date={timestamp}'
                     )
-                    level_tiles.append({
-                        'url': tile_url,
-                        'timestamp': timestamp,
-                        'x': tile_x,
-                        'y': tile_y
-                    })
-                
-                tile_urls.append({
-                    'zoom': zoom,
-                    'tiles': level_tiles
-                })
-            
-            print(f'🌧️  Radar: Generated {len(timestamps)} frames for {len(zoom_levels)} zoom levels')
-            
+                    level_tiles.append(
+                        {
+                            'url': tile_url,
+                            'timestamp': timestamp,
+                            'x': tile_x,
+                            'y': tile_y,
+                        }
+                    )
+
+                tile_urls.append({'zoom': zoom, 'tiles': level_tiles})
+
+            print(
+                f'🌧️  Radar: Generated {len(timestamps)} frames for {len(zoom_levels)} zoom levels'
+            )
+
             return {
                 'timestamps': timestamps,
                 'tile_urls': tile_urls,
@@ -982,26 +983,30 @@ class RadarProvider(WeatherProvider):
                 'center_lon': lon,
                 'weather_context': {
                     'temperature': weather_data.get('current', {}).get('temp'),
-                    'precipitation': weather_data.get('current', {}).get('rain', {}).get('1h', 0),
-                    'description': weather_data.get('current', {}).get('weather', [{}])[0].get('description', '')
-                }
+                    'precipitation': weather_data.get('current', {})
+                    .get('rain', {})
+                    .get('1h', 0),
+                    'description': weather_data.get('current', {})
+                    .get('weather', [{}])[0]
+                    .get('description', ''),
+                },
             }
 
         except Exception as e:
             print(f'❌ Radar API error: {str(e)}')
             return None
-    
+
     def _lat_lon_to_tile(self, lat: float, lon: float, zoom: int) -> tuple[int, int]:
         """Convert latitude/longitude to tile coordinates at given zoom level"""
         import math
-        
+
         lat_rad = math.radians(lat)
-        n = 2.0 ** zoom
+        n = 2.0**zoom
         tile_x = int((lon + 180.0) / 360.0 * n)
         tile_y = int((1.0 - math.asinh(math.tan(lat_rad)) / math.pi) / 2.0 * n)
-        
+
         return tile_x, tile_y
-    
+
     def process_weather_data(
         self,
         raw_data: dict,
@@ -1017,10 +1022,10 @@ class RadarProvider(WeatherProvider):
             tile_urls = raw_data.get('tile_urls', [])
             current_time = raw_data.get('current_time')
             weather_context = raw_data.get('weather_context', {})
-            
+
             # Calculate animation metadata
             total_frames = len(timestamps)
-            
+
             # Find current time in timestamps to properly count historical frames
             current_frame_index = 0
             if current_time:
@@ -1029,10 +1034,12 @@ class RadarProvider(WeatherProvider):
                         current_frame_index = i
                     else:
                         break
-            
+
             historical_frames = current_frame_index
-            forecast_frames = max(0, total_frames - historical_frames - 1)  # -1 for current
-            
+            forecast_frames = max(
+                0, total_frames - historical_frames - 1
+            )  # -1 for current
+
             # Determine default zoom level (medium resolution for balance)
             default_zoom = 8
             default_tiles = None
@@ -1040,7 +1047,7 @@ class RadarProvider(WeatherProvider):
                 if level['zoom'] == default_zoom:
                     default_tiles = level['tiles']
                     break
-            
+
             if not default_tiles and tile_urls:
                 default_tiles = tile_urls[0]['tiles']  # Fallback to first available
 
@@ -1058,24 +1065,281 @@ class RadarProvider(WeatherProvider):
                         'current_frame': current_frame_index,  # Index of current time
                         'forecast_frames': forecast_frames,
                         'interval_minutes': 10,
-                        'duration_hours': total_frames * 10 / 60
+                        'duration_hours': total_frames * 10 / 60,
                     },
                     'map_bounds': {
                         'center_lat': raw_data.get('center_lat'),
                         'center_lon': raw_data.get('center_lon'),
-                        'zoom_levels': raw_data.get('zoom_levels', [])
-                    }
+                        'zoom_levels': raw_data.get('zoom_levels', []),
+                    },
                 },
-                'weather_context': weather_context
+                'weather_context': weather_context,
             }
 
-            print(f'🌦️  Processed radar: {total_frames} frames, {historical_frames}h history + {forecast_frames/6:.1f}h forecast')
+            print(
+                f'🌦️  Processed radar: {total_frames} frames, {historical_frames}h history + {forecast_frames/6:.1f}h forecast'
+            )
 
             return processed_data
 
         except Exception as e:
             print(f'❌ Radar data processing error: {str(e)}')
             return None
+
+
+class ClothingRecommendationProvider(WeatherProvider):
+    """Smart clothing recommendations based on weather conditions and forecasts"""
+    
+    def __init__(self) -> None:
+        super().__init__('ClothingRecommendationProvider')
+        
+    def fetch_weather_data(
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """This provider processes existing weather data rather than fetching new data"""
+        # This provider is designed to work with existing weather data
+        return None
+        
+    def process_weather_data(
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Process weather data to generate clothing recommendations"""
+        if not raw_data:
+            return None
+            
+        try:
+            current = raw_data.get('current', {})
+            hourly = raw_data.get('hourly', [])
+            daily = raw_data.get('daily', [])
+            
+            # Extract key weather parameters
+            current_temp = current.get('temperature', 70)
+            feels_like = current.get('feels_like', current_temp)
+            humidity = current.get('humidity', 50)
+            wind_speed = current.get('wind_speed', 0)
+            precipitation_prob = current.get('precipitation_prob', 0)
+            uv_index = current.get('uv_index', 0)
+            
+            # Get today's temperature range
+            temp_high = current_temp
+            temp_low = current_temp
+            if daily:
+                today = daily[0] if daily else {}
+                temp_high = today.get('h', current_temp)
+                temp_low = today.get('l', current_temp)
+                
+            # Analyze next 12 hours for changes
+            next_12h_temps = []
+            next_12h_precip = []
+            if hourly:
+                for hour in hourly[:12]:
+                    next_12h_temps.append(hour.get('temp', current_temp))
+                    next_12h_precip.append(hour.get('rain', 0))
+                    
+            # Generate recommendations
+            recommendations = self._generate_clothing_recommendations(
+                current_temp=current_temp,
+                feels_like=feels_like, 
+                temp_high=temp_high,
+                temp_low=temp_low,
+                humidity=humidity,
+                wind_speed=wind_speed,
+                precipitation_prob=precipitation_prob,
+                uv_index=uv_index,
+                next_12h_temps=next_12h_temps,
+                next_12h_precip=next_12h_precip
+            )
+            
+            return {
+                'provider': self.name,
+                'location_name': location_name,
+                'timestamp': datetime.now(timezone.utc).isoformat(),
+                'clothing': {
+                    'recommendations': recommendations,
+                    'weather_context': {
+                        'current_temp': current_temp,
+                        'feels_like': feels_like,
+                        'temp_range': {'high': temp_high, 'low': temp_low},
+                        'conditions': {
+                            'humidity': humidity,
+                            'wind_speed': wind_speed, 
+                            'precipitation_prob': precipitation_prob,
+                            'uv_index': uv_index
+                        }
+                    }
+                }
+            }
+            
+        except Exception as e:
+            print(f'❌ Clothing recommendation error: {str(e)}')
+            return None
+    
+    def _generate_clothing_recommendations(
+        self,
+        current_temp: float,
+        feels_like: float,
+        temp_high: float,
+        temp_low: float,
+        humidity: float,
+        wind_speed: float,
+        precipitation_prob: float,
+        uv_index: float,
+        next_12h_temps: list[float],
+        next_12h_precip: list[float],
+    ) -> dict:
+        """Generate specific clothing recommendations based on weather analysis"""
+        
+        recommendations = {
+            'primary_suggestion': '',
+            'items': [],
+            'warnings': [],
+            'comfort_tips': [],
+            'activity_specific': {}
+        }
+        
+        # Temperature-based base layer recommendations
+        if feels_like >= 85:
+            base_layer = 'Light, breathable fabrics'
+            recommendations['items'].extend(['shorts', 't-shirt', 'sandals'])
+        elif feels_like >= 75:
+            base_layer = 'Lightweight clothing'
+            recommendations['items'].extend(['light pants', 'short sleeves', 'comfortable shoes'])
+        elif feels_like >= 65:
+            base_layer = 'Comfortable casual wear'
+            recommendations['items'].extend(['pants', 'long sleeves', 'closed shoes'])
+        elif feels_like >= 50:
+            base_layer = 'Layers recommended'
+            recommendations['items'].extend(['pants', 'light sweater', 'jacket'])
+        elif feels_like >= 35:
+            base_layer = 'Warm clothing needed'
+            recommendations['items'].extend(['warm pants', 'sweater', 'coat', 'warm shoes'])
+        else:
+            base_layer = 'Heavy winter clothing'
+            recommendations['items'].extend(['insulated pants', 'heavy coat', 'warm layers', 'winter boots'])
+            
+        # Wind adjustments
+        if wind_speed > 15:
+            recommendations['items'].append('wind-resistant outer layer')
+            recommendations['warnings'].append(f'Strong winds ({wind_speed} mph) - wind-resistant clothing recommended')
+        
+        # Precipitation adjustments  
+        if precipitation_prob > 60 or any(p > 0.1 for p in next_12h_precip):
+            recommendations['items'].extend(['waterproof jacket', 'umbrella'])
+            recommendations['warnings'].append(f'Rain likely ({precipitation_prob}%) - bring rain protection')
+        elif precipitation_prob > 30:
+            recommendations['comfort_tips'].append('Consider bringing an umbrella just in case')
+            
+        # UV protection
+        if uv_index >= 8:
+            recommendations['items'].extend(['sunscreen', 'hat', 'sunglasses'])
+            recommendations['warnings'].append(f'High UV index ({uv_index}) - sun protection essential')
+        elif uv_index >= 6:
+            recommendations['items'].extend(['sunscreen', 'hat'])
+            recommendations['comfort_tips'].append('Moderate UV - sun protection recommended')
+        elif uv_index >= 3:
+            recommendations['comfort_tips'].append('Some sun protection advised during peak hours')
+            
+        # Temperature swing analysis
+        temp_swing = temp_high - temp_low
+        if temp_swing > 20:
+            recommendations['warnings'].append(f'Large temperature swing ({temp_swing:.0f}°) - dress in layers')
+            recommendations['items'].append('layering pieces')
+        elif temp_swing > 15:
+            recommendations['comfort_tips'].append('Temperature will change - consider layering')
+            
+        # Humidity comfort
+        if humidity > 80 and current_temp > 70:
+            recommendations['comfort_tips'].append('High humidity - choose breathable fabrics')
+        elif humidity < 30:
+            recommendations['comfort_tips'].append('Low humidity - consider moisturizer')
+            
+        # Generate primary suggestion
+        if feels_like >= 80:
+            recommendations['primary_suggestion'] = f'{base_layer} - stay cool and hydrated'
+        elif feels_like <= 32:
+            recommendations['primary_suggestion'] = f'{base_layer} - bundle up and stay warm' 
+        elif temp_swing > 15:
+            recommendations['primary_suggestion'] = f'{base_layer} - dress in removable layers'
+        elif precipitation_prob > 50:
+            recommendations['primary_suggestion'] = f'{base_layer} with rain protection'
+        else:
+            recommendations['primary_suggestion'] = base_layer
+            
+        # Activity-specific recommendations
+        recommendations['activity_specific'] = {
+            'commuting': self._get_commute_recommendations(feels_like, wind_speed, precipitation_prob),
+            'exercise': self._get_exercise_recommendations(feels_like, humidity, uv_index),
+            'outdoor_work': self._get_outdoor_work_recommendations(feels_like, wind_speed, uv_index, precipitation_prob)
+        }
+        
+        return recommendations
+    
+    def _get_commute_recommendations(self, feels_like: float, wind_speed: float, precipitation_prob: float) -> str:
+        """Generate commute-specific recommendations"""
+        suggestions = []
+        
+        if feels_like < 40:
+            suggestions.append('warm coat and gloves')
+        elif feels_like > 80:
+            suggestions.append('light layers you can remove indoors')
+            
+        if wind_speed > 20:
+            suggestions.append('secure any loose items')
+            
+        if precipitation_prob > 40:
+            suggestions.append('waterproof shoes and jacket')
+            
+        if not suggestions:
+            suggestions.append('standard work attire should be comfortable')
+            
+        return ', '.join(suggestions)
+    
+    def _get_exercise_recommendations(self, feels_like: float, humidity: float, uv_index: float) -> str:
+        """Generate exercise-specific recommendations"""
+        suggestions = []
+        
+        if feels_like > 75:
+            suggestions.append('moisture-wicking fabrics')
+        if humidity > 70:
+            suggestions.append('extra hydration')
+        if uv_index >= 6:
+            suggestions.append('sun protection and early/late timing')
+        if feels_like < 45:
+            suggestions.append('warm-up layers you can remove')
+            
+        if not suggestions:
+            suggestions.append('standard workout gear should work well')
+            
+        return ', '.join(suggestions)
+    
+    def _get_outdoor_work_recommendations(self, feels_like: float, wind_speed: float, uv_index: float, precipitation_prob: float) -> str:
+        """Generate outdoor work recommendations"""  
+        suggestions = []
+        
+        if feels_like > 85:
+            suggestions.append('frequent shade breaks and cooling gear')
+        elif feels_like < 32:
+            suggestions.append('insulated work gear and hand warmers')
+            
+        if wind_speed > 25:
+            suggestions.append('secure all equipment and materials')
+            
+        if uv_index >= 7:
+            suggestions.append('long sleeves, hat, and frequent sunscreen')
+        
+        if precipitation_prob > 30:
+            suggestions.append('waterproof work gear')
+            
+        if not suggestions:
+            suggestions.append('standard work clothing appropriate')
+            
+        return ', '.join(suggestions)
 
 
 class NationalWeatherServiceProvider(WeatherProvider):
