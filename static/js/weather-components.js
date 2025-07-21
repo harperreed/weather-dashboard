@@ -2708,6 +2708,463 @@ class WeatherAlertsWidget extends WeatherWidget {
     }
 }
 
+// Precipitation Radar Widget for animated weather radar visualization
+class PrecipitationRadarWidget extends WeatherWidget {
+    constructor() {
+        super();
+        this.radarData = null;
+        this.currentFrame = 0;
+        this.isPlaying = false;
+        this.animationTimer = null;
+        this.mapCanvas = null;
+        this.canvasContext = null;
+        this.currentZoom = 8; // Default zoom level
+        this.isExpanded = false;
+    }
+
+    connectedCallback() {
+        super.connectedCallback();
+        this.loadRadar();
+        
+        // Listen for weather updates to refresh radar
+        this.addEventListener('weather-data-updated', () => {
+            this.loadRadar();
+        });
+    }
+
+    disconnectedCallback() {
+        if (this.animationTimer) {
+            clearInterval(this.animationTimer);
+        }
+    }
+
+    async loadRadar() {
+        try {
+            // Get location from URL parameters or weather app
+            const params = this.getLocationParams();
+            const radarUrl = `/api/radar?lat=${params.lat}&lon=${params.lon}&location=${params.location}`;
+            
+            console.log('🌧️ Loading precipitation radar from:', radarUrl);
+            
+            const response = await fetch(radarUrl);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            
+            this.radarData = await response.json();
+            this.currentFrame = this.radarData.radar?.animation_metadata?.current_frame || 0;
+            this.render();
+            
+        } catch (error) {
+            console.error('❌ Failed to load precipitation radar:', error);
+            this.radarData = {
+                radar: { 
+                    available: false,
+                    animation_metadata: { 
+                        total_frames: 0, 
+                        historical_frames: 0, 
+                        current_frame: 0, 
+                        forecast_frames: 0 
+                    }
+                }
+            };
+            this.render();
+        }
+    }
+
+    getLocationParams() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return {
+            lat: urlParams.get('lat') || '41.8781',
+            lon: urlParams.get('lon') || '-87.6298',
+            location: urlParams.get('location') || 'Chicago'
+        };
+    }
+
+    toggleExpanded() {
+        this.isExpanded = !this.isExpanded;
+        this.render();
+    }
+
+    toggleAnimation() {
+        if (this.isPlaying) {
+            this.stopAnimation();
+        } else {
+            this.startAnimation();
+        }
+        this.updateControls();
+    }
+
+    startAnimation() {
+        if (!this.radarData?.radar?.animation_metadata) return;
+        
+        this.isPlaying = true;
+        const totalFrames = this.radarData.radar.animation_metadata.total_frames;
+        
+        this.animationTimer = setInterval(() => {
+            this.currentFrame = (this.currentFrame + 1) % totalFrames;
+            this.updateRadarFrame();
+        }, 500); // 500ms between frames for smooth animation
+    }
+
+    stopAnimation() {
+        if (this.animationTimer) {
+            clearInterval(this.animationTimer);
+            this.animationTimer = null;
+        }
+        this.isPlaying = false;
+    }
+
+    setFrame(frameIndex) {
+        this.currentFrame = frameIndex;
+        this.updateRadarFrame();
+        this.updateControls();
+    }
+
+    changeZoom(newZoom) {
+        this.currentZoom = newZoom;
+        this.updateRadarFrame();
+        this.updateControls();
+    }
+
+    updateRadarFrame() {
+        const canvas = this.shadowRoot.querySelector('.radar-canvas');
+        if (!canvas || !this.radarData?.radar) return;
+
+        const ctx = canvas.getContext('2d');
+        const radar = this.radarData.radar;
+        
+        // Clear canvas
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Find the appropriate zoom level tiles
+        let tiles = radar.default_tiles || [];
+        for (const level of radar.tile_levels || []) {
+            if (level.zoom === this.currentZoom) {
+                tiles = level.tiles || [];
+                break;
+            }
+        }
+
+        if (tiles[this.currentFrame]) {
+            const tile = tiles[this.currentFrame];
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => {
+                ctx.globalAlpha = 0.7; // Semi-transparent overlay
+                ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                ctx.globalAlpha = 1.0;
+                
+                // Add location marker
+                this.drawLocationMarker(ctx, canvas.width / 2, canvas.height / 2);
+            };
+            img.onerror = () => {
+                // Fallback: draw placeholder
+                this.drawPlaceholder(ctx, canvas.width, canvas.height);
+            };
+            img.src = tile.url;
+        } else {
+            this.drawPlaceholder(ctx, canvas.width, canvas.height);
+        }
+    }
+
+    drawLocationMarker(ctx, x, y) {
+        ctx.fillStyle = '#ff0000';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(x, y, 6, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+    }
+
+    drawPlaceholder(ctx, width, height) {
+        ctx.fillStyle = '#f0f0f0';
+        ctx.fillRect(0, 0, width, height);
+        ctx.fillStyle = '#666666';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('Radar data unavailable', width / 2, height / 2);
+    }
+
+    updateControls() {
+        const playButton = this.shadowRoot.querySelector('.play-button');
+        const frameSlider = this.shadowRoot.querySelector('.frame-slider');
+        const zoomSelect = this.shadowRoot.querySelector('.zoom-select');
+        const frameInfo = this.shadowRoot.querySelector('.frame-info');
+        
+        if (playButton) {
+            playButton.textContent = this.isPlaying ? '⏸️' : '▶️';
+        }
+        
+        if (frameSlider) {
+            frameSlider.value = this.currentFrame;
+        }
+        
+        if (zoomSelect) {
+            zoomSelect.value = this.currentZoom;
+        }
+        
+        if (frameInfo && this.radarData?.radar) {
+            const meta = this.radarData.radar.animation_metadata;
+            const isHistorical = this.currentFrame < meta.current_frame;
+            const isForecast = this.currentFrame > meta.current_frame;
+            const timeOffset = (this.currentFrame - meta.current_frame) * meta.interval_minutes;
+            
+            let timeLabel = 'Now';
+            if (isHistorical) {
+                timeLabel = `${Math.abs(timeOffset)} min ago`;
+            } else if (isForecast) {
+                timeLabel = `+${timeOffset} min`;
+            }
+            
+            frameInfo.textContent = `Frame ${this.currentFrame + 1}/${meta.total_frames} - ${timeLabel}`;
+        }
+    }
+
+    render() {
+        if (!this.radarData) {
+            this.shadowRoot.innerHTML = `
+                <style>
+                    ${this.getBaseStyles()}
+                    .loading {
+                        display: flex;
+                        align-items: center;
+                        gap: 0.5rem;
+                        color: var(--text-muted);
+                        font-size: 0.9rem;
+                        padding: 0.75rem;
+                    }
+                    .loading-spinner {
+                        width: 16px;
+                        height: 16px;
+                        border: 2px solid var(--border-color);
+                        border-top: 2px solid var(--primary-color);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+                <div class="loading">
+                    <div class="loading-spinner"></div>
+                    Loading precipitation radar...
+                </div>
+            `;
+            return;
+        }
+
+        const radar = this.radarData.radar || {};
+        const isAvailable = radar.available !== false && radar.animation_metadata?.total_frames > 0;
+        const meta = radar.animation_metadata || {};
+        const weatherContext = this.radarData.weather_context || {};
+
+        this.shadowRoot.innerHTML = `
+            <style>
+                ${this.getBaseStyles()}
+                .radar-widget {
+                    background: var(--widget-background);
+                    border: 1px solid var(--border-color);
+                    border-radius: 0.5rem;
+                    overflow: hidden;
+                }
+                .radar-header {
+                    padding: 1rem;
+                    cursor: ${isAvailable ? 'pointer' : 'default'};
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    transition: background-color 0.2s ease;
+                }
+                .radar-header:hover {
+                    background: ${isAvailable ? 'var(--hover-background)' : 'transparent'};
+                }
+                .radar-status {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.75rem;
+                }
+                .radar-icon {
+                    font-size: 1.25rem;
+                }
+                .radar-title {
+                    font-weight: 600;
+                    color: var(--text-primary);
+                    font-size: 0.95rem;
+                }
+                .radar-context {
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                    margin-top: 0.25rem;
+                }
+                .expand-icon {
+                    font-size: 0.9rem;
+                    color: var(--text-muted);
+                    transform: rotate(${this.isExpanded ? '180deg' : '0deg'});
+                    transition: transform 0.2s ease;
+                }
+                .radar-content {
+                    border-top: 1px solid var(--border-color);
+                    max-height: ${this.isExpanded ? '600px' : '0'};
+                    overflow: hidden;
+                    transition: max-height 0.3s ease;
+                }
+                .radar-display {
+                    position: relative;
+                    padding: 1rem;
+                }
+                .radar-canvas {
+                    width: 100%;
+                    height: 300px;
+                    border: 1px solid var(--border-color);
+                    border-radius: 0.25rem;
+                    background: #f8f9fa;
+                }
+                .radar-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    margin-top: 1rem;
+                    flex-wrap: wrap;
+                }
+                .control-group {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+                .play-button {
+                    background: var(--primary-color);
+                    color: white;
+                    border: none;
+                    border-radius: 0.25rem;
+                    padding: 0.5rem 0.75rem;
+                    cursor: pointer;
+                    font-size: 0.9rem;
+                }
+                .play-button:hover {
+                    opacity: 0.9;
+                }
+                .frame-slider {
+                    flex: 1;
+                    min-width: 120px;
+                }
+                .zoom-select, .frame-info {
+                    padding: 0.25rem 0.5rem;
+                    border: 1px solid var(--border-color);
+                    border-radius: 0.25rem;
+                    background: var(--widget-background);
+                    color: var(--text-primary);
+                    font-size: 0.8rem;
+                }
+                .unavailable-message {
+                    padding: 1rem;
+                    text-align: center;
+                    color: var(--text-muted);
+                    font-size: 0.9rem;
+                }
+            </style>
+            <div class="radar-widget">
+                <div class="radar-header" ${isAvailable ? 'onclick="this.getRootNode().host.toggleExpanded()"' : ''}>
+                    <div class="radar-status">
+                        <span class="radar-icon">🌧️</span>
+                        <div>
+                            <div class="radar-title">Precipitation Radar</div>
+                            ${weatherContext.description ? `
+                                <div class="radar-context">
+                                    ${weatherContext.temperature ? `${Math.round(weatherContext.temperature)}°F, ` : ''}
+                                    ${weatherContext.description}
+                                    ${weatherContext.precipitation > 0 ? ` (${weatherContext.precipitation}" rain)` : ''}
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        ${isAvailable ? `
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">
+                                ${meta.total_frames} frames
+                            </span>
+                            <span class="expand-icon">▼</span>
+                        ` : ''}
+                    </div>
+                </div>
+                ${!isAvailable ? `
+                    <div class="unavailable-message">
+                        Precipitation radar unavailable
+                        ${radar.available === false ? '<br>API key required for radar service' : ''}
+                    </div>
+                ` : `
+                    <div class="radar-content">
+                        <div class="radar-display">
+                            <canvas class="radar-canvas" width="400" height="300"></canvas>
+                            <div class="radar-controls">
+                                <div class="control-group">
+                                    <button class="play-button" onclick="this.getRootNode().host.toggleAnimation()">
+                                        ${this.isPlaying ? '⏸️' : '▶️'}
+                                    </button>
+                                </div>
+                                <div class="control-group" style="flex: 1;">
+                                    <input type="range" class="frame-slider" 
+                                           min="0" max="${meta.total_frames - 1}" 
+                                           value="${this.currentFrame}"
+                                           onchange="this.getRootNode().host.setFrame(parseInt(this.value))">
+                                </div>
+                                <div class="control-group">
+                                    <select class="zoom-select" onchange="this.getRootNode().host.changeZoom(parseInt(this.value))">
+                                        <option value="6" ${this.currentZoom === 6 ? 'selected' : ''}>Regional</option>
+                                        <option value="8" ${this.currentZoom === 8 ? 'selected' : ''}>Local</option>
+                                        <option value="10" ${this.currentZoom === 10 ? 'selected' : ''}>Detailed</option>
+                                    </select>
+                                </div>
+                                <div class="control-group">
+                                    <span class="frame-info">Frame ${this.currentFrame + 1}/${meta.total_frames}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `}
+            </div>
+        `;
+
+        // Initialize canvas and draw initial frame
+        if (isAvailable) {
+            // Use setTimeout to ensure the canvas is in the DOM
+            setTimeout(() => {
+                this.updateRadarFrame();
+                this.updateControls();
+            }, 100);
+        }
+    }
+
+    getBaseStyles() {
+        return `
+            :host {
+                display: block;
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            }
+            
+            :host([data-theme="dark"]) {
+                --widget-background: #1f2937;
+                --text-primary: #f9fafb;
+                --text-muted: #9ca3af;
+                --border-color: #374151;
+                --hover-background: #374151;
+                --primary-color: #3b82f6;
+            }
+            
+            :host([data-theme="light"]) {
+                --widget-background: #ffffff;
+                --text-primary: #111827;
+                --text-muted: #6b7280;
+                --border-color: #e5e7eb;
+                --hover-background: #f9fafb;
+                --primary-color: #3b82f6;
+            }
+        `;
+    }
+}
+
 // Register all components
 customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
@@ -2718,6 +3175,7 @@ customElements.define('air-quality', AirQualityWidget);
 customElements.define('wind-direction', WindDirectionWidget);
 customElements.define('pressure-trends', PressureTrendsWidget);
 customElements.define('weather-alerts', WeatherAlertsWidget);
+customElements.define('precipitation-radar', PrecipitationRadarWidget);
 customElements.define('help-section', HelpSection);
 
 // Initialize the weather app

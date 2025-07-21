@@ -773,3 +773,263 @@ class TestWeatherAlertsAPIIntegration:
         assert 'ETag' in response.headers
         assert response.headers['ETag'].startswith('"')
         assert response.headers['ETag'].endswith('"')
+
+
+@pytest.mark.integration
+class TestRadarAPIIntegration:
+    """Test precipitation radar API integration"""
+
+    def setup_method(self) -> None:
+        """Clear radar cache before each test"""
+        from main import radar_cache
+        radar_cache.clear()
+
+    def test_radar_api_success(self, client: FlaskClient) -> None:
+        """Test successful radar API response"""
+        mock_radar_data = {
+            'provider': 'RadarProvider',
+            'location_name': 'Chicago',
+            'timestamp': '2024-07-20T18:00:00Z',
+            'radar': {
+                'timestamps': [1642627200, 1642627800, 1642628400],
+                'tile_levels': [
+                    {
+                        'zoom': 8,
+                        'tiles': [
+                            {
+                                'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642627200',
+                                'timestamp': 1642627200,
+                                'x': 65,
+                                'y': 95
+                            },
+                            {
+                                'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642627800',
+                                'timestamp': 1642627800,
+                                'x': 65,
+                                'y': 95
+                            },
+                            {
+                                'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642628400',
+                                'timestamp': 1642628400,
+                                'x': 65,
+                                'y': 95
+                            }
+                        ]
+                    }
+                ],
+                'animation_metadata': {
+                    'total_frames': 3,
+                    'historical_frames': 1,
+                    'current_frame': 1,
+                    'forecast_frames': 1,
+                    'interval_minutes': 10,
+                    'duration_hours': 0.5
+                },
+                'map_bounds': {
+                    'center_lat': 41.8781,
+                    'center_lon': -87.6298,
+                    'zoom_levels': [6, 8, 10]
+                }
+            },
+            'weather_context': {
+                'temperature': 45.3,
+                'precipitation': 0.12,
+                'description': 'light rain'
+            }
+        }
+
+        # Mock the radar provider instance
+        mock_radar_provider = MagicMock()
+        mock_radar_provider.get_weather.return_value = mock_radar_data
+
+        # Clear cache to ensure we test the API call
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False  # Cache miss
+            mock_cache.__setitem__.return_value = None
+
+            with patch('main.radar_provider', mock_radar_provider):
+                response = client.get(
+                    f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}&location=TestCity'
+                )
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'RadarProvider'
+        assert 'radar' in data
+        assert data['radar']['animation_metadata']['total_frames'] == 3
+        assert data['radar']['animation_metadata']['historical_frames'] == 1
+        assert len(data['radar']['tile_levels']) == 1
+        assert len(data['radar']['tile_levels'][0]['tiles']) == 3
+
+        # Check weather context
+        assert data['weather_context']['temperature'] == 45.3
+        assert data['weather_context']['precipitation'] == 0.12
+
+        # Check cache headers
+        assert 'Cache-Control' in response.headers
+        assert 'public' in response.headers['Cache-Control']
+        assert 'max-age=600' in response.headers['Cache-Control']
+
+    def test_radar_api_unavailable_provider(self, client: FlaskClient) -> None:
+        """Test radar API when provider is unavailable"""
+        with patch('main.radar_provider', None):
+            response = client.get(
+                f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}&location=TestCity'
+            )
+
+        assert response.status_code == HTTP_SERVICE_UNAVAILABLE
+        data = response.get_json()
+
+        assert data is not None
+        assert 'error' in data
+        assert 'OpenWeatherMap API key required' in data['error']
+        assert 'radar' in data
+        assert data['radar']['available'] is False
+        assert data['radar']['animation_metadata']['total_frames'] == 0
+
+    def test_radar_api_provider_failure(self, client: FlaskClient) -> None:
+        """Test radar API when provider fails"""
+        mock_radar_provider = MagicMock()
+        mock_radar_provider.get_weather.return_value = None
+
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.radar_provider', mock_radar_provider):
+                response = client.get('/api/radar?lat=42.0&lon=-88.0')
+
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+        data = response.get_json()
+        
+        assert data is not None
+        assert 'error' in data
+        assert 'Failed to fetch radar data' in data['error']
+        # Should still provide empty radar structure
+        assert 'radar' in data
+        assert data['radar']['animation_metadata']['total_frames'] == 0
+
+    def test_radar_api_default_location(self, client: FlaskClient) -> None:
+        """Test radar API with default location (Chicago)"""
+        mock_radar_data = {
+            'provider': 'RadarProvider',
+            'location_name': 'Chicago',
+            'radar': {
+                'animation_metadata': {'total_frames': 19, 'historical_frames': 12},
+                'tile_levels': []
+            },
+        }
+
+        mock_radar_provider = MagicMock()
+        mock_radar_provider.get_weather.return_value = mock_radar_data
+
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.radar_provider', mock_radar_provider):
+                response = client.get('/api/radar')  # No lat/lon provided
+
+        assert response.status_code == HTTP_OK
+
+        # Verify the provider was called with Chicago coordinates
+        mock_radar_provider.get_weather.assert_called_once()
+        call_args = mock_radar_provider.get_weather.call_args
+        assert call_args[0][0] == 41.8781  # Chicago latitude
+        assert call_args[0][1] == -87.6298  # Chicago longitude
+
+    def test_radar_api_cache_hit(self, client: FlaskClient) -> None:
+        """Test radar API cache behavior"""
+        mock_radar_data = {
+            'provider': 'RadarProvider',
+            'radar': {'animation_metadata': {'total_frames': 19}},
+        }
+
+        # Mock cache hit
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = True  # Cache hit
+            mock_cache.__getitem__.return_value = mock_radar_data
+
+            response = client.get(
+                f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+            )
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'RadarProvider'
+
+    def test_radar_api_etag_headers(self, client: FlaskClient) -> None:
+        """Test radar API ETag header functionality"""
+        mock_radar_data = {
+            'provider': 'RadarProvider',
+            'radar': {'animation_metadata': {'total_frames': 0}},
+        }
+
+        mock_radar_provider = MagicMock()
+        mock_radar_provider.get_weather.return_value = mock_radar_data
+
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.radar_provider', mock_radar_provider):
+                response = client.get(
+                    f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+                )
+
+        assert response.status_code == HTTP_OK
+        assert 'ETag' in response.headers
+        assert response.headers['ETag'].startswith('"')
+        assert response.headers['ETag'].endswith('"')
+
+    def test_radar_api_tile_url_format(self, client: FlaskClient) -> None:
+        """Test radar API returns properly formatted tile URLs"""
+        mock_radar_data = {
+            'provider': 'RadarProvider',
+            'radar': {
+                'tile_levels': [
+                    {
+                        'zoom': 8,
+                        'tiles': [
+                            {
+                                'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test_key&date=1642627200',
+                                'timestamp': 1642627200,
+                                'x': 65,
+                                'y': 95
+                            }
+                        ]
+                    }
+                ],
+                'animation_metadata': {'total_frames': 1}
+            }
+        }
+
+        mock_radar_provider = MagicMock()
+        mock_radar_provider.get_weather.return_value = mock_radar_data
+
+        with patch('main.radar_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.radar_provider', mock_radar_provider):
+                response = client.get('/api/radar?lat=41.8781&lon=-87.6298')
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        # Check tile URL format
+        tile_levels = data['radar']['tile_levels']
+        assert len(tile_levels) > 0
+        tiles = tile_levels[0]['tiles']
+        assert len(tiles) > 0
+        
+        tile_url = tiles[0]['url']
+        assert 'maps.openweathermap.org' in tile_url
+        assert 'appid=' in tile_url
+        assert 'date=' in tile_url
+        
+        # Check tile coordinates are present
+        assert isinstance(tiles[0]['x'], int)
+        assert isinstance(tiles[0]['y'], int)
+        assert tiles[0]['x'] >= 0
+        assert tiles[0]['y'] >= 0

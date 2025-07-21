@@ -30,6 +30,7 @@ from weather_providers import (
     NationalWeatherServiceProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
+    RadarProvider,
     WeatherProviderManager,
 )
 
@@ -70,6 +71,9 @@ weather_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=180)
 # Cache for weather alerts (5 minutes TTL - alerts change less frequently)
 alerts_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=300)
 
+# Cache for radar data (10 minutes TTL - radar updates every 10 minutes)
+radar_cache: TTLCache[str, Any] = TTLCache(maxsize=30, ttl=600)
+
 # Initialize weather provider manager
 weather_manager = WeatherProviderManager()
 
@@ -85,6 +89,15 @@ if airnow_api_key:
 else:
     air_quality_provider = None
     print('🏛️ No AirNow API key found - air quality service unavailable')
+
+# Initialize OpenWeatherMap radar provider (API key required)
+openweather_api_key = os.getenv('OPENWEATHER_API_KEY')
+if openweather_api_key:
+    radar_provider: RadarProvider | None = RadarProvider(openweather_api_key)
+    print('🌧️ OpenWeatherMap API key found - precipitation radar available')
+else:
+    radar_provider = None
+    print('🌧️ No OpenWeatherMap API key found - radar service unavailable')
 
 # Check for PirateWeather API key and create hybrid provider if available
 pirate_weather_api_key = os.getenv('PIRATE_WEATHER_API_KEY', 'YOUR_API_KEY_HERE')
@@ -574,6 +587,82 @@ def weather_alerts_api() -> Response:
             'alerts': {'active_count': 0, 'alerts': [], 'has_warnings': False},
         }
     )
+    response.status_code = 500
+    return response
+
+
+@app.route('/api/radar')  # type: ignore[misc]
+def radar_api() -> Response:
+    """API endpoint for precipitation radar tiles and animation data"""
+    # Check if radar provider is available
+    if not radar_provider:
+        response = jsonify({
+            'error': 'Radar service unavailable - OpenWeatherMap API key required',
+            'radar': {
+                'available': False,
+                'frames': [],
+                'animation_metadata': {
+                    'total_frames': 0,
+                    'historical_frames': 0,
+                    'current_frame': 0,
+                    'forecast_frames': 0
+                }
+            }
+        })
+        response.status_code = 503
+        return response
+
+    # Get lat/lon from URL parameters
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    location_name = request.args.get('location', 'Chicago')
+
+    # Default to Chicago if no coordinates provided
+    if not lat or not lon:
+        lat = CHICAGO_LAT
+        lon = CHICAGO_LON
+
+    # Create cache key
+    cache_key = f'radar_{lat:.4f},{lon:.4f}'
+
+    # Check cache first
+    if cache_key in radar_cache:
+        print(f'🌧️ Returning cached radar for {lat:.4f},{lon:.4f}')
+        cached_data = radar_cache[cache_key]
+        response = jsonify(cached_data)
+        response.headers['Cache-Control'] = 'public, max-age=600'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 600)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+
+    # Fetch radar from OpenWeatherMap
+    print(f'🌧️ Fetching radar for {location_name} from OpenWeatherMap')
+    radar_data = radar_provider.get_weather(lat, lon, location_name)
+
+    if radar_data:
+        # Cache the result
+        radar_cache[cache_key] = radar_data
+        print(f'💾 Cached radar data for {cache_key}')
+
+        response = jsonify(radar_data)
+        response.headers['Cache-Control'] = 'public, max-age=600'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 600)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+        
+    response = jsonify({
+        'error': 'Failed to fetch radar data',
+        'radar': {
+            'available': False,
+            'frames': [],
+            'animation_metadata': {
+                'total_frames': 0,
+                'historical_frames': 0,
+                'current_frame': 0,
+                'forecast_frames': 0
+            }
+        }
+    })
     response.status_code = 500
     return response
 
