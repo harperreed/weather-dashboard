@@ -26,6 +26,7 @@ from flask_socketio import SocketIO, emit
 
 from weather_providers import (
     AirQualityProvider,
+    ClothingRecommendationProvider,
     HybridWeatherProvider,
     NationalWeatherServiceProvider,
     OpenMeteoProvider,
@@ -74,12 +75,16 @@ alerts_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=300)
 # Cache for radar data (10 minutes TTL - radar updates every 10 minutes)
 radar_cache: TTLCache[str, Any] = TTLCache(maxsize=30, ttl=600)
 
+# Cache for clothing recommendations (30 minutes TTL - clothing advice doesn't change frequently)
+clothing_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=1800)
+
 # Initialize weather provider manager
 weather_manager = WeatherProviderManager()
 
 # Initialize individual providers
 open_meteo = OpenMeteoProvider()
 nws_provider = NationalWeatherServiceProvider()
+clothing_provider = ClothingRecommendationProvider()
 
 # Initialize EPA AirNow air quality provider (API key required)
 airnow_api_key = os.getenv('AIRNOW_API_KEY')
@@ -596,19 +601,21 @@ def radar_api() -> Response:
     """API endpoint for precipitation radar tiles and animation data"""
     # Check if radar provider is available
     if not radar_provider:
-        response = jsonify({
-            'error': 'Radar service unavailable - OpenWeatherMap API key required',
-            'radar': {
-                'available': False,
-                'frames': [],
-                'animation_metadata': {
-                    'total_frames': 0,
-                    'historical_frames': 0,
-                    'current_frame': 0,
-                    'forecast_frames': 0
-                }
+        response = jsonify(
+            {
+                'error': 'Radar service unavailable - OpenWeatherMap API key required',
+                'radar': {
+                    'available': False,
+                    'frames': [],
+                    'animation_metadata': {
+                        'total_frames': 0,
+                        'historical_frames': 0,
+                        'current_frame': 0,
+                        'forecast_frames': 0,
+                    },
+                },
             }
-        })
+        )
         response.status_code = 503
         return response
 
@@ -649,17 +656,95 @@ def radar_api() -> Response:
         etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 600)))
         response.headers['ETag'] = f'"{etag_value}"'
         return response
-        
+
+    response = jsonify(
+        {
+            'error': 'Failed to fetch radar data',
+            'radar': {
+                'available': False,
+                'frames': [],
+                'animation_metadata': {
+                    'total_frames': 0,
+                    'historical_frames': 0,
+                    'current_frame': 0,
+                    'forecast_frames': 0,
+                },
+            },
+        }
+    )
+    response.status_code = 500
+    return response
+
+
+@app.route('/api/clothing')  # type: ignore[misc]
+def clothing_recommendations_api() -> Response:
+    """API endpoint for smart clothing recommendations based on weather conditions"""
+    # Get lat/lon from URL parameters
+    lat = request.args.get('lat', type=float)
+    lon = request.args.get('lon', type=float)
+    location_name = request.args.get('location', 'Chicago')
+
+    # Default to Chicago if no coordinates provided
+    if not lat or not lon:
+        lat = CHICAGO_LAT
+        lon = CHICAGO_LON
+
+    # Create cache key
+    cache_key = f'clothing_{lat:.4f},{lon:.4f}'
+
+    # Check cache first
+    if cache_key in clothing_cache:
+        print(f'👔 Returning cached clothing recommendations for {lat:.4f},{lon:.4f}')
+        cached_data = clothing_cache[cache_key]
+        response = jsonify(cached_data)
+        response.headers['Cache-Control'] = 'public, max-age=1800'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 1800)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+
+    # Get current weather data first to base recommendations on
+    print(f'👔 Fetching weather data for clothing recommendations: {location_name}')
+    weather_data = weather_manager.get_weather(lat, lon, location_name)
+    
+    if not weather_data:
+        response = jsonify({
+            'error': 'Unable to get weather data for clothing recommendations',
+            'clothing': {
+                'recommendations': {
+                    'primary_suggestion': 'Weather data unavailable - dress according to season',
+                    'items': [],
+                    'warnings': ['Weather data unavailable'],
+                    'comfort_tips': [],
+                    'activity_specific': {}
+                }
+            }
+        })
+        response.status_code = 503
+        return response
+
+    # Generate clothing recommendations based on weather data
+    clothing_data = clothing_provider.process_weather_data(weather_data, location_name)
+    
+    if clothing_data:
+        # Cache the result
+        clothing_cache[cache_key] = clothing_data
+        print(f'💾 Cached clothing recommendations for {cache_key}')
+
+        response = jsonify(clothing_data)
+        response.headers['Cache-Control'] = 'public, max-age=1800'
+        etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 1800)))
+        response.headers['ETag'] = f'"{etag_value}"'
+        return response
+
     response = jsonify({
-        'error': 'Failed to fetch radar data',
-        'radar': {
-            'available': False,
-            'frames': [],
-            'animation_metadata': {
-                'total_frames': 0,
-                'historical_frames': 0,
-                'current_frame': 0,
-                'forecast_frames': 0
+        'error': 'Failed to generate clothing recommendations',
+        'clothing': {
+            'recommendations': {
+                'primary_suggestion': 'Unable to generate recommendations - dress comfortably',
+                'items': [],
+                'warnings': ['Recommendation system unavailable'],
+                'comfort_tips': [],
+                'activity_specific': {}
             }
         }
     })

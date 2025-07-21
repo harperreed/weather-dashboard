@@ -34,23 +34,20 @@ class TestRadarProvider:
                 'dt': 1642627200,  # Fixed timestamp for testing
                 'temp': 45.3,
                 'weather': [{'main': 'Rain', 'description': 'light rain'}],
-                'rain': {'1h': 0.12}
+                'rain': {'1h': 0.12},
             },
             'hourly': [
-                {
-                    'dt': 1642627200,
-                    'temp': 45.3,
-                    'pop': 0.8,
-                    'rain': {'1h': 0.12}
-                }
-            ]
+                {'dt': 1642627200, 'temp': 45.3, 'pop': 0.8, 'rain': {'1h': 0.12}}
+            ],
         }
 
     def test_radar_provider_initialization(self, radar_provider: RadarProvider) -> None:
         """Test radar provider initialization"""
         assert radar_provider.name == 'RadarProvider'
         assert radar_provider.api_key == TEST_API_KEY
-        assert radar_provider.base_url == 'https://maps.openweathermap.org/maps/2.0/radar'
+        assert (
+            radar_provider.base_url == 'https://maps.openweathermap.org/maps/2.0/radar'
+        )
         assert radar_provider.tile_size == 256
         assert radar_provider.timeout == 10
 
@@ -63,7 +60,7 @@ class TestRadarProvider:
             (CHICAGO_LAT, CHICAGO_LON, 8, 65, 95),  # Chicago at zoom 8
             (40.7128, -74.0060, 10, 301, 385),  # NYC at zoom 10 (approximate)
         ]
-        
+
         for lat, lon, zoom, expected_x, expected_y in test_cases:
             tile_x, tile_y = radar_provider._lat_lon_to_tile(lat, lon, zoom)
             assert isinstance(tile_x, int)
@@ -80,14 +77,14 @@ class TestRadarProvider:
         mock_weather_response: dict[str, Any],
     ) -> None:
         """Test successful weather data fetch from OpenWeatherMap API"""
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_weather_response
         mock_get.return_value = mock_response
-        
+
         result = radar_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-        
+
         assert result is not None
         assert 'timestamps' in result
         assert 'tile_urls' in result
@@ -96,15 +93,15 @@ class TestRadarProvider:
         assert 'center_lat' in result
         assert 'center_lon' in result
         assert 'weather_context' in result
-        
+
         # Check timestamps (should have 12 historical + 1 current + 6 forecast = 19 frames)
         timestamps = result['timestamps']
         assert len(timestamps) == 19
-        
+
         # Check zoom levels
         zoom_levels = result['zoom_levels']
         assert zoom_levels == [6, 8, 10]
-        
+
         # Check tile URLs structure
         tile_urls = result['tile_urls']
         assert len(tile_urls) == 3  # Three zoom levels
@@ -113,13 +110,13 @@ class TestRadarProvider:
             assert 'tiles' in level
             assert level['zoom'] in [6, 8, 10]
             assert len(level['tiles']) == 19  # Same as timestamps
-            
+
         # Check weather context
         weather_context = result['weather_context']
         assert weather_context['temperature'] == 45.3
         assert weather_context['precipitation'] == 0.12
         assert weather_context['description'] == 'light rain'
-        
+
         # Verify API was called correctly
         mock_get.assert_called_once()
         call_args = mock_get.call_args
@@ -134,13 +131,13 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test fetch weather data with invalid API key"""
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 401
         mock_get.return_value = mock_response
-        
+
         result = radar_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-        
+
         assert result is None
 
     @patch('weather_providers.requests.get')
@@ -150,13 +147,13 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test fetch weather data with API error"""
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 500
         mock_get.return_value = mock_response
-        
+
         result = radar_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-        
+
         assert result is None
 
     @patch('weather_providers.requests.get')
@@ -166,11 +163,11 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test fetch weather data with network error"""
-        
+
         mock_get.side_effect = requests.RequestException('Network error')
-        
+
         result = radar_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
-        
+
         assert result is None
 
     def test_process_weather_data_success(
@@ -178,7 +175,7 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test processing radar data into standardized format"""
-        
+
         # Create mock raw data
         current_time = int(time.time())
         raw_data = {
@@ -187,10 +184,16 @@ class TestRadarProvider:
                 {
                     'zoom': 8,
                     'tiles': [
-                        {'url': 'https://example.com/tile1', 'timestamp': current_time - 600},
+                        {
+                            'url': 'https://example.com/tile1',
+                            'timestamp': current_time - 600,
+                        },
                         {'url': 'https://example.com/tile2', 'timestamp': current_time},
-                        {'url': 'https://example.com/tile3', 'timestamp': current_time + 600},
-                    ]
+                        {
+                            'url': 'https://example.com/tile3',
+                            'timestamp': current_time + 600,
+                        },
+                    ],
                 }
             ],
             'current_time': current_time,
@@ -200,37 +203,39 @@ class TestRadarProvider:
             'weather_context': {
                 'temperature': 72.5,
                 'precipitation': 0.05,
-                'description': 'partly cloudy'
-            }
+                'description': 'partly cloudy',
+            },
         }
-        
+
         result = radar_provider.process_weather_data(raw_data, 'Chicago')
-        
+
         assert result is not None
         assert result['provider'] == 'RadarProvider'
         assert result['location_name'] == 'Chicago'
         assert 'timestamp' in result
-        
+
         # Check radar data structure
         radar = result['radar']
         assert radar['timestamps'] == raw_data['timestamps']
         assert radar['tile_levels'] == raw_data['tile_urls']
-        
+
         # Check animation metadata
         animation = radar['animation_metadata']
         assert animation['total_frames'] == 3
-        assert animation['historical_frames'] == 1  # min(12, 3) but only 1 frame before current
+        assert (
+            animation['historical_frames'] == 1
+        )  # min(12, 3) but only 1 frame before current
         assert animation['current_frame'] == 1
         assert animation['forecast_frames'] == 1  # 3 - 1 - 1
         assert animation['interval_minutes'] == 10
         assert animation['duration_hours'] == 0.5  # 3 * 10 / 60
-        
+
         # Check map bounds
         bounds = radar['map_bounds']
         assert bounds['center_lat'] == CHICAGO_LAT
         assert bounds['center_lon'] == CHICAGO_LON
         assert bounds['zoom_levels'] == [6, 8, 10]
-        
+
         # Check weather context
         assert result['weather_context'] == raw_data['weather_context']
 
@@ -239,9 +244,9 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test processing empty radar data"""
-        
+
         result = radar_provider.process_weather_data({}, 'Chicago')
-        
+
         # Should return None for empty data
         assert result is None
 
@@ -250,9 +255,9 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test processing None input"""
-        
+
         result = radar_provider.process_weather_data(None, 'Chicago')  # type: ignore[arg-type]
-        
+
         assert result is None
 
     def test_process_weather_data_minimal_structure(
@@ -260,25 +265,25 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test processing minimal radar data structure"""
-        
+
         raw_data = {
             'timestamps': [],
             'tile_urls': [],
             'current_time': int(time.time()),
-            'weather_context': {}
+            'weather_context': {},
         }
-        
+
         result = radar_provider.process_weather_data(raw_data, 'Chicago')
-        
+
         assert result is not None
         assert result['provider'] == 'RadarProvider'
-        
+
         # Check that empty data is handled gracefully
         radar = result['radar']
         assert radar['timestamps'] == []
         assert radar['tile_levels'] == []
         assert radar['default_tiles'] is None
-        
+
         animation = radar['animation_metadata']
         assert animation['total_frames'] == 0
         assert animation['historical_frames'] == 0
@@ -292,20 +297,20 @@ class TestRadarProvider:
         mock_weather_response: dict[str, Any],
     ) -> None:
         """Test complete get_weather flow"""
-        
+
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.json.return_value = mock_weather_response
         mock_get.return_value = mock_response
-        
+
         result = radar_provider.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Chicago')
-        
+
         assert result is not None
         assert result['provider'] == 'RadarProvider'
         assert result['location_name'] == 'Chicago'
         assert 'radar' in result
         assert 'weather_context' in result
-        
+
         # Verify the radar data structure
         radar = result['radar']
         assert 'timestamps' in radar
@@ -320,42 +325,44 @@ class TestRadarProvider:
         radar_provider: RadarProvider,
     ) -> None:
         """Test get_weather when API fails"""
-        
+
         mock_get.side_effect = Exception('API Error')
-        
+
         result = radar_provider.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Chicago')
-        
+
         assert result is None
 
     def test_provider_info(self, radar_provider: RadarProvider) -> None:
         """Test provider info method"""
-        
+
         info = radar_provider.get_provider_info()
-        
+
         assert info['name'] == 'RadarProvider'
         assert info['timeout'] == 10
         assert 'precipitation visualization' in info['description']
 
     def test_tile_url_generation(self, radar_provider: RadarProvider) -> None:
         """Test that tile URLs are properly formatted"""
-        
+
         # Create mock data with known parameters
         lat, lon = CHICAGO_LAT, CHICAGO_LON
         zoom = 8
         timestamp = 1642627200
-        
+
         tile_x, tile_y = radar_provider._lat_lon_to_tile(lat, lon, zoom)
-        
-        expected_base = f'https://maps.openweathermap.org/maps/2.0/radar/{zoom}/{tile_x}/{tile_y}'
+
+        expected_base = (
+            f'https://maps.openweathermap.org/maps/2.0/radar/{zoom}/{tile_x}/{tile_y}'
+        )
         expected_params = f'appid={TEST_API_KEY}&date={timestamp}'
-        
+
         # The actual URL generation happens in fetch_weather_data
         # This test verifies the URL format components are correct
         assert isinstance(tile_x, int)
         assert isinstance(tile_y, int)
         assert tile_x >= 0
         assert tile_y >= 0
-        
+
         # Verify URL would be properly formatted
         full_url = f'{expected_base}?{expected_params}'
         assert TEST_API_KEY in full_url

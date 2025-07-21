@@ -782,6 +782,7 @@ class TestRadarAPIIntegration:
     def setup_method(self) -> None:
         """Clear radar cache before each test"""
         from main import radar_cache
+
         radar_cache.clear()
 
     def test_radar_api_success(self, client: FlaskClient) -> None:
@@ -800,21 +801,21 @@ class TestRadarAPIIntegration:
                                 'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642627200',
                                 'timestamp': 1642627200,
                                 'x': 65,
-                                'y': 95
+                                'y': 95,
                             },
                             {
                                 'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642627800',
                                 'timestamp': 1642627800,
                                 'x': 65,
-                                'y': 95
+                                'y': 95,
                             },
                             {
                                 'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test&date=1642628400',
                                 'timestamp': 1642628400,
                                 'x': 65,
-                                'y': 95
-                            }
-                        ]
+                                'y': 95,
+                            },
+                        ],
                     }
                 ],
                 'animation_metadata': {
@@ -823,19 +824,19 @@ class TestRadarAPIIntegration:
                     'current_frame': 1,
                     'forecast_frames': 1,
                     'interval_minutes': 10,
-                    'duration_hours': 0.5
+                    'duration_hours': 0.5,
                 },
                 'map_bounds': {
                     'center_lat': 41.8781,
                     'center_lon': -87.6298,
-                    'zoom_levels': [6, 8, 10]
-                }
+                    'zoom_levels': [6, 8, 10],
+                },
             },
             'weather_context': {
                 'temperature': 45.3,
                 'precipitation': 0.12,
-                'description': 'light rain'
-            }
+                'description': 'light rain',
+            },
         }
 
         # Mock the radar provider instance
@@ -902,7 +903,7 @@ class TestRadarAPIIntegration:
 
         assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
         data = response.get_json()
-        
+
         assert data is not None
         assert 'error' in data
         assert 'Failed to fetch radar data' in data['error']
@@ -917,7 +918,7 @@ class TestRadarAPIIntegration:
             'location_name': 'Chicago',
             'radar': {
                 'animation_metadata': {'total_frames': 19, 'historical_frames': 12},
-                'tile_levels': []
+                'tile_levels': [],
             },
         }
 
@@ -950,9 +951,7 @@ class TestRadarAPIIntegration:
             mock_cache.__contains__.return_value = True  # Cache hit
             mock_cache.__getitem__.return_value = mock_radar_data
 
-            response = client.get(
-                f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
-            )
+            response = client.get(f'/api/radar?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
 
         assert response.status_code == HTTP_OK
         data = response.get_json()
@@ -996,13 +995,13 @@ class TestRadarAPIIntegration:
                                 'url': 'https://maps.openweathermap.org/maps/2.0/radar/8/65/95?appid=test_key&date=1642627200',
                                 'timestamp': 1642627200,
                                 'x': 65,
-                                'y': 95
+                                'y': 95,
                             }
-                        ]
+                        ],
                     }
                 ],
-                'animation_metadata': {'total_frames': 1}
-            }
+                'animation_metadata': {'total_frames': 1},
+            },
         }
 
         mock_radar_provider = MagicMock()
@@ -1022,14 +1021,309 @@ class TestRadarAPIIntegration:
         assert len(tile_levels) > 0
         tiles = tile_levels[0]['tiles']
         assert len(tiles) > 0
-        
+
         tile_url = tiles[0]['url']
         assert 'maps.openweathermap.org' in tile_url
         assert 'appid=' in tile_url
         assert 'date=' in tile_url
-        
+
         # Check tile coordinates are present
         assert isinstance(tiles[0]['x'], int)
         assert isinstance(tiles[0]['y'], int)
         assert tiles[0]['x'] >= 0
         assert tiles[0]['y'] >= 0
+
+
+@pytest.mark.integration
+class TestClothingAPIIntegration:
+    """Test clothing recommendations API integration"""
+
+    def setup_method(self) -> None:
+        """Clear clothing cache before each test"""
+        from main import clothing_cache
+        
+        clothing_cache.clear()
+
+    def test_clothing_api_success(self, client: FlaskClient) -> None:
+        """Test successful clothing recommendations API response"""
+        mock_weather_data = {
+            'current': {
+                'temperature': 75,
+                'feels_like': 78,
+                'humidity': 60,
+                'wind_speed': 8,
+                'precipitation_prob': 20,
+                'uv_index': 6,
+            },
+            'hourly': [{'temp': 75, 'rain': 0}],
+            'daily': [{'h': 82, 'l': 68}]
+        }
+        
+        mock_clothing_data = {
+            'provider': 'ClothingRecommendationProvider',
+            'location_name': 'Chicago',
+            'timestamp': '2024-07-20T18:00:00Z',
+            'clothing': {
+                'recommendations': {
+                    'primary_suggestion': 'Lightweight clothing',
+                    'items': ['light pants', 'short sleeves', 'comfortable shoes'],
+                    'warnings': [],
+                    'comfort_tips': ['Moderate UV - sun protection recommended'],
+                    'activity_specific': {
+                        'commuting': 'standard work attire should be comfortable',
+                        'exercise': 'standard workout gear should work well',
+                        'outdoor_work': 'standard work clothing appropriate'
+                    }
+                },
+                'weather_context': {
+                    'current_temp': 75,
+                    'feels_like': 78,
+                    'temp_range': {'high': 82, 'low': 68},
+                    'conditions': {
+                        'humidity': 60,
+                        'wind_speed': 8,
+                        'precipitation_prob': 20,
+                        'uv_index': 6
+                    }
+                }
+            }
+        }
+
+        # Mock the weather manager and clothing provider
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = mock_weather_data
+        
+        mock_clothing_provider = MagicMock() 
+        mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+            
+            with patch('main.weather_manager', mock_weather_manager):
+                with patch('main.clothing_provider', mock_clothing_provider):
+                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'ClothingRecommendationProvider'
+        assert 'clothing' in data
+        
+        # Check recommendations structure
+        recommendations = data['clothing']['recommendations']
+        assert recommendations['primary_suggestion'] == 'Lightweight clothing'
+        assert 'light pants' in recommendations['items']
+        assert 'short sleeves' in recommendations['items']
+        assert 'comfortable shoes' in recommendations['items']
+        
+        # Check activity specific recommendations
+        activity_specific = recommendations['activity_specific']
+        assert 'commuting' in activity_specific
+        assert 'exercise' in activity_specific
+        assert 'outdoor_work' in activity_specific
+        
+        # Check weather context
+        weather_context = data['clothing']['weather_context']
+        assert weather_context['current_temp'] == 75
+        assert weather_context['feels_like'] == 78
+        assert weather_context['temp_range']['high'] == 82
+        assert weather_context['temp_range']['low'] == 68
+
+    def test_clothing_api_weather_unavailable(self, client: FlaskClient) -> None:
+        """Test clothing API when weather data is unavailable"""
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = None
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.weather_manager', mock_weather_manager):
+                response = client.get('/api/clothing?lat=42.0&lon=-88.0')
+
+        assert response.status_code == 503
+        data = response.get_json()
+
+        assert data is not None
+        assert 'error' in data
+        assert 'Unable to get weather data' in data['error']
+        # Should still provide fallback clothing structure
+        assert 'clothing' in data
+        assert data['clothing']['recommendations']['primary_suggestion'] == 'Weather data unavailable - dress according to season'
+
+    def test_clothing_api_provider_failure(self, client: FlaskClient) -> None:
+        """Test clothing API when clothing provider fails"""
+        mock_weather_data = {
+            'current': {'temperature': 70, 'feels_like': 70},
+            'hourly': [],
+            'daily': []
+        }
+        
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = mock_weather_data
+        
+        mock_clothing_provider = MagicMock()
+        mock_clothing_provider.process_weather_data.return_value = None
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.weather_manager', mock_weather_manager):
+                with patch('main.clothing_provider', mock_clothing_provider):
+                    response = client.get('/api/clothing?lat=42.0&lon=-88.0')
+
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+        data = response.get_json()
+
+        assert data is not None
+        assert 'error' in data
+        assert 'Failed to generate clothing recommendations' in data['error']
+
+    def test_clothing_api_default_location(self, client: FlaskClient) -> None:
+        """Test clothing API with default location (Chicago)"""
+        mock_weather_data = {'current': {'temperature': 72}, 'hourly': [], 'daily': []}
+        mock_clothing_data = {
+            'provider': 'ClothingRecommendationProvider',
+            'location_name': 'Chicago',
+            'clothing': {'recommendations': {'primary_suggestion': 'Comfortable casual wear'}}
+        }
+
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = mock_weather_data
+        
+        mock_clothing_provider = MagicMock()
+        mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.weather_manager', mock_weather_manager):
+                with patch('main.clothing_provider', mock_clothing_provider):
+                    response = client.get('/api/clothing')
+
+        assert response.status_code == HTTP_OK
+        
+        # Verify Chicago coordinates were used
+        mock_weather_manager.get_weather.assert_called_once()
+        call_args = mock_weather_manager.get_weather.call_args
+        assert call_args[0][0] == 41.8781  # Chicago latitude
+        assert call_args[0][1] == -87.6298  # Chicago longitude
+
+    def test_clothing_api_cache_hit(self, client: FlaskClient) -> None:
+        """Test clothing API cache hit scenario"""
+        mock_clothing_data = {
+            'provider': 'ClothingRecommendationProvider',
+            'clothing': {'recommendations': {'primary_suggestion': 'Cached recommendations'}}
+        }
+
+        # Mock cache hit
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = True  # Cache hit
+            mock_cache.__getitem__.return_value = mock_clothing_data
+
+            response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        assert data['provider'] == 'ClothingRecommendationProvider'
+
+    def test_clothing_api_cache_headers(self, client: FlaskClient) -> None:
+        """Test clothing API response headers"""
+        mock_weather_data = {'current': {'temperature': 70}, 'hourly': [], 'daily': []}
+        mock_clothing_data = {
+            'provider': 'ClothingRecommendationProvider',
+            'clothing': {'recommendations': {'primary_suggestion': 'Test recommendation'}}
+        }
+
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = mock_weather_data
+        
+        mock_clothing_provider = MagicMock()
+        mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.weather_manager', mock_weather_manager):
+                with patch('main.clothing_provider', mock_clothing_provider):
+                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+
+        assert response.status_code == HTTP_OK
+        
+        # Check cache headers
+        assert 'Cache-Control' in response.headers
+        assert 'max-age=1800' in response.headers['Cache-Control']  # 30 minutes
+        assert 'ETag' in response.headers
+
+    def test_clothing_api_extreme_weather_recommendations(self, client: FlaskClient) -> None:
+        """Test clothing API with extreme weather conditions"""
+        # Test extreme cold weather
+        mock_weather_data = {
+            'current': {
+                'temperature': -10,
+                'feels_like': -20,
+                'humidity': 80,
+                'wind_speed': 25,
+                'precipitation_prob': 90,
+                'uv_index': 1,
+            },
+            'hourly': [{'temp': -10, 'rain': 0.2}],
+            'daily': [{'h': -5, 'l': -15}]
+        }
+        
+        mock_clothing_data = {
+            'provider': 'ClothingRecommendationProvider',
+            'location_name': 'Chicago',
+            'clothing': {
+                'recommendations': {
+                    'primary_suggestion': 'Heavy winter clothing - bundle up and stay warm',
+                    'items': ['insulated pants', 'heavy coat', 'warm layers', 'winter boots', 'wind-resistant outer layer', 'waterproof jacket', 'umbrella'],
+                    'warnings': [
+                        'Strong winds (25 mph) - wind-resistant clothing recommended',
+                        'Rain likely (90%) - bring rain protection'
+                    ],
+                    'comfort_tips': [],
+                    'activity_specific': {
+                        'commuting': 'warm coat and gloves, waterproof shoes and jacket',
+                        'exercise': 'warm-up layers you can remove',
+                        'outdoor_work': 'insulated work gear and hand warmers, secure all equipment and materials, waterproof work gear'
+                    }
+                },
+                'weather_context': {
+                    'current_temp': -10,
+                    'feels_like': -20,
+                    'temp_range': {'high': -5, 'low': -15}
+                }
+            }
+        }
+
+        mock_weather_manager = MagicMock()
+        mock_weather_manager.get_weather.return_value = mock_weather_data
+        
+        mock_clothing_provider = MagicMock()
+        mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
+
+        with patch('main.clothing_cache') as mock_cache:
+            mock_cache.__contains__.return_value = False
+
+            with patch('main.weather_manager', mock_weather_manager):
+                with patch('main.clothing_provider', mock_clothing_provider):
+                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+
+        assert response.status_code == HTTP_OK
+        data = response.get_json()
+
+        assert data is not None
+        recommendations = data['clothing']['recommendations']
+        
+        # Should recommend extreme weather clothing
+        assert 'Heavy winter clothing' in recommendations['primary_suggestion']
+        assert 'insulated pants' in recommendations['items']
+        assert 'heavy coat' in recommendations['items']
+        assert 'winter boots' in recommendations['items']
+        
+        # Should include severe weather warnings
+        assert any('Strong winds' in warning for warning in recommendations['warnings'])
+        assert any('Rain likely' in warning for warning in recommendations['warnings'])
