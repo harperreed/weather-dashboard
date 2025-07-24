@@ -2399,6 +2399,127 @@ class EnhancedTemperatureTrendProvider(WeatherProvider):
         }
 
 
+class FreeRadarProvider(WeatherProvider):
+    """Free radar provider using RainViewer API for precipitation visualization"""
+
+    def __init__(self, timeout: int = 10) -> None:
+        super().__init__('FreeRadarProvider')
+        self.timeout = timeout
+
+    def fetch_weather_data(
+        self,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """Fetch radar tile URLs and timestamps using free RainViewer API"""
+        try:
+            # RainViewer provides free radar data globally
+            timestamps_url = 'https://api.rainviewer.com/public/weather-maps.json'
+
+            response = requests.get(timestamps_url, timeout=self.timeout)
+
+            if response.status_code != 200:  # noqa: PLR2004
+                print(f'❌ RainViewer API returned {response.status_code}')
+                return None
+
+            data = response.json()
+
+            # Extract radar timestamps (last 2 hours)
+            radar_frames = data.get('radar', {}).get('past', [])
+            if not radar_frames:
+                print('❌ No radar data available from RainViewer')
+                return None
+
+            # Get timestamps and tile URLs (last 12 frames = ~2 hours)
+            timestamps = []
+            tile_urls = []
+
+            for frame in radar_frames[-12:]:
+                timestamp = frame.get('time')
+                tile_path = frame.get('path')
+                if timestamp and tile_path:
+                    timestamps.append(timestamp)
+                    # RainViewer tile URL template
+                    tile_url = f'https://tilecache.rainviewer.com{tile_path}/256/{{z}}/{{x}}/{{y}}/2/1_1.png'
+                    tile_urls.append(tile_url)
+
+            if not timestamps:
+                print('❌ No valid radar timestamps found')
+                return None
+
+            print(f'✅ RainViewer: Found {len(timestamps)} radar frames')
+            return {
+                'timestamps': timestamps,
+                'tile_urls': tile_urls,
+                'current_time': timestamps[-1] if timestamps else int(time.time()),
+                'tile_size': 256,
+                'zoom_level': 6,
+                'attribution': 'Radar data © RainViewer.com',
+            }
+
+        except requests.RequestException as e:
+            print(f'❌ Failed to fetch radar data from RainViewer: {e}')
+            return None
+
+    def process_weather_data(
+        self,
+        raw_data: dict,
+        location_name: str | None = None,
+        tz_name: str | None = None,
+    ) -> dict | None:
+        """Process radar data into a format suitable for the frontend"""
+        if not raw_data:
+            return {
+                'provider': self.name,
+                'location_name': location_name or 'Unknown',
+                'radar': {
+                    'available': False,
+                    'frames': [],
+                    'animation_metadata': {
+                        'total_frames': 0,
+                        'historical_frames': 0,
+                        'current_frame': 0,
+                        'forecast_frames': 0,
+                    },
+                },
+                'error': 'No radar data available',
+            }
+
+        timestamps = raw_data.get('timestamps', [])
+        tile_urls = raw_data.get('tile_urls', [])
+
+        frames = []
+        for i, (timestamp, tile_url) in enumerate(
+            zip(timestamps, tile_urls, strict=False)
+        ):
+            frames.append(
+                {
+                    'timestamp': timestamp,
+                    'tile_url': tile_url,
+                    'frame_index': i,
+                    'is_current': i == len(timestamps) - 1,
+                }
+            )
+
+        return {
+            'provider': self.name,
+            'location_name': location_name or 'Unknown',
+            'radar': {
+                'available': True,
+                'frames': frames,
+                'animation_metadata': {
+                    'total_frames': len(frames),
+                    'historical_frames': len(frames),
+                    'current_frame': len(frames) - 1,
+                    'forecast_frames': 0,
+                },
+                'attribution': raw_data.get('attribution', 'RainViewer.com'),
+                'tile_size': raw_data.get('tile_size', 256),
+            },
+        }
+
+
 class WeatherProviderManager:
     """Manager class to handle multiple weather providers"""
 

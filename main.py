@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 from flask import (
     Flask,
     Response,
+    abort,
     jsonify,
     render_template,
     request,
@@ -28,12 +29,12 @@ from weather_providers import (
     AirQualityProvider,
     ClothingRecommendationProvider,
     EnhancedTemperatureTrendProvider,
+    FreeRadarProvider,
     HybridWeatherProvider,
     LunarDataProvider,
     NationalWeatherServiceProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
-    RadarProvider,
     SolarDataProvider,
     WeatherProviderManager,
 )
@@ -110,14 +111,13 @@ else:
     air_quality_provider = None
     print('🏛️ No AirNow API key found - air quality service unavailable')
 
-# Initialize OpenWeatherMap radar provider (API key required)
-openweather_api_key = os.getenv('OPENWEATHER_API_KEY')
-if openweather_api_key:
-    radar_provider: RadarProvider | None = RadarProvider(openweather_api_key)
-    print('🌧️ OpenWeatherMap API key found - precipitation radar available')
-else:
+# Initialize free radar provider (no API key required)
+try:
+    radar_provider: FreeRadarProvider = FreeRadarProvider()
+    print('🌧️ Using free RainViewer radar - precipitation radar available')
+except Exception as e:
     radar_provider = None
-    print('🌧️ No OpenWeatherMap API key found - radar service unavailable')
+    print(f'🌧️ Failed to initialize radar provider: {e}')
 
 # Check for PirateWeather API key and create hybrid provider if available
 pirate_weather_api_key = os.getenv('PIRATE_WEATHER_API_KEY', 'YOUR_API_KEY_HERE')
@@ -501,16 +501,29 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
     ), 404
 
 
-@app.route('/<float:lat>,<float:lon>', methods=['GET'])
-def weather_by_coords(_lat: float, _lon: float) -> str:
-    """Weather page for specific coordinates"""
-    return str(render_template('weather.html', git_hash=get_git_hash()))
+@app.route('/<coords>', methods=['GET'])
+@app.route('/<coords>/<location>', methods=['GET'])
+def weather_by_coords_route(coords: str, location: str = None) -> str:
+    """Weather page for coordinates with optional location name"""
+    # Parse coordinates from string like "41.8781,-87.6298"
+    try:
+        if ',' not in coords:
+            # Not coordinates, fall through to city route
+            abort(404)
 
+        lat_str, lon_str = coords.split(',', 1)
+        lat = float(lat_str.strip())
+        lon = float(lon_str.strip())
 
-@app.route('/<float:lat>,<float:lon>/<location>')
-def weather_by_coords_and_location(_lat: float, _lon: float, _location: str) -> str:
-    """Weather page for specific coordinates and location name"""
-    return str(render_template('weather.html', git_hash=get_git_hash()))
+        # Validate coordinate ranges
+        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+            abort(404)
+
+        return str(render_template('weather.html', git_hash=get_git_hash()))
+
+    except (ValueError, AttributeError):
+        # Not valid coordinates, fall through to city route
+        abort(404)
 
 
 @app.route('/api/weather')
