@@ -70,6 +70,12 @@ OPEN_METEO_BASE_URL = 'https://api.open-meteo.com/v1/forecast'
 CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
 
+# Coordinate validation ranges
+MIN_LATITUDE = -90
+MAX_LATITUDE = 90
+MIN_LONGITUDE = -180
+MAX_LONGITUDE = 180
+
 # Cache for weather API responses (3 minutes TTL for real-time updates, max 100 entries)
 weather_cache: TTLCache[str, Any] = TTLCache(maxsize=100, ttl=180)
 
@@ -113,7 +119,7 @@ else:
 
 # Initialize free radar provider (no API key required)
 try:
-    radar_provider: FreeRadarProvider = FreeRadarProvider()
+    radar_provider: FreeRadarProvider | None = FreeRadarProvider()
     print('🌧️ Using free RainViewer radar - precipitation radar available')
 except Exception as e:
     radar_provider = None
@@ -301,7 +307,7 @@ def process_open_meteo_data(
                         .astimezone(zoneinfo.ZoneInfo('America/Chicago'))
                         .strftime('%I%p')
                         .lower()
-                        .replace('0', '')
+                        .lstrip('0')
                     ),
                     'desc': get_weather_description(hourly['weather_code'][i]),
                     'pressure': round(pressure_value, 1),
@@ -503,7 +509,7 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
 
 @app.route('/<coords>', methods=['GET'])
 @app.route('/<coords>/<location>', methods=['GET'])
-def weather_by_coords_route(coords: str, location: str = None) -> str:
+def weather_by_coords_route(coords: str, location: str | None = None) -> str:
     """Weather page for coordinates with optional location name"""
     # Parse coordinates from string like "41.8781,-87.6298"
     try:
@@ -516,14 +522,22 @@ def weather_by_coords_route(coords: str, location: str = None) -> str:
         lon = float(lon_str.strip())
 
         # Validate coordinate ranges
-        if not (-90 <= lat <= 90) or not (-180 <= lon <= 180):
+        if not (MIN_LATITUDE <= lat <= MAX_LATITUDE) or not (
+            MIN_LONGITUDE <= lon <= MAX_LONGITUDE
+        ):
             abort(404)
 
-        return str(render_template('weather.html', git_hash=get_git_hash()))
+        # Use location if provided for the page title or meta
+        return str(
+            render_template('weather.html', git_hash=get_git_hash(), location=location)
+        )
 
     except (ValueError, AttributeError):
         # Not valid coordinates, fall through to city route
         abort(404)
+
+    # This line should never be reached due to abort() calls above
+    return ''
 
 
 @app.route('/api/weather')
