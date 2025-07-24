@@ -2498,6 +2498,15 @@ class WeatherAlertsWidget extends WeatherWidget {
         const alertsList = alerts.alerts || [];
         const hasWarnings = alerts.has_warnings || false;
 
+        // Hide the entire widget if there are no alerts
+        if (alertCount === 0) {
+            this.style.display = 'none';
+            return;
+        }
+
+        // Show the widget if there are alerts
+        this.style.display = 'block';
+
         // Determine widget state and styling
         let statusIcon = '🟢';
         let statusText = 'No Active Alerts';
