@@ -33,6 +33,7 @@ MIN_LAT = -90
 MAX_LAT = 90
 MIN_LON = -180
 MAX_LON = 180
+TEMP_TRENDS_CACHE_TTL = 900  # 15 minutes
 
 
 class TestUtilityFunctions:
@@ -192,10 +193,18 @@ class TestFlaskRoutes:
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert 'cache_size' in data
-        assert 'max_size' in data
-        assert 'ttl_seconds' in data
-        assert 'cached_locations' in data
+        assert 'weather_cache' in data
+        assert 'alerts_cache' in data
+        assert 'radar_cache' in data
+        assert 'clothing_cache' in data
+        assert 'solar_cache' in data
+
+        # Check structure of one cache
+        weather_cache_data = data['weather_cache']
+        assert 'cache_size' in weather_cache_data
+        assert 'max_size' in weather_cache_data
+        assert 'ttl_seconds' in weather_cache_data
+        assert 'cached_locations' in weather_cache_data
 
     def test_providers_route(self, client: Any) -> None:
         """Test providers information route"""
@@ -437,3 +446,234 @@ class TestPWARoutes:
         assert 'name' in manifest_data
         assert 'short_name' in manifest_data
         assert 'start_url' in manifest_data
+
+
+class TestTemperatureTrendsAPI:
+    """Test the temperature trends API endpoint"""
+
+    @patch('main.temperature_trends_cache')
+    @patch('main.temperature_trends_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_temperature_trends_api_success(
+        self,
+        mock_get_weather: MagicMock,
+        mock_process_trends: MagicMock,  # noqa: ARG002
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """Test successful temperature trends API call"""
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+
+        # Mock weather data
+        mock_weather_data = {
+            'current': {'temperature': 75, 'humidity': 60, 'wind_speed': 8},
+            'hourly': [
+                {'temp': 75, 't': '12pm'},
+                {'temp': 77, 't': '1pm'},
+                {'temp': 79, 't': '2pm'},
+            ],
+            'daily': [{'h': 85, 'l': 70}],
+        }
+        mock_get_weather.return_value = mock_weather_data
+
+        # Mock trends data
+        mock_trends_data = {
+            'provider': 'EnhancedTemperatureTrendProvider',
+            'location_name': 'Test Location',
+            'temperature_trends': {
+                'hourly_data': [
+                    {
+                        'temperature': 75,
+                        'apparent_temperature': 76,
+                        'confidence_lower': 74,
+                        'confidence_upper': 76,
+                        'uncertainty': 1.0,
+                    }
+                ],
+                'statistics': {
+                    'temperature': {'min': 75, 'max': 79, 'mean': 77},
+                    'apparent_temperature': {'min': 76, 'max': 80, 'mean': 78},
+                },
+                'comfort_analysis': {
+                    'categories': {'comfortable': 3, 'hot': 0, 'cool': 0, 'cold': 0},
+                    'percentages': {'comfortable': 100, 'hot': 0, 'cool': 0, 'cold': 0},
+                    'primary_comfort': 'comfortable',
+                },
+                'trend_analysis': {
+                    'trend_direction': 'warming',
+                    'temperature_change_24h': 4,
+                    'volatility': 2.0,
+                },
+                'percentile_bands': {
+                    '10th_percentile': 60,
+                    '50th_percentile': 75,
+                    '90th_percentile': 90,
+                    'data_source': 'estimated',
+                },
+                'current': {
+                    'temperature': 75,
+                    'apparent_temperature': 76,
+                    'comfort_category': 'comfortable',
+                },
+            },
+        }
+        mock_process_trends.return_value = mock_trends_data
+
+        response = client.get(
+            '/api/temperature-trends?lat=41.8781&lon=-87.6298&location=Test'
+        )
+        assert response.status_code == HTTP_OK
+
+        data = json.loads(response.data)
+        assert data['provider'] == 'EnhancedTemperatureTrendProvider'
+        assert 'temperature_trends' in data
+
+        trends = data['temperature_trends']
+        assert 'hourly_data' in trends
+        assert 'statistics' in trends
+        assert 'comfort_analysis' in trends
+        assert 'trend_analysis' in trends
+        assert 'percentile_bands' in trends
+        assert 'current' in trends
+
+        # Check cache headers
+        assert 'Cache-Control' in response.headers
+        assert 'ETag' in response.headers
+        assert response.headers['X-Cache'] == 'MISS'
+
+    @patch('main.temperature_trends_cache')
+    def test_temperature_trends_api_cache_hit(
+        self, mock_cache: MagicMock, client: Any
+    ) -> None:
+        """Test temperature trends API cache hit"""
+        # Mock cache hit
+        mock_cache.__contains__.return_value = True
+        mock_cached_data = {
+            'provider': 'EnhancedTemperatureTrendProvider',
+            'temperature_trends': {
+                'hourly_data': [],
+                'statistics': {},
+                'comfort_analysis': {},
+                'trend_analysis': {},
+                'percentile_bands': {},
+                'current': {},
+            },
+        }
+        mock_cache.__getitem__.return_value = mock_cached_data
+
+        response = client.get('/api/temperature-trends?lat=41.8781&lon=-87.6298')
+        assert response.status_code == HTTP_OK
+
+        data = json.loads(response.data)
+        assert data['provider'] == 'EnhancedTemperatureTrendProvider'
+
+        # Should indicate cache hit
+        assert response.headers['X-Cache'] == 'HIT'
+
+    def test_temperature_trends_api_default_params(self, client: Any) -> None:
+        """Test temperature trends API with default parameters"""
+        # Should use Chicago coordinates by default
+        response = client.get('/api/temperature-trends')
+        # May succeed or fail depending on weather data availability
+        assert response.status_code in (HTTP_OK, HTTP_INTERNAL_SERVER_ERROR)
+
+    def test_temperature_trends_api_invalid_coordinates(self, client: Any) -> None:
+        """Test temperature trends API with invalid coordinates"""
+        response = client.get('/api/temperature-trends?lat=invalid&lon=invalid')
+        assert response.status_code == HTTP_BAD_REQUEST
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    @patch('main.temperature_trends_cache')
+    @patch('main.temperature_trends_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_temperature_trends_api_weather_failure(
+        self,
+        mock_get_weather: MagicMock,
+        mock_process_trends: MagicMock,  # noqa: ARG002
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """Test temperature trends API when weather data fails"""
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+
+        # Mock weather data failure
+        mock_get_weather.return_value = None
+
+        response = client.get('/api/temperature-trends?lat=41.8781&lon=-87.6298')
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Failed to get weather data' in data['error']
+
+    @patch('main.temperature_trends_cache')
+    @patch('main.temperature_trends_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_temperature_trends_api_processing_failure(
+        self,
+        mock_get_weather: MagicMock,
+        mock_process_trends: MagicMock,  # noqa: ARG002
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """Test temperature trends API when trends processing fails"""
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+
+        # Mock successful weather data
+        mock_get_weather.return_value = {'current': {'temperature': 75}}
+
+        # Mock trends processing failure
+        mock_process_trends.return_value = None
+
+        response = client.get('/api/temperature-trends?lat=41.8781&lon=-87.6298')
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+
+        data = json.loads(response.data)
+        assert 'error' in data
+        assert 'Failed to generate temperature trends' in data['error']
+
+        # Should include fallback structure
+        assert 'temperature_trends' in data
+        assert 'hourly_data' in data['temperature_trends']
+
+    @patch('main.temperature_trends_cache')
+    @patch('main.temperature_trends_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_temperature_trends_api_exception_handling(
+        self,
+        mock_get_weather: MagicMock,
+        mock_process_trends: MagicMock,  # noqa: ARG002
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """Test temperature trends API exception handling"""
+        # Mock cache miss
+        mock_cache.__contains__.return_value = False
+
+        # Mock weather manager to raise an exception
+        mock_get_weather.side_effect = Exception('Unexpected error')
+
+        response = client.get('/api/temperature-trends?lat=41.8781&lon=-87.6298')
+        assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
+
+        data = json.loads(response.data)
+        assert 'error' in data
+
+    def test_temperature_trends_cache_in_stats(self, client: Any) -> None:
+        """Test that temperature trends cache appears in cache stats"""
+        response = client.get('/api/cache/stats')
+        assert response.status_code == HTTP_OK
+
+        data = json.loads(response.data)
+        assert 'temperature_trends_cache' in data
+
+        temp_cache_stats = data['temperature_trends_cache']
+        assert 'cache_size' in temp_cache_stats
+        assert 'max_size' in temp_cache_stats
+        assert 'ttl_seconds' in temp_cache_stats
+        assert temp_cache_stats['ttl_seconds'] == TEMP_TRENDS_CACHE_TTL

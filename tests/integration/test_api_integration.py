@@ -23,11 +23,25 @@ MOCK_PRECIP_RATE = 0
 MOCK_PRECIP_PROB = 10
 MOCK_AQI_VALUE = 45
 MOCK_PM25_VALUE = 12.5
+EXPECTED_TOTAL_RADAR_FRAMES = 3
+EXPECTED_HISTORICAL_RADAR_FRAMES = 1
+EXPECTED_RADAR_TILES = 3
+MOCK_PRECIP_TEMP = 45.3
+MOCK_PRECIP_AMOUNT = 0.12
+CLOTHING_CURRENT_TEMP = 75
+CLOTHING_FEELS_LIKE = 78
+CLOTHING_HIGH_TEMP = 82
+CLOTHING_LOW_TEMP = 68
+HTTP_SERVICE_UNAVAILABLE_STATUS = 503
 MOCK_TEST_LAT = 42.0
 MOCK_TEST_LON = -88.0
 MOCK_DEFAULT_LAT = 40.0
 MOCK_DEFAULT_LON = -89.0
 HOURLY_COUNT = 2
+EXPECTED_ALERT_COUNT = 2
+CHICAGO_LAT = 41.8781
+CHICAGO_LON = -87.6298
+EXPECTED_FRAMES_COUNT = 3
 DAILY_COUNT = 2
 CACHE_MAX_SIZE = 100
 CACHE_TTL_SECONDS = 180
@@ -206,10 +220,11 @@ class TestWeatherAPIIntegration:
         assert response.status_code == HTTP_OK
 
         data = json.loads(response.data)
-        assert data['cache_size'] == 0
-        assert data['max_size'] == CACHE_MAX_SIZE
-        assert data['ttl_seconds'] == CACHE_TTL_SECONDS
-        assert data['cached_locations'] == []
+        weather_cache_data = data['weather_cache']
+        assert weather_cache_data['cache_size'] == 0
+        assert weather_cache_data['max_size'] == CACHE_MAX_SIZE
+        assert weather_cache_data['ttl_seconds'] == CACHE_TTL_SECONDS
+        assert weather_cache_data['cached_locations'] == []
 
         # Add some data to cache via API call
         with patch('main.weather_manager.get_weather') as mock_get_weather:
@@ -219,8 +234,9 @@ class TestWeatherAPIIntegration:
         # Check cache now has data
         response = client.get('/api/cache/stats')
         data = json.loads(response.data)
-        assert data['cache_size'] == 1
-        assert len(data['cached_locations']) == 1
+        weather_cache_data = data['weather_cache']
+        assert weather_cache_data['cache_size'] == 1
+        assert len(weather_cache_data['cached_locations']) == 1
 
 
 @pytest.mark.integration
@@ -632,9 +648,9 @@ class TestWeatherAlertsAPIIntegration:
         assert data is not None
         assert data['provider'] == 'NationalWeatherService'
         assert 'alerts' in data
-        assert data['alerts']['active_count'] == 2
+        assert data['alerts']['active_count'] == EXPECTED_ALERT_COUNT
         assert data['alerts']['has_warnings'] is True
-        assert len(data['alerts']['alerts']) == 2
+        assert len(data['alerts']['alerts']) == EXPECTED_ALERT_COUNT
 
         # Check first alert
         severe_alert = data['alerts']['alerts'][0]
@@ -726,8 +742,8 @@ class TestWeatherAlertsAPIIntegration:
         # Verify the provider was called with Chicago coordinates
         mock_nws_provider.get_weather.assert_called_once()
         call_args = mock_nws_provider.get_weather.call_args
-        assert call_args[0][0] == 41.8781  # Chicago latitude
-        assert call_args[0][1] == -87.6298  # Chicago longitude
+        assert call_args[0][0] == CHICAGO_LAT  # Chicago latitude
+        assert call_args[0][1] == CHICAGO_LON  # Chicago longitude
 
     def test_weather_alerts_api_cache_hit(self, client: FlaskClient) -> None:
         """Test weather alerts API cache behavior"""
@@ -859,14 +875,20 @@ class TestRadarAPIIntegration:
         assert data is not None
         assert data['provider'] == 'RadarProvider'
         assert 'radar' in data
-        assert data['radar']['animation_metadata']['total_frames'] == 3
-        assert data['radar']['animation_metadata']['historical_frames'] == 1
+        assert (
+            data['radar']['animation_metadata']['total_frames']
+            == EXPECTED_TOTAL_RADAR_FRAMES
+        )
+        assert (
+            data['radar']['animation_metadata']['historical_frames']
+            == EXPECTED_HISTORICAL_RADAR_FRAMES
+        )
         assert len(data['radar']['tile_levels']) == 1
-        assert len(data['radar']['tile_levels'][0]['tiles']) == 3
+        assert len(data['radar']['tile_levels'][0]['tiles']) == EXPECTED_RADAR_TILES
 
         # Check weather context
-        assert data['weather_context']['temperature'] == 45.3
-        assert data['weather_context']['precipitation'] == 0.12
+        assert data['weather_context']['temperature'] == MOCK_PRECIP_TEMP
+        assert data['weather_context']['precipitation'] == MOCK_PRECIP_AMOUNT
 
         # Check cache headers
         assert 'Cache-Control' in response.headers
@@ -936,8 +958,8 @@ class TestRadarAPIIntegration:
         # Verify the provider was called with Chicago coordinates
         mock_radar_provider.get_weather.assert_called_once()
         call_args = mock_radar_provider.get_weather.call_args
-        assert call_args[0][0] == 41.8781  # Chicago latitude
-        assert call_args[0][1] == -87.6298  # Chicago longitude
+        assert call_args[0][0] == CHICAGO_LAT  # Chicago latitude
+        assert call_args[0][1] == CHICAGO_LON  # Chicago longitude
 
     def test_radar_api_cache_hit(self, client: FlaskClient) -> None:
         """Test radar API cache behavior"""
@@ -1041,7 +1063,7 @@ class TestClothingAPIIntegration:
     def setup_method(self) -> None:
         """Clear clothing cache before each test"""
         from main import clothing_cache
-        
+
         clothing_cache.clear()
 
     def test_clothing_api_success(self, client: FlaskClient) -> None:
@@ -1056,9 +1078,9 @@ class TestClothingAPIIntegration:
                 'uv_index': 6,
             },
             'hourly': [{'temp': 75, 'rain': 0}],
-            'daily': [{'h': 82, 'l': 68}]
+            'daily': [{'h': 82, 'l': 68}],
         }
-        
+
         mock_clothing_data = {
             'provider': 'ClothingRecommendationProvider',
             'location_name': 'Chicago',
@@ -1072,8 +1094,8 @@ class TestClothingAPIIntegration:
                     'activity_specific': {
                         'commuting': 'standard work attire should be comfortable',
                         'exercise': 'standard workout gear should work well',
-                        'outdoor_work': 'standard work clothing appropriate'
-                    }
+                        'outdoor_work': 'standard work clothing appropriate',
+                    },
                 },
                 'weather_context': {
                     'current_temp': 75,
@@ -1083,25 +1105,29 @@ class TestClothingAPIIntegration:
                         'humidity': 60,
                         'wind_speed': 8,
                         'precipitation_prob': 20,
-                        'uv_index': 6
-                    }
-                }
-            }
+                        'uv_index': 6,
+                    },
+                },
+            },
         }
 
         # Mock the weather manager and clothing provider
         mock_weather_manager = MagicMock()
         mock_weather_manager.get_weather.return_value = mock_weather_data
-        
-        mock_clothing_provider = MagicMock() 
+
+        mock_clothing_provider = MagicMock()
         mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
 
         with patch('main.clothing_cache') as mock_cache:
             mock_cache.__contains__.return_value = False
-            
-            with patch('main.weather_manager', mock_weather_manager):
-                with patch('main.clothing_provider', mock_clothing_provider):
-                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+
+            with (
+                patch('main.weather_manager', mock_weather_manager),
+                patch('main.clothing_provider', mock_clothing_provider),
+            ):
+                response = client.get(
+                    f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+                )
 
         assert response.status_code == HTTP_OK
         data = response.get_json()
@@ -1109,26 +1135,26 @@ class TestClothingAPIIntegration:
         assert data is not None
         assert data['provider'] == 'ClothingRecommendationProvider'
         assert 'clothing' in data
-        
+
         # Check recommendations structure
         recommendations = data['clothing']['recommendations']
         assert recommendations['primary_suggestion'] == 'Lightweight clothing'
         assert 'light pants' in recommendations['items']
         assert 'short sleeves' in recommendations['items']
         assert 'comfortable shoes' in recommendations['items']
-        
+
         # Check activity specific recommendations
         activity_specific = recommendations['activity_specific']
         assert 'commuting' in activity_specific
         assert 'exercise' in activity_specific
         assert 'outdoor_work' in activity_specific
-        
+
         # Check weather context
         weather_context = data['clothing']['weather_context']
-        assert weather_context['current_temp'] == 75
-        assert weather_context['feels_like'] == 78
-        assert weather_context['temp_range']['high'] == 82
-        assert weather_context['temp_range']['low'] == 68
+        assert weather_context['current_temp'] == CLOTHING_CURRENT_TEMP
+        assert weather_context['feels_like'] == CLOTHING_FEELS_LIKE
+        assert weather_context['temp_range']['high'] == CLOTHING_HIGH_TEMP
+        assert weather_context['temp_range']['low'] == CLOTHING_LOW_TEMP
 
     def test_clothing_api_weather_unavailable(self, client: FlaskClient) -> None:
         """Test clothing API when weather data is unavailable"""
@@ -1141,7 +1167,7 @@ class TestClothingAPIIntegration:
             with patch('main.weather_manager', mock_weather_manager):
                 response = client.get('/api/clothing?lat=42.0&lon=-88.0')
 
-        assert response.status_code == 503
+        assert response.status_code == HTTP_SERVICE_UNAVAILABLE_STATUS
         data = response.get_json()
 
         assert data is not None
@@ -1149,28 +1175,33 @@ class TestClothingAPIIntegration:
         assert 'Unable to get weather data' in data['error']
         # Should still provide fallback clothing structure
         assert 'clothing' in data
-        assert data['clothing']['recommendations']['primary_suggestion'] == 'Weather data unavailable - dress according to season'
+        assert (
+            data['clothing']['recommendations']['primary_suggestion']
+            == 'Weather data unavailable - dress according to season'
+        )
 
     def test_clothing_api_provider_failure(self, client: FlaskClient) -> None:
         """Test clothing API when clothing provider fails"""
         mock_weather_data = {
             'current': {'temperature': 70, 'feels_like': 70},
             'hourly': [],
-            'daily': []
+            'daily': [],
         }
-        
+
         mock_weather_manager = MagicMock()
         mock_weather_manager.get_weather.return_value = mock_weather_data
-        
+
         mock_clothing_provider = MagicMock()
         mock_clothing_provider.process_weather_data.return_value = None
 
         with patch('main.clothing_cache') as mock_cache:
             mock_cache.__contains__.return_value = False
 
-            with patch('main.weather_manager', mock_weather_manager):
-                with patch('main.clothing_provider', mock_clothing_provider):
-                    response = client.get('/api/clothing?lat=42.0&lon=-88.0')
+            with (
+                patch('main.weather_manager', mock_weather_manager),
+                patch('main.clothing_provider', mock_clothing_provider),
+            ):
+                response = client.get('/api/clothing?lat=42.0&lon=-88.0')
 
         assert response.status_code == HTTP_INTERNAL_SERVER_ERROR
         data = response.get_json()
@@ -1185,35 +1216,41 @@ class TestClothingAPIIntegration:
         mock_clothing_data = {
             'provider': 'ClothingRecommendationProvider',
             'location_name': 'Chicago',
-            'clothing': {'recommendations': {'primary_suggestion': 'Comfortable casual wear'}}
+            'clothing': {
+                'recommendations': {'primary_suggestion': 'Comfortable casual wear'}
+            },
         }
 
         mock_weather_manager = MagicMock()
         mock_weather_manager.get_weather.return_value = mock_weather_data
-        
+
         mock_clothing_provider = MagicMock()
         mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
 
         with patch('main.clothing_cache') as mock_cache:
             mock_cache.__contains__.return_value = False
 
-            with patch('main.weather_manager', mock_weather_manager):
-                with patch('main.clothing_provider', mock_clothing_provider):
-                    response = client.get('/api/clothing')
+            with (
+                patch('main.weather_manager', mock_weather_manager),
+                patch('main.clothing_provider', mock_clothing_provider),
+            ):
+                response = client.get('/api/clothing')
 
         assert response.status_code == HTTP_OK
-        
+
         # Verify Chicago coordinates were used
         mock_weather_manager.get_weather.assert_called_once()
         call_args = mock_weather_manager.get_weather.call_args
-        assert call_args[0][0] == 41.8781  # Chicago latitude
-        assert call_args[0][1] == -87.6298  # Chicago longitude
+        assert call_args[0][0] == CHICAGO_LAT  # Chicago latitude
+        assert call_args[0][1] == CHICAGO_LON  # Chicago longitude
 
     def test_clothing_api_cache_hit(self, client: FlaskClient) -> None:
         """Test clothing API cache hit scenario"""
         mock_clothing_data = {
             'provider': 'ClothingRecommendationProvider',
-            'clothing': {'recommendations': {'primary_suggestion': 'Cached recommendations'}}
+            'clothing': {
+                'recommendations': {'primary_suggestion': 'Cached recommendations'}
+            },
         }
 
         # Mock cache hit
@@ -1221,7 +1258,9 @@ class TestClothingAPIIntegration:
             mock_cache.__contains__.return_value = True  # Cache hit
             mock_cache.__getitem__.return_value = mock_clothing_data
 
-            response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+            response = client.get(
+                f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+            )
 
         assert response.status_code == HTTP_OK
         data = response.get_json()
@@ -1234,30 +1273,38 @@ class TestClothingAPIIntegration:
         mock_weather_data = {'current': {'temperature': 70}, 'hourly': [], 'daily': []}
         mock_clothing_data = {
             'provider': 'ClothingRecommendationProvider',
-            'clothing': {'recommendations': {'primary_suggestion': 'Test recommendation'}}
+            'clothing': {
+                'recommendations': {'primary_suggestion': 'Test recommendation'}
+            },
         }
 
         mock_weather_manager = MagicMock()
         mock_weather_manager.get_weather.return_value = mock_weather_data
-        
+
         mock_clothing_provider = MagicMock()
         mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
 
         with patch('main.clothing_cache') as mock_cache:
             mock_cache.__contains__.return_value = False
 
-            with patch('main.weather_manager', mock_weather_manager):
-                with patch('main.clothing_provider', mock_clothing_provider):
-                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+            with (
+                patch('main.weather_manager', mock_weather_manager),
+                patch('main.clothing_provider', mock_clothing_provider),
+            ):
+                response = client.get(
+                    f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+                )
 
         assert response.status_code == HTTP_OK
-        
+
         # Check cache headers
         assert 'Cache-Control' in response.headers
         assert 'max-age=1800' in response.headers['Cache-Control']  # 30 minutes
         assert 'ETag' in response.headers
 
-    def test_clothing_api_extreme_weather_recommendations(self, client: FlaskClient) -> None:
+    def test_clothing_api_extreme_weather_recommendations(
+        self, client: FlaskClient
+    ) -> None:
         """Test clothing API with extreme weather conditions"""
         # Test extreme cold weather
         mock_weather_data = {
@@ -1270,60 +1317,72 @@ class TestClothingAPIIntegration:
                 'uv_index': 1,
             },
             'hourly': [{'temp': -10, 'rain': 0.2}],
-            'daily': [{'h': -5, 'l': -15}]
+            'daily': [{'h': -5, 'l': -15}],
         }
-        
+
         mock_clothing_data = {
             'provider': 'ClothingRecommendationProvider',
             'location_name': 'Chicago',
             'clothing': {
                 'recommendations': {
-                    'primary_suggestion': 'Heavy winter clothing - bundle up and stay warm',
-                    'items': ['insulated pants', 'heavy coat', 'warm layers', 'winter boots', 'wind-resistant outer layer', 'waterproof jacket', 'umbrella'],
+                    'primary_suggestion': 'Heavy winter clothing - bundle up',
+                    'items': [
+                        'insulated pants',
+                        'heavy coat',
+                        'warm layers',
+                        'winter boots',
+                        'wind-resistant outer layer',
+                        'waterproof jacket',
+                        'umbrella',
+                    ],
                     'warnings': [
                         'Strong winds (25 mph) - wind-resistant clothing recommended',
-                        'Rain likely (90%) - bring rain protection'
+                        'Rain likely (90%) - bring rain protection',
                     ],
                     'comfort_tips': [],
                     'activity_specific': {
-                        'commuting': 'warm coat and gloves, waterproof shoes and jacket',
+                        'commuting': 'warm coat and gloves, waterproof shoes',
                         'exercise': 'warm-up layers you can remove',
-                        'outdoor_work': 'insulated work gear and hand warmers, secure all equipment and materials, waterproof work gear'
-                    }
+                        'outdoor_work': 'insulated work gear and hand warmers',
+                    },
                 },
                 'weather_context': {
                     'current_temp': -10,
                     'feels_like': -20,
-                    'temp_range': {'high': -5, 'low': -15}
-                }
-            }
+                    'temp_range': {'high': -5, 'low': -15},
+                },
+            },
         }
 
         mock_weather_manager = MagicMock()
         mock_weather_manager.get_weather.return_value = mock_weather_data
-        
+
         mock_clothing_provider = MagicMock()
         mock_clothing_provider.process_weather_data.return_value = mock_clothing_data
 
         with patch('main.clothing_cache') as mock_cache:
             mock_cache.__contains__.return_value = False
 
-            with patch('main.weather_manager', mock_weather_manager):
-                with patch('main.clothing_provider', mock_clothing_provider):
-                    response = client.get(f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}')
+            with (
+                patch('main.weather_manager', mock_weather_manager),
+                patch('main.clothing_provider', mock_clothing_provider),
+            ):
+                response = client.get(
+                    f'/api/clothing?lat={MOCK_TEST_LAT}&lon={MOCK_TEST_LON}'
+                )
 
         assert response.status_code == HTTP_OK
         data = response.get_json()
 
         assert data is not None
         recommendations = data['clothing']['recommendations']
-        
+
         # Should recommend extreme weather clothing
         assert 'Heavy winter clothing' in recommendations['primary_suggestion']
         assert 'insulated pants' in recommendations['items']
         assert 'heavy coat' in recommendations['items']
         assert 'winter boots' in recommendations['items']
-        
+
         # Should include severe weather warnings
         assert any('Strong winds' in warning for warning in recommendations['warnings'])
         assert any('Rain likely' in warning for warning in recommendations['warnings'])

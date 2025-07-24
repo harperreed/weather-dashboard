@@ -1,7 +1,7 @@
 import os
 import subprocess  # nosec B404 # Safe subprocess usage for git commands
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 
@@ -27,11 +27,13 @@ from flask_socketio import SocketIO, emit
 from weather_providers import (
     AirQualityProvider,
     ClothingRecommendationProvider,
+    EnhancedTemperatureTrendProvider,
     HybridWeatherProvider,
     NationalWeatherServiceProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
     RadarProvider,
+    SolarDataProvider,
     WeatherProviderManager,
 )
 
@@ -75,8 +77,14 @@ alerts_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=300)
 # Cache for radar data (10 minutes TTL - radar updates every 10 minutes)
 radar_cache: TTLCache[str, Any] = TTLCache(maxsize=30, ttl=600)
 
-# Cache for clothing recommendations (30 minutes TTL - clothing advice doesn't change frequently)
+# Cache for clothing recommendations (30 minutes TTL - advice doesn't change often)
 clothing_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=1800)
+
+# Cache for solar data (1 hour TTL - solar times change slowly)
+solar_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=3600)
+
+# Cache for temperature trends (15 minutes TTL - trend analysis is computation-heavy)
+temperature_trends_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=900)
 
 # Initialize weather provider manager
 weather_manager = WeatherProviderManager()
@@ -85,6 +93,8 @@ weather_manager = WeatherProviderManager()
 open_meteo = OpenMeteoProvider()
 nws_provider = NationalWeatherServiceProvider()
 clothing_provider = ClothingRecommendationProvider()
+solar_provider = SolarDataProvider()
+temperature_trends_provider = EnhancedTemperatureTrendProvider()
 
 # Initialize EPA AirNow air quality provider (API key required)
 airnow_api_key = os.getenv('AIRNOW_API_KEY')
@@ -451,13 +461,13 @@ CITY_COORDS = {
 }
 
 
-@app.route('/')  # type: ignore[misc]
+@app.route('/')
 def index() -> str:
     """Main weather page"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/<city>')  # type: ignore[misc]
+@app.route('/<city>')
 def weather_by_city(city: str) -> str | tuple[str, int]:
     """Weather page for common cities"""
     city_lower = city.lower()
@@ -486,19 +496,19 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
     ), 404
 
 
-@app.route('/<float:lat>,<float:lon>', methods=['GET'])  # type: ignore[misc]
+@app.route('/<float:lat>,<float:lon>', methods=['GET'])
 def weather_by_coords(_lat: float, _lon: float) -> str:
     """Weather page for specific coordinates"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/<float:lat>,<float:lon>/<location>')  # type: ignore[misc]
+@app.route('/<float:lat>,<float:lon>/<location>')
 def weather_by_coords_and_location(_lat: float, _lon: float, _location: str) -> str:
     """Weather page for specific coordinates and location name"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/api/weather')  # type: ignore[misc]
+@app.route('/api/weather')
 def weather_api() -> Response:
     """API endpoint for weather data"""
     # Get lat/lon from URL parameters
@@ -545,7 +555,7 @@ def weather_api() -> Response:
     return response
 
 
-@app.route('/api/weather/alerts')  # type: ignore[misc]
+@app.route('/api/weather/alerts')
 def weather_alerts_api() -> Response:
     """API endpoint for weather alerts and warnings from National Weather Service"""
     # Get lat/lon from URL parameters
@@ -596,7 +606,7 @@ def weather_alerts_api() -> Response:
     return response
 
 
-@app.route('/api/radar')  # type: ignore[misc]
+@app.route('/api/radar')
 def radar_api() -> Response:
     """API endpoint for precipitation radar tiles and animation data"""
     # Check if radar provider is available
@@ -676,7 +686,7 @@ def radar_api() -> Response:
     return response
 
 
-@app.route('/api/clothing')  # type: ignore[misc]
+@app.route('/api/clothing')
 def clothing_recommendations_api() -> Response:
     """API endpoint for smart clothing recommendations based on weather conditions"""
     # Get lat/lon from URL parameters
@@ -705,26 +715,30 @@ def clothing_recommendations_api() -> Response:
     # Get current weather data first to base recommendations on
     print(f'👔 Fetching weather data for clothing recommendations: {location_name}')
     weather_data = weather_manager.get_weather(lat, lon, location_name)
-    
+
     if not weather_data:
-        response = jsonify({
-            'error': 'Unable to get weather data for clothing recommendations',
-            'clothing': {
-                'recommendations': {
-                    'primary_suggestion': 'Weather data unavailable - dress according to season',
-                    'items': [],
-                    'warnings': ['Weather data unavailable'],
-                    'comfort_tips': [],
-                    'activity_specific': {}
-                }
+        response = jsonify(
+            {
+                'error': 'Unable to get weather data for clothing recommendations',
+                'clothing': {
+                    'recommendations': {
+                        'primary_suggestion': (
+                            'Weather data unavailable - dress according to season'
+                        ),
+                        'items': [],
+                        'warnings': ['Weather data unavailable'],
+                        'comfort_tips': [],
+                        'activity_specific': {},
+                    }
+                },
             }
-        })
+        )
         response.status_code = 503
         return response
 
     # Generate clothing recommendations based on weather data
     clothing_data = clothing_provider.process_weather_data(weather_data, location_name)
-    
+
     if clothing_data:
         # Cache the result
         clothing_cache[cache_key] = clothing_data
@@ -736,42 +750,270 @@ def clothing_recommendations_api() -> Response:
         response.headers['ETag'] = f'"{etag_value}"'
         return response
 
-    response = jsonify({
-        'error': 'Failed to generate clothing recommendations',
-        'clothing': {
-            'recommendations': {
-                'primary_suggestion': 'Unable to generate recommendations - dress comfortably',
-                'items': [],
-                'warnings': ['Recommendation system unavailable'],
-                'comfort_tips': [],
-                'activity_specific': {}
-            }
+    response = jsonify(
+        {
+            'error': 'Failed to generate clothing recommendations',
+            'clothing': {
+                'recommendations': {
+                    'primary_suggestion': (
+                        'Unable to generate recommendations - dress comfortably'
+                    ),
+                    'items': [],
+                    'warnings': ['Recommendation system unavailable'],
+                    'comfort_tips': [],
+                    'activity_specific': {},
+                }
+            },
         }
-    })
+    )
     response.status_code = 500
     return response
 
 
-@app.route('/api/cache/stats')  # type: ignore[misc]
+@app.route('/api/solar')
+def solar_data_api() -> Response:
+    """Solar data API endpoint for sunrise, sunset, and solar progress"""
+    try:
+        lat = float(request.args.get('lat', 0))
+        lon = float(request.args.get('lon', 0))
+        location_name = request.args.get('location', 'Unknown')
+        date_str = request.args.get('date')  # Optional specific date
+
+        if lat == 0 and lon == 0:
+            return jsonify({'error': 'Valid latitude and longitude required'}), 400
+
+        # Create cache key
+        cache_key = f'solar_{lat}_{lon}_{date_str or "today"}'
+
+        # Check cache first
+        if cache_key in solar_cache:
+            cached_data = solar_cache[cache_key]
+            response = jsonify(cached_data)
+            response.headers['X-Cache'] = 'HIT'
+            response.headers['Cache-Control'] = 'public, max-age=3600'
+
+            # Add ETag for client-side caching
+            etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 3600)))
+            response.headers['ETag'] = f'"{etag_value}"'
+            return response
+
+        # Get weather data first for timezone
+        weather_data = weather_manager.get_weather(lat, lon, location_name)
+        if not weather_data:
+            return jsonify({'error': 'Failed to get weather data for timezone'}), 500
+
+        # Extract timezone from weather data
+        tz_name = weather_data.get('timezone', 'UTC')
+
+        # Prepare solar data request
+        solar_request = {
+            'lat': lat,
+            'lon': lon,
+            'date': date_str,  # Optional - defaults to today
+        }
+
+        # Get solar data
+        solar_data = solar_provider.process_weather_data(
+            solar_request, location_name, tz_name
+        )
+
+        if solar_data:
+            # Cache the result
+            solar_cache[cache_key] = solar_data
+
+            response = jsonify(solar_data)
+            response.headers['X-Cache'] = 'MISS'
+            response.headers['Cache-Control'] = 'public, max-age=3600'
+
+            # Add ETag for client-side caching
+            etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 3600)))
+            response.headers['ETag'] = f'"{etag_value}"'
+            return response
+
+    except ValueError:
+        return jsonify({'error': 'Invalid latitude or longitude format'}), 400
+    except Exception as e:
+        print(f'❌ Solar data API error: {str(e)}')
+
+    response = jsonify(
+        {
+            'error': 'Failed to generate solar data',
+            'solar': {
+                'times': {
+                    'sunrise': None,
+                    'sunset': None,
+                    'solar_noon': None,
+                    'golden_hour_morning': None,
+                    'golden_hour_evening': None,
+                    'blue_hour_morning': None,
+                    'blue_hour_evening': None,
+                },
+                'progress': {
+                    'daylight_progress': 0,
+                    'solar_elevation': 0,
+                    'is_daytime': False,
+                },
+                'metadata': {
+                    'date': date_str or datetime.now(timezone.utc).strftime('%Y-%m-%d'),
+                    'location': location_name,
+                    'timezone': 'UTC',
+                },
+            },
+        }
+    )
+    response.status_code = 500
+    return response
+
+
+@app.route('/api/temperature-trends')
+def temperature_trends_api() -> Response:
+    """Temperature trends API endpoint for enhanced temperature analysis"""
+    try:
+        lat = float(request.args.get('lat', CHICAGO_LAT))
+        lon = float(request.args.get('lon', CHICAGO_LON))
+        location_name = request.args.get('location', 'Chicago')
+
+        # Create cache key
+        cache_key = f'temp_trends_{round(lat, 4)},{round(lon, 4)}'
+
+        # Check cache first
+        if cache_key in temperature_trends_cache:
+            cached_data = temperature_trends_cache[cache_key]
+            response = jsonify(cached_data)
+            response.headers['X-Cache'] = 'HIT'
+            response.headers['Cache-Control'] = 'public, max-age=900'
+
+            # Add ETag for client-side caching
+            etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 900)))
+            response.headers['ETag'] = f'"{etag_value}"'
+            return response
+
+        # Get base weather data first
+        weather_data = weather_manager.get_weather(lat, lon, location_name)
+
+        if not weather_data:
+            return jsonify(
+                {'error': 'Failed to get weather data for temperature trends'}
+            ), 500
+
+        # Get enhanced temperature trends
+        trends_data = temperature_trends_provider.process_weather_data(
+            weather_data, location_name
+        )
+
+        if trends_data:
+            # Cache the result
+            temperature_trends_cache[cache_key] = trends_data
+
+            response = jsonify(trends_data)
+            response.headers['X-Cache'] = 'MISS'
+            response.headers['Cache-Control'] = 'public, max-age=900'
+
+            # Add ETag for client-side caching
+            etag_value = hash(str(lat) + str(lon) + str(int(time.time() // 900)))
+            response.headers['ETag'] = f'"{etag_value}"'
+            return response
+
+    except ValueError:
+        return jsonify({'error': 'Invalid latitude or longitude format'}), 400
+    except Exception as e:
+        print(f'❌ Temperature trends API error: {str(e)}')
+
+    # Error fallback response
+    response = jsonify(
+        {
+            'error': 'Failed to generate temperature trends',
+            'temperature_trends': {
+                'hourly_data': [],
+                'statistics': {
+                    'temperature': {
+                        'min': 0,
+                        'max': 0,
+                        'mean': 0,
+                        'range': 0,
+                    },
+                    'apparent_temperature': {
+                        'min': 0,
+                        'max': 0,
+                        'mean': 0,
+                        'range': 0,
+                    },
+                },
+                'comfort_analysis': {
+                    'categories': {'comfortable': 0, 'hot': 0, 'cool': 0, 'cold': 0},
+                    'percentages': {'comfortable': 0, 'hot': 0, 'cool': 0, 'cold': 0},
+                    'primary_comfort': 'unknown',
+                },
+                'trend_analysis': {
+                    'trend_direction': 'unknown',
+                    'temperature_change_24h': 0,
+                    'volatility': 0,
+                },
+                'percentile_bands': {
+                    '10th_percentile': 0,
+                    '50th_percentile': 0,
+                    '90th_percentile': 0,
+                    'data_source': 'error',
+                },
+                'current': {
+                    'temperature': 0,
+                    'apparent_temperature': 0,
+                    'comfort_category': 'unknown',
+                },
+            },
+        }
+    )
+    response.status_code = 500
+    return response
+
+
+@app.route('/api/cache/stats')
 def cache_stats() -> Response:
     """API endpoint for cache statistics"""
     return jsonify(
         {
-            'cache_size': len(weather_cache),
-            'max_size': weather_cache.maxsize,
-            'ttl_seconds': weather_cache.ttl,
-            'cached_locations': list(weather_cache.keys()),
+            'weather_cache': {
+                'cache_size': len(weather_cache),
+                'max_size': weather_cache.maxsize,
+                'ttl_seconds': weather_cache.ttl,
+                'cached_locations': list(weather_cache.keys()),
+            },
+            'alerts_cache': {
+                'cache_size': len(alerts_cache),
+                'max_size': alerts_cache.maxsize,
+                'ttl_seconds': alerts_cache.ttl,
+            },
+            'radar_cache': {
+                'cache_size': len(radar_cache),
+                'max_size': radar_cache.maxsize,
+                'ttl_seconds': radar_cache.ttl,
+            },
+            'clothing_cache': {
+                'cache_size': len(clothing_cache),
+                'max_size': clothing_cache.maxsize,
+                'ttl_seconds': clothing_cache.ttl,
+            },
+            'solar_cache': {
+                'cache_size': len(solar_cache),
+                'max_size': solar_cache.maxsize,
+                'ttl_seconds': solar_cache.ttl,
+            },
+            'temperature_trends_cache': {
+                'cache_size': len(temperature_trends_cache),
+                'max_size': temperature_trends_cache.maxsize,
+                'ttl_seconds': temperature_trends_cache.ttl,
+            },
         }
     )
 
 
-@app.route('/api/providers')  # type: ignore[misc]
+@app.route('/api/providers')
 def get_providers() -> Response:
     """API endpoint to get weather provider information"""
     return jsonify(weather_manager.get_provider_info())
 
 
-@app.route('/api/air-quality')  # type: ignore[misc]
+@app.route('/api/air-quality')
 def air_quality_api() -> Response:
     """API endpoint for air quality data"""
     # AirNow requires API key - service unavailable without it
@@ -825,7 +1067,7 @@ def air_quality_api() -> Response:
     return response
 
 
-@app.route('/api/providers/switch', methods=['POST'])  # type: ignore[misc]
+@app.route('/api/providers/switch', methods=['POST'])
 def switch_provider() -> Response:
     """API endpoint to switch weather provider"""
     data = request.get_json()
@@ -868,7 +1110,7 @@ def switch_provider() -> Response:
 
 
 # WebSocket event handlers
-@socketio.on('connect')  # type: ignore[misc]
+@socketio.on('connect')
 def handle_connect() -> None:
     """Handle client connection"""
     print(f'🔗 Client connected: {request.sid}')
@@ -878,13 +1120,13 @@ def handle_connect() -> None:
     emit('provider_info', provider_info)
 
 
-@socketio.on('disconnect')  # type: ignore[misc]
+@socketio.on('disconnect')
 def handle_disconnect() -> None:
     """Handle client disconnection"""
     print(f'📡 Client disconnected: {request.sid}')
 
 
-@socketio.on('request_weather_update')  # type: ignore[misc]
+@socketio.on('request_weather_update')
 def handle_weather_update_request(data: dict) -> None:
     """Handle weather update request from client"""
     lat = data.get('lat', CHICAGO_LAT)
@@ -908,19 +1150,19 @@ def handle_weather_update_request(data: dict) -> None:
         emit('weather_error', {'error': 'Failed to fetch weather data'})
 
 
-@socketio.on('ping')  # type: ignore[misc]
+@socketio.on('ping')
 def handle_ping() -> None:
     """Handle ping from client to check connection"""
     emit('pong', {'timestamp': time.time()})
 
 
-@app.route('/static/<path:filename>')  # type: ignore[misc]
+@app.route('/static/<path:filename>')
 def static_files(filename: str) -> Response:
     """Serve static files"""
     return send_from_directory('static', filename)
 
 
-@app.route('/sw.js')  # type: ignore[misc]
+@app.route('/sw.js')
 def service_worker() -> Response:
     """Serve service worker from root for security"""
     response = send_from_directory('static', 'sw.js')
@@ -936,7 +1178,7 @@ def service_worker() -> Response:
     return response
 
 
-@app.route('/manifest.json')  # type: ignore[misc]
+@app.route('/manifest.json')
 def manifest() -> Response:
     """Serve manifest file from root"""
     response = send_from_directory('static', 'manifest.json')
