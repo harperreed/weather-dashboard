@@ -4382,3 +4382,355 @@ customElements.define('solar-progress', SolarProgressWidget);
 
 // Register the enhanced temperature trends component
 customElements.define('enhanced-temperature-trends', EnhancedTemperatureTrendsWidget);
+
+
+class MoonPhaseWidget extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({mode: 'open'});
+        this.lunarData = null;
+        this.isLoading = true;
+    }
+
+    connectedCallback() {
+        this.render();
+        this.loadLunarData();
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            <style>
+                .moon-phase-widget {
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    border-radius: 0.75rem;
+                    padding: 1.25rem;
+                    margin-bottom: 1rem;
+                    backdrop-filter: blur(10px);
+                    transition: all 0.3s ease;
+                }
+
+                .widget-title {
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    margin-bottom: 1rem;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                }
+
+                .moon-icon {
+                    font-size: 1.2rem;
+                }
+
+                .moon-display {
+                    display: flex;
+                    align-items: center;
+                    gap: 1.5rem;
+                    margin-bottom: 1.5rem;
+                }
+
+                .moon-visual {
+                    flex-shrink: 0;
+                }
+
+                .phase-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+
+                .phase-name {
+                    font-size: 1.3rem;
+                    font-weight: 600;
+                    margin-bottom: 0.5rem;
+                }
+
+                .phase-details {
+                    display: grid;
+                    grid-template-columns: auto 1fr;
+                    gap: 0.25rem 0.75rem;
+                    font-size: 0.9rem;
+                    opacity: 0.9;
+                }
+
+                .phase-label {
+                    font-weight: 500;
+                }
+
+                .lunar-calendar {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1rem;
+                    margin-bottom: 1.5rem;
+                }
+
+                .next-phase {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 0.75rem;
+                    text-align: center;
+                }
+
+                .next-phase-name {
+                    font-size: 0.9rem;
+                    font-weight: 600;
+                    margin-bottom: 0.25rem;
+                }
+
+                .next-phase-time {
+                    font-size: 0.8rem;
+                    opacity: 0.8;
+                }
+
+                .viewing-recommendations {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 1rem;
+                }
+
+                .viewing-title {
+                    font-weight: 600;
+                    margin-bottom: 0.75rem;
+                    font-size: 0.95rem;
+                }
+
+                .recommendation-grid {
+                    display: grid;
+                    grid-template-columns: auto 1fr;
+                    gap: 0.25rem 0.75rem;
+                    font-size: 0.85rem;
+                }
+
+                .rec-icon {
+                    opacity: 0.7;
+                }
+
+                .loading-state {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 2rem;
+                    opacity: 0.7;
+                }
+
+                .loading-spinner {
+                    width: 20px;
+                    height: 20px;
+                    border: 2px solid transparent;
+                    border-top: 2px solid currentColor;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin-right: 0.5rem;
+                }
+
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+
+                .error-state {
+                    color: var(--error-color);
+                    text-align: center;
+                    padding: 1rem;
+                    font-size: 0.9rem;
+                }
+
+                /* Moon SVG styles */
+                .moon-svg {
+                    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
+                }
+
+                .moon-disk {
+                    fill: #f8f9fa;
+                    stroke: #e9ecef;
+                    stroke-width: 1;
+                }
+
+                .moon-shadow {
+                    fill: #6c757d;
+                }
+
+                .moon-crater {
+                    fill: #adb5bd;
+                    opacity: 0.6;
+                }
+
+                @media (max-width: 640px) {
+                    .moon-display {
+                        flex-direction: column;
+                        text-align: center;
+                        gap: 1rem;
+                    }
+
+                    .lunar-calendar {
+                        grid-template-columns: 1fr;
+                        gap: 0.75rem;
+                    }
+
+                    .recommendation-grid {
+                        grid-template-columns: 1fr;
+                        gap: 0.5rem;
+                    }
+                }
+            </style>
+
+            <div class="moon-phase-widget">
+                <div class="widget-title">
+                    <span class="moon-icon">🌙</span>
+                    <span>Moon Phase & Astronomy</span>
+                </div>
+
+                ${this.isLoading ? this.renderLoading() : ''}
+                <div class="content" style="display: ${this.isLoading ? 'none' : 'block'}">
+                    ${this.renderContent()}
+                </div>
+            </div>
+        `;
+    }
+
+    renderLoading() {
+        return `
+            <div class="loading-state">
+                <div class="loading-spinner"></div>
+                <span>Calculating lunar position...</span>
+            </div>
+        `;
+    }
+
+    renderContent() {
+        if (!this.lunarData) {
+            return `
+                <div class="error-state">
+                    ❌ Unable to load lunar data
+                </div>
+            `;
+        }
+
+        const { current_phase, next_phases, astronomical_data } = this.lunarData;
+        const viewing = astronomical_data.best_viewing;
+
+        return `
+            <div class="moon-display">
+                <div class="moon-visual">
+                    ${this.renderMoonSVG()}
+                </div>
+                <div class="phase-info">
+                    <div class="phase-name">${current_phase.name}</div>
+                    <div class="phase-details">
+                        <span class="phase-label">Illumination:</span>
+                        <span>${current_phase.illumination_percent}%</span>
+                        <span class="phase-label">Lunar Age:</span>
+                        <span>${current_phase.lunar_age_days} days</span>
+                        <span class="phase-label">Visibility:</span>
+                        <span>${viewing.visibility}</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="lunar-calendar">
+                <div class="next-phase">
+                    <div class="next-phase-name">🌑 Next New Moon</div>
+                    <div class="next-phase-time">${next_phases.new_moon.countdown_text}</div>
+                </div>
+                <div class="next-phase">
+                    <div class="next-phase-name">🌕 Next Full Moon</div>
+                    <div class="next-phase-time">${next_phases.full_moon.countdown_text}</div>
+                </div>
+            </div>
+
+            <div class="viewing-recommendations">
+                <div class="viewing-title">📷 Viewing & Photography</div>
+                <div class="recommendation-grid">
+                    <span class="rec-icon">📸</span>
+                    <span>${viewing.photography}</span>
+                    <span class="rec-icon">⏰</span>
+                    <span>${viewing.best_time}</span>
+                    <span class="rec-icon">⭐</span>
+                    <span>Stargazing: ${viewing.stargazing}</span>
+                </div>
+            </div>
+        `;
+    }
+
+    renderMoonSVG() {
+        if (!this.lunarData) return '';
+
+        const { current_phase } = this.lunarData;
+        const illumination = current_phase.illumination_percent / 100;
+        const phaseName = current_phase.name;
+
+        // Determine shadow based on phase
+        let shadowPath = '';
+        const radius = 40;
+
+        if (phaseName === 'New Moon') {
+            // Full shadow
+            shadowPath = `<circle cx="50" cy="50" r="${radius}" class="moon-shadow"/>`;
+        } else if (phaseName === 'Full Moon') {
+            // No shadow
+            shadowPath = '';
+        } else if (phaseName.includes('Waxing')) {
+            // Shadow on the left side
+            const shadowWidth = radius * 2 * (1 - illumination);
+            shadowPath = `<ellipse cx="${50 - shadowWidth/2}" cy="50" rx="${shadowWidth/2}" ry="${radius}" class="moon-shadow"/>`;
+        } else if (phaseName.includes('Waning')) {
+            // Shadow on the right side
+            const shadowWidth = radius * 2 * (1 - illumination);
+            shadowPath = `<ellipse cx="${50 + shadowWidth/2}" cy="50" rx="${shadowWidth/2}" ry="${radius}" class="moon-shadow"/>`;
+        }
+
+        return `
+            <svg width="100" height="100" class="moon-svg" viewBox="0 0 100 100">
+                <!-- Moon disk -->
+                <circle cx="50" cy="50" r="${radius}" class="moon-disk"/>
+
+                <!-- Lunar craters (simplified) -->
+                <circle cx="45" cy="35" r="3" class="moon-crater"/>
+                <circle cx="60" cy="40" r="2" class="moon-crater"/>
+                <circle cx="40" cy="60" r="2.5" class="moon-crater"/>
+                <circle cx="65" cy="65" r="1.5" class="moon-crater"/>
+
+                <!-- Shadow based on phase -->
+                ${shadowPath}
+            </svg>
+        `;
+    }
+
+    async loadLunarData() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lat = urlParams.get('lat') || 41.8781;
+            const lon = urlParams.get('lon') || -87.6298;
+            const location = urlParams.get('location') || 'Chicago';
+
+            const response = await fetch(`/api/lunar?lat=${lat}&lon=${lon}&location=${encodeURIComponent(location)}`);
+
+            if (!response.ok) {
+                throw new Error(`Lunar API request failed: ${response.status}`);
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                throw new Error(data.error);
+            }
+
+            this.lunarData = data.lunar_data;
+            this.isLoading = false;
+            this.render();
+
+        } catch (error) {
+            console.error('Error loading lunar data:', error);
+            this.isLoading = false;
+            this.lunarData = null;
+            this.render();
+        }
+    }
+
+    update() {
+        this.loadLunarData();
+    }
+}
+
+// Register the moon phase component
+customElements.define('moon-phase', MoonPhaseWidget);

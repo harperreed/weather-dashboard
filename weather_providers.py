@@ -2491,3 +2491,364 @@ class WeatherProviderManager:
             return True
         print(f"❌ Provider '{provider_name}' not found")
         return False
+
+
+class LunarDataProvider(WeatherProvider):
+    """Lunar data provider for moon phase, illumination, and astronomical data"""
+
+    # Lunar calculation constants
+    SYNODIC_MONTH = 29.53058770576  # Average lunar cycle length in days
+    NEW_MOON_REFERENCE = 2451549.5  # Julian day of known new moon (Jan 6, 2000)
+    LUNAR_MONTH_SECONDS = SYNODIC_MONTH * 24 * 3600  # Synodic month in seconds
+
+    def __init__(self) -> None:
+        super().__init__('LunarDataProvider')
+
+    def fetch_weather_data(
+        self,
+        lat: float,  # noqa: ARG002
+        lon: float,  # noqa: ARG002
+        tz_name: str | None = None,  # noqa: ARG002
+    ) -> dict | None:
+        """This provider calculates lunar data rather than fetching from APIs"""
+        # Lunar calculations are done locally, no external API needed
+        return None
+
+    def process_weather_data(
+        self,
+        raw_data: dict[str, Any],
+        location_name: str | None = None,
+        tz_name: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Process lunar data and calculate moon phase information"""
+        try:
+            # Use current UTC time for calculations
+            now_utc = datetime.now(timezone.utc)
+
+            # Calculate lunar data
+            lunar_data = self._calculate_lunar_data(now_utc)
+
+            return {
+                'provider': self.name,
+                'location_name': location_name,
+                'timezone': tz_name or 'UTC',
+                'lunar_data': lunar_data,
+                'calculated_at': now_utc.isoformat(),
+            }
+
+        except Exception as e:
+            print(f'❌ Error calculating lunar data: {e}')
+            return None
+
+    def _calculate_lunar_data(self, now_utc: datetime) -> dict:
+        """Calculate comprehensive lunar information"""
+        # Convert to Julian Day Number for astronomical calculations
+        julian_day = self._to_julian_day(now_utc)
+
+        # Calculate lunar age (days since last new moon)
+        lunar_age = self._calculate_lunar_age(julian_day)
+
+        # Calculate illumination percentage
+        illumination = self._calculate_illumination(lunar_age)
+
+        # Determine moon phase name
+        phase_name = self._get_phase_name(lunar_age, illumination)
+
+        # Calculate next major phases
+        next_new_moon = self._calculate_next_new_moon(now_utc)
+        next_full_moon = self._calculate_next_full_moon(now_utc)
+
+        # Calculate days until next phases
+        days_to_new = (next_new_moon - now_utc).total_seconds() / (24 * 3600)
+        days_to_full = (next_full_moon - now_utc).total_seconds() / (24 * 3600)
+
+        return {
+            'current_phase': {
+                'name': phase_name,
+                'illumination_percent': round(illumination * 100, 1),
+                'lunar_age_days': round(lunar_age, 1),
+                'description': self._get_phase_description(phase_name, illumination),
+            },
+            'next_phases': {
+                'new_moon': {
+                    'date': next_new_moon.isoformat(),
+                    'days_until': round(days_to_new, 1),
+                    'countdown_text': self._format_countdown(days_to_new),
+                },
+                'full_moon': {
+                    'date': next_full_moon.isoformat(),
+                    'days_until': round(days_to_full, 1),
+                    'countdown_text': self._format_countdown(days_to_full),
+                },
+            },
+            'lunar_cycle': {
+                'current_cycle_progress': round(
+                    (lunar_age / self.SYNODIC_MONTH) * 100, 1
+                ),
+                'synodic_month_days': self.SYNODIC_MONTH,
+            },
+            'astronomical_data': {
+                'julian_day': round(julian_day, 4),
+                'lunar_distance_varies': True,  # Moon distance varies ~356k-407k km
+                'best_viewing': self._get_viewing_recommendations(
+                    phase_name, illumination
+                ),
+            },
+        }
+
+    def _to_julian_day(self, dt: datetime) -> float:
+        """Convert datetime to Julian Day Number for astronomical calculations"""
+        # Convert to Julian Day Number (standard astronomical reference)
+        year = dt.year
+        month = dt.month
+        day = dt.day
+        hour = dt.hour
+        minute = dt.minute
+        second = dt.second + dt.microsecond / 1_000_000
+
+        # Julian Day algorithm
+        if month <= 2:
+            year -= 1
+            month += 12
+
+        julian_century_adjustment = 2 - (year // 100) + ((year // 100) // 4)
+        julian_day = (
+            int(365.25 * (year + 4716))
+            + int(30.6001 * (month + 1))
+            + day
+            + julian_century_adjustment
+            - 1524.5
+        )
+
+        # Add fractional day for time
+        fractional_day = (hour + minute / 60 + second / 3600) / 24
+        return julian_day + fractional_day
+
+    def _calculate_lunar_age(self, julian_day: float) -> float:
+        """Calculate lunar age in days since last new moon"""
+        # Days since the reference new moon
+        days_since_reference = julian_day - self.NEW_MOON_REFERENCE
+
+        # Number of complete lunar cycles
+        cycles = days_since_reference / self.SYNODIC_MONTH
+
+        # Fractional part gives us position in current cycle
+        fractional_cycle = cycles - int(cycles)
+
+        # Convert to days in current cycle
+        lunar_age = fractional_cycle * self.SYNODIC_MONTH
+
+        # Ensure positive value
+        if lunar_age < 0:
+            lunar_age += self.SYNODIC_MONTH
+
+        return lunar_age
+
+    def _calculate_illumination(self, lunar_age: float) -> float:
+        """Calculate moon illumination fraction (0.0 to 1.0)"""
+        # Phase angle in radians (0 to 2π)
+        # Offset by π so that age 0 = new moon (dark), age 14.76 = full moon (bright)
+        phase_angle = (lunar_age / self.SYNODIC_MONTH) * 2 * math.pi
+
+        # Illumination formula: (1 - cos(phase_angle)) / 2
+        # This gives 0 at new moon (age 0), 1 at full moon (age 14.76)
+        illumination = (1 - math.cos(phase_angle)) / 2
+
+        return max(0.0, min(1.0, illumination))
+
+    def _get_phase_name(self, lunar_age: float, illumination: float) -> str:
+        """Determine the name of the current moon phase"""
+        # Phase boundaries in days (approximate)
+        new_moon_threshold = 1.0
+        first_quarter_range = (6.0, 9.0)
+        full_moon_range = (13.0, 16.0)
+        third_quarter_range = (20.0, 23.0)
+
+        if lunar_age < new_moon_threshold or lunar_age > (
+            self.SYNODIC_MONTH - new_moon_threshold
+        ):
+            return 'New Moon'
+        if first_quarter_range[0] <= lunar_age <= first_quarter_range[1]:
+            return 'First Quarter'
+        if full_moon_range[0] <= lunar_age <= full_moon_range[1]:
+            return 'Full Moon'
+        if third_quarter_range[0] <= lunar_age <= third_quarter_range[1]:
+            return 'Third Quarter'
+        if lunar_age < first_quarter_range[0]:
+            return 'Waxing Crescent'
+        if lunar_age < full_moon_range[0]:
+            return 'Waxing Gibbous'
+        if lunar_age < third_quarter_range[0]:
+            return 'Waning Gibbous'
+        return 'Waning Crescent'
+
+    def _calculate_next_new_moon(self, now_utc: datetime) -> datetime:
+        """Calculate the date/time of the next new moon"""
+        julian_now = self._to_julian_day(now_utc)
+
+        # Find how many synodic months since reference
+        months_since_ref = (julian_now - self.NEW_MOON_REFERENCE) / self.SYNODIC_MONTH
+
+        # Next new moon is at the next integer month
+        next_month = math.ceil(months_since_ref)
+        next_new_moon_julian = self.NEW_MOON_REFERENCE + (
+            next_month * self.SYNODIC_MONTH
+        )
+
+        return self._from_julian_day(next_new_moon_julian)
+
+    def _calculate_next_full_moon(self, now_utc: datetime) -> datetime:
+        """Calculate the date/time of the next full moon"""
+        # Full moon occurs ~14.76 days after new moon
+        full_moon_offset = self.SYNODIC_MONTH / 2
+
+        julian_now = self._to_julian_day(now_utc)
+        months_since_ref = (julian_now - self.NEW_MOON_REFERENCE) / self.SYNODIC_MONTH
+
+        # Find next full moon (halfway between new moons)
+        current_month = math.floor(months_since_ref)
+        current_full_moon = (
+            self.NEW_MOON_REFERENCE
+            + (current_month * self.SYNODIC_MONTH)
+            + full_moon_offset
+        )
+
+        if current_full_moon < julian_now:
+            # Current full moon has passed, get next one
+            next_full_moon_julian = current_full_moon + self.SYNODIC_MONTH
+        else:
+            next_full_moon_julian = current_full_moon
+
+        return self._from_julian_day(next_full_moon_julian)
+
+    def _from_julian_day(self, julian_day: float) -> datetime:
+        """Convert Julian Day Number back to datetime"""
+        # Julian Day to Gregorian calendar conversion
+        julian_day_int = int(julian_day + 0.5)
+        fractional_day = julian_day + 0.5 - julian_day_int
+
+        if julian_day_int >= 2299161:  # Gregorian calendar
+            alpha = int((julian_day_int - 1867216.25) / 36524.25)
+            beta = julian_day_int + 1 + alpha - int(alpha / 4)
+        else:  # Julian calendar
+            beta = julian_day_int
+
+        gamma = beta + 1524
+        delta = int((gamma - 122.1) / 365.25)
+        epsilon = int(365.25 * delta)
+        zeta = int((gamma - epsilon) / 30.6001)
+
+        day = gamma - epsilon - int(30.6001 * zeta)
+        month = zeta - 1 if zeta <= 13 else zeta - 13
+        year = delta - 4716 if month > 2 else delta - 4715
+
+        # Convert fractional day to time
+        total_seconds = fractional_day * 24 * 3600
+        hour = int(total_seconds // 3600)
+        minute = int((total_seconds % 3600) // 60)
+        second = int(total_seconds % 60)
+        microsecond = int((total_seconds % 1) * 1_000_000)
+
+        return datetime(
+            year, month, day, hour, minute, second, microsecond, timezone.utc
+        )
+
+    def _format_countdown(self, days: float) -> str:
+        """Format countdown text for next moon phase"""
+        if days < 1:
+            hours = int(days * 24)
+            return f'{hours} hours'
+        if days < 2:
+            return '1 day'
+        return f'{int(days)} days'
+
+    def _get_phase_description(self, phase_name: str, illumination: float) -> str:
+        """Get descriptive text for the current moon phase"""
+        illumination_percent = int(illumination * 100)
+
+        descriptions = {
+            'New Moon': 'The moon is not visible, creating dark skies perfect for stargazing',
+            'Waxing Crescent': f'A thin crescent moon is growing brighter ({illumination_percent}% illuminated)',
+            'First Quarter': 'Half of the moon is illuminated, rising around noon',
+            'Waxing Gibbous': (
+                f'More than half illuminated and growing brighter '
+                f'({illumination_percent}%)'
+            ),
+            'Full Moon': 'The moon is fully illuminated, rising at sunset and setting at sunrise',
+            'Waning Gibbous': (
+                f'More than half illuminated but decreasing '
+                f'({illumination_percent}%)'
+            ),
+            'Third Quarter': 'Half illuminated, rising around midnight',
+            'Waning Crescent': (
+                f'A thin crescent moon is fading '
+                f'({illumination_percent}% illuminated)'
+            ),
+        }
+
+        return descriptions.get(phase_name, f'Moon phase: {phase_name}')
+
+    def _get_viewing_recommendations(
+        self, phase_name: str, _illumination: float
+    ) -> dict[str, str]:
+        """Get viewing and photography recommendations for current moon phase"""
+        recommendations = {
+            'New Moon': {
+                'visibility': 'Not visible',
+                'photography': 'Perfect for deep-sky astrophotography',
+                'best_time': 'All night (moon not present)',
+                'stargazing': 'Excellent - darkest skies',
+            },
+            'Waxing Crescent': {
+                'visibility': 'Visible in western sky after sunset',
+                'photography': 'Great for lunar crescents and earthshine',
+                'best_time': 'Evening twilight',
+                'stargazing': 'Good - minimal light pollution',
+            },
+            'First Quarter': {
+                'visibility': 'Visible from noon to midnight',
+                'photography': 'Excellent detail in lunar craters',
+                'best_time': 'Evening hours',
+                'stargazing': 'Fair - some light pollution',
+            },
+            'Waxing Gibbous': {
+                'visibility': 'Visible most of the night',
+                'photography': 'Good for detailed lunar surface',
+                'best_time': 'Evening to late night',
+                'stargazing': 'Limited - bright moonlight',
+            },
+            'Full Moon': {
+                'visibility': 'Visible all night',
+                'photography': 'Beautiful but challenging due to brightness',
+                'best_time': 'All night',
+                'stargazing': 'Poor - very bright',
+            },
+            'Waning Gibbous': {
+                'visibility': 'Rises after sunset, visible until morning',
+                'photography': 'Good morning photography opportunities',
+                'best_time': 'Late night to dawn',
+                'stargazing': 'Limited early, better toward dawn',
+            },
+            'Third Quarter': {
+                'visibility': 'Visible from midnight to noon',
+                'photography': 'Great early morning shots',
+                'best_time': 'Pre-dawn hours',
+                'stargazing': 'Good in early evening',
+            },
+            'Waning Crescent': {
+                'visibility': 'Visible in eastern sky before sunrise',
+                'photography': 'Beautiful crescent photography',
+                'best_time': 'Pre-dawn twilight',
+                'stargazing': 'Excellent in evening',
+            },
+        }
+
+        return recommendations.get(
+            phase_name,
+            {
+                'visibility': 'Check astronomical references',
+                'photography': 'Varies by phase',
+                'best_time': 'Depends on moon position',
+                'stargazing': 'Varies with illumination',
+            },
+        )

@@ -29,7 +29,6 @@ from weather_providers import (
     ClothingRecommendationProvider,
     EnhancedTemperatureTrendProvider,
     HybridWeatherProvider,
-    LunarDataProvider,
     NationalWeatherServiceProvider,
     OpenMeteoProvider,
     PirateWeatherProvider,
@@ -84,9 +83,6 @@ clothing_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=1800)
 # Cache for solar data (1 hour TTL - solar times change slowly)
 solar_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=3600)
 
-# Cache for lunar data (4 hours TTL - moon data changes slowly)
-lunar_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=14400)
-
 # Cache for temperature trends (15 minutes TTL - trend analysis is computation-heavy)
 temperature_trends_cache: TTLCache[str, Any] = TTLCache(maxsize=50, ttl=900)
 
@@ -98,7 +94,6 @@ open_meteo = OpenMeteoProvider()
 nws_provider = NationalWeatherServiceProvider()
 clothing_provider = ClothingRecommendationProvider()
 solar_provider = SolarDataProvider()
-lunar_provider = LunarDataProvider()
 temperature_trends_provider = EnhancedTemperatureTrendProvider()
 
 # Initialize EPA AirNow air quality provider (API key required)
@@ -466,13 +461,13 @@ CITY_COORDS = {
 }
 
 
-@app.route('/')
+@app.route('/')  # type: ignore[misc]
 def index() -> str:
     """Main weather page"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/<city>')
+@app.route('/<city>')  # type: ignore[misc]
 def weather_by_city(city: str) -> str | tuple[str, int]:
     """Weather page for common cities"""
     city_lower = city.lower()
@@ -501,19 +496,19 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
     ), 404
 
 
-@app.route('/<float:lat>,<float:lon>', methods=['GET'])
+@app.route('/<float:lat>,<float:lon>', methods=['GET'])  # type: ignore[misc]
 def weather_by_coords(_lat: float, _lon: float) -> str:
     """Weather page for specific coordinates"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/<float:lat>,<float:lon>/<location>')
+@app.route('/<float:lat>,<float:lon>/<location>')  # type: ignore[misc]
 def weather_by_coords_and_location(_lat: float, _lon: float, _location: str) -> str:
     """Weather page for specific coordinates and location name"""
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
-@app.route('/api/weather')
+@app.route('/api/weather')  # type: ignore[misc]
 def weather_api() -> Response:
     """API endpoint for weather data"""
     # Get lat/lon from URL parameters
@@ -560,7 +555,7 @@ def weather_api() -> Response:
     return response
 
 
-@app.route('/api/weather/alerts')
+@app.route('/api/weather/alerts')  # type: ignore[misc]
 def weather_alerts_api() -> Response:
     """API endpoint for weather alerts and warnings from National Weather Service"""
     # Get lat/lon from URL parameters
@@ -611,7 +606,7 @@ def weather_alerts_api() -> Response:
     return response
 
 
-@app.route('/api/radar')
+@app.route('/api/radar')  # type: ignore[misc]
 def radar_api() -> Response:
     """API endpoint for precipitation radar tiles and animation data"""
     # Check if radar provider is available
@@ -691,7 +686,7 @@ def radar_api() -> Response:
     return response
 
 
-@app.route('/api/clothing')
+@app.route('/api/clothing')  # type: ignore[misc]
 def clothing_recommendations_api() -> Response:
     """API endpoint for smart clothing recommendations based on weather conditions"""
     # Get lat/lon from URL parameters
@@ -775,7 +770,7 @@ def clothing_recommendations_api() -> Response:
     return response
 
 
-@app.route('/api/solar')
+@app.route('/api/solar')  # type: ignore[misc]
 def solar_data_api() -> Response:
     """Solar data API endpoint for sunrise, sunset, and solar progress"""
     try:
@@ -870,104 +865,7 @@ def solar_data_api() -> Response:
     return response
 
 
-@app.route('/api/lunar')
-def lunar_data_api() -> Response:
-    """Lunar data API endpoint for moon phase, illumination, and astronomical data"""
-    try:
-        lat = float(request.args.get('lat', 0))
-        lon = float(request.args.get('lon', 0))
-        location_name = request.args.get('location', 'Unknown')
-
-        if lat == 0 and lon == 0:
-            return jsonify({'error': 'Valid latitude and longitude required'}), 400
-
-        # Create cache key (location-independent for lunar calculations)
-        current_hour = int(time.time() // 3600)  # Round to nearest hour for caching
-        cache_key = f'lunar_{current_hour}'
-
-        # Check cache first
-        if cache_key in lunar_cache:
-            cached_data = lunar_cache[cache_key]
-            response = jsonify(cached_data)
-            response.headers['X-Cache'] = 'HIT'
-            response.headers['Cache-Control'] = 'public, max-age=14400'
-
-            # Add ETag for client-side caching
-            etag_value = hash(str(current_hour))
-            response.headers['ETag'] = f'"{etag_value}"'
-            return response
-
-        # Get timezone from weather data for proper display
-        weather_data = weather_manager.get_weather(lat, lon, location_name)
-        tz_name = 'UTC'
-        if weather_data:
-            tz_name = weather_data.get('timezone', 'UTC')
-
-        # Get lunar data
-        lunar_data = lunar_provider.process_weather_data({}, location_name, tz_name)
-
-        if lunar_data:
-            # Cache the result
-            lunar_cache[cache_key] = lunar_data
-
-            response = jsonify(lunar_data)
-            response.headers['X-Cache'] = 'MISS'
-            response.headers['Cache-Control'] = 'public, max-age=14400'
-
-            # Add ETag for client-side caching
-            etag_value = hash(str(current_hour))
-            response.headers['ETag'] = f'"{etag_value}"'
-            return response
-
-    except ValueError:
-        return jsonify({'error': 'Invalid latitude or longitude format'}), 400
-    except Exception as e:
-        print(f'❌ Lunar data API error: {str(e)}')
-
-    response = jsonify(
-        {
-            'error': 'Failed to calculate lunar data',
-            'lunar_data': {
-                'current_phase': {
-                    'name': 'Unknown',
-                    'illumination_percent': 0,
-                    'lunar_age_days': 0,
-                    'description': 'Unable to calculate moon phase',
-                },
-                'next_phases': {
-                    'new_moon': {
-                        'date': None,
-                        'days_until': None,
-                        'countdown_text': 'Unknown',
-                    },
-                    'full_moon': {
-                        'date': None,
-                        'days_until': None,
-                        'countdown_text': 'Unknown',
-                    },
-                },
-                'lunar_cycle': {
-                    'current_cycle_progress': 0,
-                    'synodic_month_days': 29.53,
-                },
-                'astronomical_data': {
-                    'julian_day': None,
-                    'lunar_distance_varies': True,
-                    'best_viewing': {
-                        'visibility': 'Unknown',
-                        'photography': 'Check lunar calculator',
-                        'best_time': 'Varies by phase',
-                        'stargazing': 'Depends on moon brightness',
-                    },
-                },
-            },
-        }
-    )
-    response.status_code = 500
-    return response
-
-
-@app.route('/api/temperature-trends')
+@app.route('/api/temperature-trends')  # type: ignore[misc]
 def temperature_trends_api() -> Response:
     """Temperature trends API endpoint for enhanced temperature analysis"""
     try:
@@ -1069,7 +967,7 @@ def temperature_trends_api() -> Response:
     return response
 
 
-@app.route('/api/cache/stats')
+@app.route('/api/cache/stats')  # type: ignore[misc]
 def cache_stats() -> Response:
     """API endpoint for cache statistics"""
     return jsonify(
@@ -1100,11 +998,6 @@ def cache_stats() -> Response:
                 'max_size': solar_cache.maxsize,
                 'ttl_seconds': solar_cache.ttl,
             },
-            'lunar_cache': {
-                'cache_size': len(lunar_cache),
-                'max_size': lunar_cache.maxsize,
-                'ttl_seconds': lunar_cache.ttl,
-            },
             'temperature_trends_cache': {
                 'cache_size': len(temperature_trends_cache),
                 'max_size': temperature_trends_cache.maxsize,
@@ -1114,13 +1007,13 @@ def cache_stats() -> Response:
     )
 
 
-@app.route('/api/providers')
+@app.route('/api/providers')  # type: ignore[misc]
 def get_providers() -> Response:
     """API endpoint to get weather provider information"""
     return jsonify(weather_manager.get_provider_info())
 
 
-@app.route('/api/air-quality')
+@app.route('/api/air-quality')  # type: ignore[misc]
 def air_quality_api() -> Response:
     """API endpoint for air quality data"""
     # AirNow requires API key - service unavailable without it
@@ -1174,7 +1067,7 @@ def air_quality_api() -> Response:
     return response
 
 
-@app.route('/api/providers/switch', methods=['POST'])
+@app.route('/api/providers/switch', methods=['POST'])  # type: ignore[misc]
 def switch_provider() -> Response:
     """API endpoint to switch weather provider"""
     data = request.get_json()
@@ -1217,7 +1110,7 @@ def switch_provider() -> Response:
 
 
 # WebSocket event handlers
-@socketio.on('connect')
+@socketio.on('connect')  # type: ignore[misc]
 def handle_connect() -> None:
     """Handle client connection"""
     print(f'🔗 Client connected: {request.sid}')
@@ -1227,13 +1120,13 @@ def handle_connect() -> None:
     emit('provider_info', provider_info)
 
 
-@socketio.on('disconnect')
+@socketio.on('disconnect')  # type: ignore[misc]
 def handle_disconnect() -> None:
     """Handle client disconnection"""
     print(f'📡 Client disconnected: {request.sid}')
 
 
-@socketio.on('request_weather_update')
+@socketio.on('request_weather_update')  # type: ignore[misc]
 def handle_weather_update_request(data: dict) -> None:
     """Handle weather update request from client"""
     lat = data.get('lat', CHICAGO_LAT)
@@ -1257,19 +1150,19 @@ def handle_weather_update_request(data: dict) -> None:
         emit('weather_error', {'error': 'Failed to fetch weather data'})
 
 
-@socketio.on('ping')
+@socketio.on('ping')  # type: ignore[misc]
 def handle_ping() -> None:
     """Handle ping from client to check connection"""
     emit('pong', {'timestamp': time.time()})
 
 
-@app.route('/static/<path:filename>')
+@app.route('/static/<path:filename>')  # type: ignore[misc]
 def static_files(filename: str) -> Response:
     """Serve static files"""
     return send_from_directory('static', filename)
 
 
-@app.route('/sw.js')
+@app.route('/sw.js')  # type: ignore[misc]
 def service_worker() -> Response:
     """Serve service worker from root for security"""
     response = send_from_directory('static', 'sw.js')
@@ -1285,7 +1178,7 @@ def service_worker() -> Response:
     return response
 
 
-@app.route('/manifest.json')
+@app.route('/manifest.json')  # type: ignore[misc]
 def manifest() -> Response:
     """Serve manifest file from root"""
     response = send_from_directory('static', 'manifest.json')
