@@ -192,7 +192,7 @@ class TestWeatherAPIIntegration:
         assert response.status_code == HTTP_NOT_FOUND
 
         response = client.get('/41.8781,-87.6298/Chicago')
-        assert response.status_code == HTTP_NOT_FOUND
+        assert response.status_code == HTTP_OK
 
     def test_error_handling_integration(self, client: FlaskClient) -> None:
         """Test error handling in integration"""

@@ -165,10 +165,13 @@ class TestFlaskRoutes:
 
     def test_weather_by_coords_and_location_route(self, client: Any) -> None:
         """Test weather by coordinates and location route"""
-        # NOTE: This route has issues with Flask's comma parsing in URL patterns
-        # For now, expect 404 until the route pattern is fixed
+        # Test coordinates with location name - should work now
         response = client.get('/41.8781,-87.6298/Chicago')
-        assert response.status_code == HTTP_NOT_FOUND
+        assert response.status_code == HTTP_OK
+
+        # Test coordinates with URL-encoded location
+        response = client.get('/41.8781,-87.6298/Chicago,Illinois')
+        assert response.status_code == HTTP_OK
 
     def test_weather_by_city_route_valid(self, client: Any) -> None:
         """Test weather by city route with valid city"""
