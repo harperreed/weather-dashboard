@@ -3235,24 +3235,24 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     margin: 1rem 0;
                     backdrop-filter: blur(10px);
                 }
-                
+
                 .clothing-header {
                     display: flex;
                     align-items: center;
                     margin-bottom: 1rem;
                     gap: 0.75rem;
                 }
-                
+
                 .clothing-icon {
                     font-size: 1.5rem;
                 }
-                
+
                 .clothing-title {
                     font-size: 1.1rem;
                     font-weight: 600;
                     margin: 0;
                 }
-                
+
                 .primary-suggestion {
                     background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(99, 102, 241, 0.1));
                     border: 1px solid rgba(59, 130, 246, 0.3);
@@ -3262,11 +3262,11 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     font-size: 1rem;
                     font-weight: 500;
                 }
-                
+
                 .recommendation-section {
                     margin-bottom: 1rem;
                 }
-                
+
                 .section-title {
                     font-size: 0.9rem;
                     font-weight: 600;
@@ -3274,14 +3274,14 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     margin-bottom: 0.5rem;
                     opacity: 0.9;
                 }
-                
+
                 .items-list {
                     display: flex;
                     flex-wrap: wrap;
                     gap: 0.5rem;
                     margin-bottom: 0.75rem;
                 }
-                
+
                 .clothing-item {
                     background: rgba(59, 130, 246, 0.2);
                     color: var(--text-primary);
@@ -3290,11 +3290,11 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     font-size: 0.85rem;
                     font-weight: 500;
                 }
-                
+
                 .warnings {
                     margin-bottom: 0.75rem;
                 }
-                
+
                 .warning-item {
                     background: rgba(239, 68, 68, 0.15);
                     border-left: 4px solid #ef4444;
@@ -3303,11 +3303,11 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     border-radius: 0 6px 6px 0;
                     font-size: 0.9rem;
                 }
-                
+
                 .comfort-tips {
                     margin-bottom: 1rem;
                 }
-                
+
                 .tip-item {
                     background: rgba(34, 197, 94, 0.15);
                     border-left: 4px solid #22c55e;
@@ -3316,40 +3316,40 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     border-radius: 0 6px 6px 0;
                     font-size: 0.9rem;
                 }
-                
+
                 .activity-recommendations {
                     display: grid;
                     gap: 0.75rem;
                     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
                 }
-                
+
                 .activity-card {
                     background: rgba(99, 102, 241, 0.1);
                     border: 1px solid rgba(99, 102, 241, 0.2);
                     border-radius: 8px;
                     padding: 0.75rem;
                 }
-                
+
                 .activity-title {
                     font-size: 0.9rem;
                     font-weight: 600;
                     margin-bottom: 0.5rem;
                     text-transform: capitalize;
                 }
-                
+
                 .activity-text {
                     font-size: 0.85rem;
                     opacity: 0.9;
                     line-height: 1.4;
                 }
-                
+
                 .loading {
                     text-align: center;
                     padding: 2rem;
                     color: var(--text-primary);
                     opacity: 0.7;
                 }
-                
+
                 .error {
                     text-align: center;
                     padding: 1rem;
@@ -3358,18 +3358,18 @@ class ClothingRecommendationsWidget extends HTMLElement {
                     border-radius: 8px;
                     margin: 1rem 0;
                 }
-                
+
                 @media (max-width: 640px) {
                     .clothing-widget {
                         padding: 1rem;
                     }
-                    
+
                     .activity-recommendations {
                         grid-template-columns: 1fr;
                     }
                 }
             </style>
-            
+
             <div class="clothing-widget">
                 <div class="clothing-header">
                     <span class="clothing-icon">👔</span>
@@ -3386,23 +3386,23 @@ class ClothingRecommendationsWidget extends HTMLElement {
 
     async fetchClothingRecommendations() {
         const content = this.shadowRoot.getElementById('clothing-content');
-        
+
         try {
             // Get current location from URL or use Chicago as default
             const urlParams = new URLSearchParams(window.location.search);
             const lat = urlParams.get('lat') || 41.8781;
             const lon = urlParams.get('lon') || -87.6298;
             const location = urlParams.get('location') || 'Chicago';
-            
+
             const response = await fetch(`/api/clothing?lat=${lat}&lon=${lon}&location=${encodeURIComponent(location)}`);
-            
+
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}`);
             }
-            
+
             const data = await response.json();
             this.renderRecommendations(data.clothing.recommendations);
-            
+
         } catch (error) {
             console.error('Failed to fetch clothing recommendations:', error);
             content.innerHTML = `
@@ -3415,13 +3415,13 @@ class ClothingRecommendationsWidget extends HTMLElement {
 
     renderRecommendations(recommendations) {
         const content = this.shadowRoot.getElementById('clothing-content');
-        
+
         let html = `
             <div class="primary-suggestion">
                 ${recommendations.primary_suggestion}
             </div>
         `;
-        
+
         // Recommended items
         if (recommendations.items && recommendations.items.length > 0) {
             html += `
@@ -3435,7 +3435,7 @@ class ClothingRecommendationsWidget extends HTMLElement {
                 </div>
             `;
         }
-        
+
         // Warnings
         if (recommendations.warnings && recommendations.warnings.length > 0) {
             html += `
@@ -3447,7 +3447,7 @@ class ClothingRecommendationsWidget extends HTMLElement {
                 </div>
             `;
         }
-        
+
         // Comfort tips
         if (recommendations.comfort_tips && recommendations.comfort_tips.length > 0) {
             html += `
@@ -3459,7 +3459,7 @@ class ClothingRecommendationsWidget extends HTMLElement {
                 </div>
             `;
         }
-        
+
         // Activity-specific recommendations
         if (recommendations.activity_specific && Object.keys(recommendations.activity_specific).length > 0) {
             html += `
@@ -3476,10 +3476,909 @@ class ClothingRecommendationsWidget extends HTMLElement {
                 </div>
             `;
         }
-        
+
         content.innerHTML = html;
     }
 }
 
 // Register the clothing recommendations component
 customElements.define('clothing-recommendations', ClothingRecommendationsWidget);
+
+// Solar Progress Widget - displays sunrise/sunset progress and solar data
+class SolarProgressWidget extends HTMLElement {
+    constructor() {
+        super();
+        this.attachShadow({ mode: 'open' });
+    }
+
+    connectedCallback() {
+        this.render();
+        this.fetchSolarData();
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="/static/css/weather-components.css">
+            <style>
+                .solar-widget {
+                    background: var(--card-bg);
+                    border: 1px solid var(--card-border);
+                    border-radius: 12px;
+                    padding: 1.5rem;
+                    margin: 1rem 0;
+                    backdrop-filter: blur(10px);
+                }
+
+                .solar-header {
+                    display: flex;
+                    align-items: center;
+                    margin-bottom: 1.5rem;
+                    gap: 0.75rem;
+                }
+
+                .solar-icon {
+                    font-size: 1.5rem;
+                }
+
+                .solar-title {
+                    font-size: 1.1rem;
+                    font-weight: 600;
+                    margin: 0;
+                }
+
+                .progress-arc-container {
+                    position: relative;
+                    display: flex;
+                    justify-content: center;
+                    margin: 1.5rem 0;
+                }
+
+                .progress-arc {
+                    width: 200px;
+                    height: 100px;
+                }
+
+                .arc-background {
+                    fill: none;
+                    stroke: rgba(255, 255, 255, 0.2);
+                    stroke-width: 8;
+                    stroke-linecap: round;
+                }
+
+                .arc-progress {
+                    fill: none;
+                    stroke: url(#solarGradient);
+                    stroke-width: 8;
+                    stroke-linecap: round;
+                    transition: stroke-dasharray 0.8s ease;
+                }
+
+                .sun-position {
+                    fill: #fbbf24;
+                    stroke: #f59e0b;
+                    stroke-width: 2;
+                    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
+                }
+
+                .solar-times {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 1rem;
+                    margin-top: 1rem;
+                }
+
+                .time-item {
+                    background: rgba(255, 255, 255, 0.05);
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                    border-radius: 8px;
+                    padding: 0.75rem;
+                }
+
+                .time-label {
+                    font-size: 0.8rem;
+                    opacity: 0.8;
+                    margin-bottom: 0.25rem;
+                }
+
+                .time-value {
+                    font-size: 0.9rem;
+                    font-weight: 500;
+                }
+
+                .solar-status {
+                    text-align: center;
+                    margin-top: 1rem;
+                    padding: 0.75rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 8px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .status-text {
+                    font-size: 0.9rem;
+                    margin-bottom: 0.5rem;
+                }
+
+                .elevation-text {
+                    font-size: 0.8rem;
+                    opacity: 0.8;
+                }
+
+                .golden-hour {
+                    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
+                    border-color: rgba(251, 191, 36, 0.3);
+                }
+
+                .blue-hour {
+                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
+                    border-color: rgba(59, 130, 246, 0.3);
+                }
+
+                .loading-state {
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    min-height: 120px;
+                    font-size: 0.9rem;
+                    opacity: 0.7;
+                }
+
+                .error-state {
+                    background: rgba(239, 68, 68, 0.1);
+                    border: 1px solid rgba(239, 68, 68, 0.3);
+                    border-radius: 8px;
+                    padding: 1rem;
+                    text-align: center;
+                    color: #fca5a5;
+                    font-size: 0.9rem;
+                }
+            </style>
+
+            <div class="solar-widget">
+                <div class="solar-header">
+                    <div class="solar-icon">🌅</div>
+                    <h3 class="solar-title">Solar Progress</h3>
+                </div>
+
+                <div id="solar-content" class="loading-state">
+                    Loading solar data...
+                </div>
+            </div>
+        `;
+    }
+
+    async fetchSolarData() {
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const lat = urlParams.get('lat') || '40.7128';
+            const lon = urlParams.get('lon') || '-74.0060';
+            const location = urlParams.get('location') || 'New York';
+
+            const response = await fetch(`/api/solar?lat=${lat}&lon=${lon}&location=${encodeURIComponent(location)}`);
+            const data = await response.json();
+
+            if (response.ok && data.solar) {
+                this.renderSolarData(data.solar);
+            } else {
+                this.renderError(data.error || 'Failed to load solar data');
+            }
+        } catch (error) {
+            console.error('Error fetching solar data:', error);
+            this.renderError('Network error loading solar data');
+        }
+    }
+
+    renderSolarData(solarData) {
+        const content = this.shadowRoot.getElementById('solar-content');
+        const times = solarData.times || {};
+        const daylight = solarData.daylight || {};
+        const solarElevation = solarData.solar_elevation || {};
+        const location = solarData.location || {};
+        const goldenHour = solarData.golden_hour || {};
+        const blueHour = solarData.blue_hour || {};
+
+        // Calculate progress percentage for arc (convert 0-1 to 0-100)
+        const daylightProgress = (daylight.progress || 0) * 100;
+        const arcLength = 157; // Half circle path length approximately
+        const progressLength = (daylightProgress / 100) * arcLength;
+
+        // Determine current solar period
+        let currentPeriod = 'Night';
+        let periodClass = '';
+
+        if (daylight.is_daylight) {
+            currentPeriod = 'Daytime';
+
+            // Check for special periods
+            const now = new Date();
+            const currentTime = now.getTime();
+
+            if (goldenHour.morning_start && goldenHour.evening_start) {
+                const morningGolden = new Date(goldenHour.morning_start).getTime();
+                const eveningGolden = new Date(goldenHour.evening_start).getTime();
+
+                if (currentTime >= morningGolden && currentTime <= morningGolden + 60*60*1000) {
+                    currentPeriod = 'Golden Hour (Morning)';
+                    periodClass = 'golden-hour';
+                } else if (currentTime >= eveningGolden && currentTime <= eveningGolden + 60*60*1000) {
+                    currentPeriod = 'Golden Hour (Evening)';
+                    periodClass = 'golden-hour';
+                }
+            }
+        } else {
+            // Check for blue hour
+            if (blueHour.morning_start && blueHour.evening_start) {
+                const now = new Date();
+                const currentTime = now.getTime();
+                const morningBlue = new Date(blueHour.morning_start).getTime();
+                const eveningBlue = new Date(blueHour.evening_start).getTime();
+
+                if (currentTime >= morningBlue && currentTime <= morningBlue + 30*60*1000) {
+                    currentPeriod = 'Blue Hour (Morning)';
+                    periodClass = 'blue-hour';
+                } else if (currentTime >= eveningBlue && currentTime <= eveningBlue + 30*60*1000) {
+                    currentPeriod = 'Blue Hour (Evening)';
+                    periodClass = 'blue-hour';
+                }
+            }
+        }
+
+        content.innerHTML = `
+            <div class="progress-arc-container">
+                <svg class="progress-arc" viewBox="0 0 200 100">
+                    <defs>
+                        <linearGradient id="solarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                            <stop offset="0%" style="stop-color:#fbbf24"/>
+                            <stop offset="50%" style="stop-color:#f59e0b"/>
+                            <stop offset="100%" style="stop-color:#d97706"/>
+                        </linearGradient>
+                    </defs>
+
+                    <!-- Background arc -->
+                    <path class="arc-background" d="M 20 80 A 60 60 0 0 1 180 80"/>
+
+                    <!-- Progress arc -->
+                    <path class="arc-progress"
+                          d="M 20 80 A 60 60 0 0 1 180 80"
+                          stroke-dasharray="${progressLength} 157"
+                          stroke-dashoffset="0"/>
+
+                    <!-- Sun position indicator -->
+                    <circle class="sun-position"
+                            cx="${20 + (160 * daylightProgress / 100)}"
+                            cy="${80 - 60 * Math.sin(Math.PI * daylightProgress / 100)}"
+                            r="6"/>
+                </svg>
+            </div>
+
+            <div class="solar-times">
+                <div class="time-item">
+                    <div class="time-label">Sunrise</div>
+                    <div class="time-value">${this.formatTime(times.sunrise)}</div>
+                </div>
+                <div class="time-item">
+                    <div class="time-label">Sunset</div>
+                    <div class="time-value">${this.formatTime(times.sunset)}</div>
+                </div>
+                <div class="time-item">
+                    <div class="time-label">Solar Noon</div>
+                    <div class="time-value">${this.formatTime(times.solar_noon)}</div>
+                </div>
+                <div class="time-item">
+                    <div class="time-label">Daylight</div>
+                    <div class="time-value">${this.calculateDaylightDuration(times.sunrise, times.sunset)}</div>
+                </div>
+            </div>
+
+            <div class="solar-status ${periodClass}">
+                <div class="status-text">${currentPeriod}</div>
+                <div class="elevation-text">Solar elevation: ${Math.round(solarElevation.current_degrees || 0)}°</div>
+            </div>
+        `;
+    }
+
+    renderError(message) {
+        const content = this.shadowRoot.getElementById('solar-content');
+        content.innerHTML = `
+            <div class="error-state">
+                ⚠️ ${message}
+            </div>
+        `;
+    }
+
+    formatTime(timeString) {
+        if (!timeString) return '--:--';
+
+        try {
+            const date = new Date(timeString);
+            return date.toLocaleTimeString([], {
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: true
+            });
+        } catch (error) {
+            return '--:--';
+        }
+    }
+
+    calculateDaylightDuration(sunrise, sunset) {
+        if (!sunrise || !sunset) return '--h --m';
+
+        try {
+            const sunriseTime = new Date(sunrise);
+            const sunsetTime = new Date(sunset);
+            const duration = sunsetTime - sunriseTime;
+
+            const hours = Math.floor(duration / (1000 * 60 * 60));
+            const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+
+            return `${hours}h ${minutes}m`;
+        } catch (error) {
+            return '--h --m';
+        }
+    }
+}
+
+// Enhanced Temperature Trends Component
+class EnhancedTemperatureTrendsWidget extends WeatherWidget {
+    constructor() {
+        super();
+        this.trendsData = null;
+        this.showApparentTemp = true;
+        this.showConfidenceIntervals = true;
+        this.showPercentileBands = true;
+    }
+
+    getDefaultConfig() {
+        return { temperatureTrends: true };
+    }
+
+    render() {
+        if (!this.config.temperatureTrends) {
+            this.style.display = 'none';
+            return;
+        }
+
+        this.style.display = 'block';
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+
+            <div class="enhanced-temp-trends-widget widget-content">
+                <div class="widget-header">
+                    <h3>Enhanced Temperature Trends</h3>
+                    <div class="trend-controls">
+                        <label class="control-toggle">
+                            <input type="checkbox" id="apparent-temp-toggle" ${this.showApparentTemp ? 'checked' : ''}>
+                            <span class="toggle-text">Heat Index/Wind Chill</span>
+                        </label>
+                        <label class="control-toggle">
+                            <input type="checkbox" id="confidence-toggle" ${this.showConfidenceIntervals ? 'checked' : ''}>
+                            <span class="toggle-text">Confidence Bands</span>
+                        </label>
+                        <label class="control-toggle">
+                            <input type="checkbox" id="percentile-toggle" ${this.showPercentileBands ? 'checked' : ''}>
+                            <span class="toggle-text">Historical Range</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="temp-trends-chart-container">
+                    <svg class="temp-trends-chart" id="temp-trends-chart" viewBox="0 0 800 300"></svg>
+                </div>
+
+                <div class="trend-stats" id="trend-stats">
+                    <div class="loading">
+                        <div class="loading-spinner"></div>
+                        Loading temperature trends...
+                    </div>
+                </div>
+
+                <div class="comfort-analysis" id="comfort-analysis"></div>
+
+                <div class="error-message error hidden" id="error"></div>
+            </div>
+
+            <style>
+                .enhanced-temp-trends-widget {
+                    margin-bottom: 1rem;
+                }
+
+                .widget-header {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                }
+
+                .trend-controls {
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 1rem;
+                    font-size: 0.85rem;
+                }
+
+                .control-toggle {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.25rem;
+                    cursor: pointer;
+                    user-select: none;
+                }
+
+                .control-toggle input[type="checkbox"] {
+                    width: 14px;
+                    height: 14px;
+                }
+
+                .toggle-text {
+                    color: var(--text-secondary);
+                }
+
+                .temp-trends-chart-container {
+                    margin-bottom: 1rem;
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 1rem;
+                    min-height: 300px;
+                }
+
+                .temp-trends-chart {
+                    width: 100%;
+                    height: 300px;
+                    overflow: visible;
+                }
+
+                .trend-stats {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                    gap: 1rem;
+                    margin-bottom: 1rem;
+                }
+
+                .stat-card {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 0.75rem;
+                    text-align: center;
+                }
+
+                .stat-value {
+                    font-size: 1.5rem;
+                    font-weight: bold;
+                    color: var(--text-primary);
+                }
+
+                .stat-label {
+                    font-size: 0.8rem;
+                    color: var(--text-secondary);
+                    margin-top: 0.25rem;
+                }
+
+                .comfort-analysis {
+                    display: grid;
+                    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+                    gap: 0.5rem;
+                    margin-bottom: 1rem;
+                }
+
+                .comfort-category {
+                    background: rgba(255, 255, 255, 0.05);
+                    border-radius: 0.5rem;
+                    padding: 0.5rem;
+                    text-align: center;
+                    font-size: 0.85rem;
+                }
+
+                .comfort-percentage {
+                    font-weight: bold;
+                    font-size: 1.1rem;
+                }
+
+                .temp-line {
+                    fill: none;
+                    stroke: #3b82f6;
+                    stroke-width: 2;
+                }
+
+                .apparent-temp-line {
+                    fill: none;
+                    stroke: #f59e0b;
+                    stroke-width: 2;
+                    stroke-dasharray: 5,5;
+                }
+
+                .confidence-area {
+                    fill: rgba(59, 130, 246, 0.2);
+                    opacity: 0.6;
+                }
+
+                .percentile-band {
+                    fill: none;
+                    stroke: rgba(156, 163, 175, 0.4);
+                    stroke-width: 1;
+                    stroke-dasharray: 2,2;
+                }
+
+                .chart-axis {
+                    stroke: rgba(156, 163, 175, 0.3);
+                    stroke-width: 1;
+                }
+
+                .axis-label {
+                    fill: var(--text-secondary);
+                    font-size: 10px;
+                    text-anchor: middle;
+                }
+
+                .temp-point {
+                    fill: #3b82f6;
+                    r: 2;
+                }
+
+                .now-line {
+                    stroke: #f59e0b;
+                    stroke-width: 2;
+                    stroke-dasharray: 4,4;
+                }
+
+                .chart-legend {
+                    font-size: 10px;
+                    fill: var(--text-secondary);
+                }
+
+                @media (max-width: 640px) {
+                    .trend-controls {
+                        flex-direction: column;
+                        gap: 0.5rem;
+                    }
+
+                    .temp-trends-chart-container {
+                        padding: 0.5rem;
+                    }
+
+                    .trend-stats {
+                        grid-template-columns: 1fr 1fr;
+                    }
+                }
+            </style>
+        `;
+
+        this.setupEventListeners();
+        this.loadTrendsData();
+    }
+
+    setupEventListeners() {
+        const apparentTempToggle = this.shadowRoot.getElementById('apparent-temp-toggle');
+        const confidenceToggle = this.shadowRoot.getElementById('confidence-toggle');
+        const percentileToggle = this.shadowRoot.getElementById('percentile-toggle');
+
+        if (apparentTempToggle) {
+            apparentTempToggle.addEventListener('change', (e) => {
+                this.showApparentTemp = e.target.checked;
+                this.updateChart();
+            });
+        }
+
+        if (confidenceToggle) {
+            confidenceToggle.addEventListener('change', (e) => {
+                this.showConfidenceIntervals = e.target.checked;
+                this.updateChart();
+            });
+        }
+
+        if (percentileToggle) {
+            percentileToggle.addEventListener('change', (e) => {
+                this.showPercentileBands = e.target.checked;
+                this.updateChart();
+            });
+        }
+    }
+
+    async loadTrendsData() {
+        try {
+            this.showLoading();
+
+            // Get coordinates from global location or use defaults
+            const lat = window.location.lat || 41.8781;
+            const lon = window.location.lon || -87.6298;
+            const location = window.location.name || 'Chicago';
+
+            const response = await fetch(`/api/temperature-trends?lat=${lat}&lon=${lon}&location=${encodeURIComponent(location)}`);
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            this.trendsData = await response.json();
+            this.updateDisplay();
+            this.hideLoading();
+
+        } catch (error) {
+            console.error('Enhanced temperature trends error:', error);
+            this.showError(`Failed to load temperature trends: ${error.message}`);
+        }
+    }
+
+    updateDisplay() {
+        if (!this.trendsData?.temperature_trends) {
+            this.showError('No temperature trends data available');
+            return;
+        }
+
+        this.updateStats();
+        this.updateComfortAnalysis();
+        this.updateChart();
+        this.hideError();
+    }
+
+    updateStats() {
+        const statsContainer = this.shadowRoot.getElementById('trend-stats');
+        if (!statsContainer || !this.trendsData?.temperature_trends) return;
+
+        const trends = this.trendsData.temperature_trends;
+        const stats = trends.statistics;
+        const trendAnalysis = trends.trend_analysis;
+
+        statsContainer.innerHTML = `
+            <div class="stat-card">
+                <div class="stat-value">${stats.temperature?.max || 0}°</div>
+                <div class="stat-label">High (48h)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.temperature?.min || 0}°</div>
+                <div class="stat-label">Low (48h)</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.temperature?.mean || 0}°</div>
+                <div class="stat-label">Average</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${trendAnalysis?.trend_direction || 'stable'}</div>
+                <div class="stat-label">Trend</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${Math.abs(trendAnalysis?.temperature_change_24h || 0)}°</div>
+                <div class="stat-label">24h Change</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-value">${stats.temperature?.std_dev || 0}°</div>
+                <div class="stat-label">Volatility</div>
+            </div>
+        `;
+    }
+
+    updateComfortAnalysis() {
+        const comfortContainer = this.shadowRoot.getElementById('comfort-analysis');
+        if (!comfortContainer || !this.trendsData?.temperature_trends) return;
+
+        const comfort = this.trendsData.temperature_trends.comfort_analysis;
+        if (!comfort?.percentages) return;
+
+        comfortContainer.innerHTML = Object.entries(comfort.percentages)
+            .map(([category, percentage]) => `
+                <div class="comfort-category">
+                    <div class="comfort-percentage">${percentage}%</div>
+                    <div>${category}</div>
+                </div>
+            `).join('');
+    }
+
+    updateChart() {
+        const svg = this.shadowRoot.getElementById('temp-trends-chart');
+        if (!svg || !this.trendsData?.temperature_trends?.hourly_data) return;
+
+        const hourlyData = this.trendsData.temperature_trends.hourly_data;
+        const percentileBands = this.trendsData.temperature_trends.percentile_bands;
+
+        // Clear existing content
+        svg.innerHTML = '';
+
+        // Chart dimensions
+        const width = 800;
+        const height = 300;
+        const margin = { top: 20, right: 60, bottom: 40, left: 60 };
+        const chartWidth = width - margin.left - margin.right;
+        const chartHeight = height - margin.top - margin.bottom;
+
+        // Calculate temperature ranges
+        const allTemps = hourlyData.flatMap(d => [
+            d.temperature,
+            d.apparent_temperature,
+            d.confidence_lower,
+            d.confidence_upper
+        ]);
+
+        if (this.showPercentileBands && percentileBands) {
+            allTemps.push(
+                percentileBands['10th_percentile'],
+                percentileBands['90th_percentile']
+            );
+        }
+
+        const minTemp = Math.min(...allTemps.filter(t => t !== undefined)) - 5;
+        const maxTemp = Math.max(...allTemps.filter(t => t !== undefined)) + 5;
+        const tempRange = maxTemp - minTemp;
+
+        // Helper functions
+        const xScale = (hour) => margin.left + (hour / Math.max(1, hourlyData.length - 1)) * chartWidth;
+        const yScale = (temp) => margin.top + chartHeight - ((temp - minTemp) / tempRange) * chartHeight;
+
+        // Draw percentile bands (background)
+        if (this.showPercentileBands && percentileBands) {
+            const band10 = percentileBands['10th_percentile'];
+            const band90 = percentileBands['90th_percentile'];
+
+            const bandPath = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+            bandPath.setAttribute('x', margin.left);
+            bandPath.setAttribute('y', yScale(band90));
+            bandPath.setAttribute('width', chartWidth);
+            bandPath.setAttribute('height', yScale(band10) - yScale(band90));
+            bandPath.setAttribute('class', 'percentile-band');
+            bandPath.setAttribute('fill', 'rgba(156, 163, 175, 0.1)');
+            svg.appendChild(bandPath);
+
+            // Add percentile labels
+            const label10 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label10.setAttribute('x', width - 10);
+            label10.setAttribute('y', yScale(band10) + 5);
+            label10.setAttribute('class', 'chart-legend');
+            label10.textContent = '10th %ile';
+            svg.appendChild(label10);
+
+            const label90 = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label90.setAttribute('x', width - 10);
+            label90.setAttribute('y', yScale(band90) - 5);
+            label90.setAttribute('class', 'chart-legend');
+            label90.textContent = '90th %ile';
+            svg.appendChild(label90);
+        }
+
+        // Draw confidence intervals
+        if (this.showConfidenceIntervals) {
+            const confidencePath = hourlyData.map((d, i) => {
+                const x = xScale(i);
+                const yUpper = yScale(d.confidence_upper);
+                const yLower = yScale(d.confidence_lower);
+                return i === 0 ? `M${x},${yUpper}` : `L${x},${yUpper}`;
+            }).join(' ') + ' ' +
+            hourlyData.slice().reverse().map((d, i) => {
+                const x = xScale(hourlyData.length - 1 - i);
+                const yLower = yScale(d.confidence_lower);
+                return `L${x},${yLower}`;
+            }).join(' ') + ' Z';
+
+            const confidenceArea = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            confidenceArea.setAttribute('d', confidencePath);
+            confidenceArea.setAttribute('class', 'confidence-area');
+            svg.appendChild(confidenceArea);
+        }
+
+        // Draw apparent temperature line
+        if (this.showApparentTemp) {
+            const apparentPath = hourlyData.map((d, i) => {
+                const x = xScale(i);
+                const y = yScale(d.apparent_temperature);
+                return (i === 0 ? 'M' : 'L') + x + ',' + y;
+            }).join(' ');
+
+            const apparentLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            apparentLine.setAttribute('d', apparentPath);
+            apparentLine.setAttribute('class', 'apparent-temp-line');
+            svg.appendChild(apparentLine);
+        }
+
+        // Draw main temperature line
+        const tempPath = hourlyData.map((d, i) => {
+            const x = xScale(i);
+            const y = yScale(d.temperature);
+            return (i === 0 ? 'M' : 'L') + x + ',' + y;
+        }).join(' ');
+
+        const tempLine = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        tempLine.setAttribute('d', tempPath);
+        tempLine.setAttribute('class', 'temp-line');
+        svg.appendChild(tempLine);
+
+        // Add current time indicator (NOW line)
+        const nowLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        nowLine.setAttribute('x1', xScale(0));
+        nowLine.setAttribute('y1', margin.top);
+        nowLine.setAttribute('x2', xScale(0));
+        nowLine.setAttribute('y2', height - margin.bottom);
+        nowLine.setAttribute('class', 'now-line');
+        svg.appendChild(nowLine);
+
+        // Add NOW label
+        const nowLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        nowLabel.setAttribute('x', xScale(0));
+        nowLabel.setAttribute('y', margin.top - 5);
+        nowLabel.setAttribute('text-anchor', 'middle');
+        nowLabel.setAttribute('class', 'chart-legend');
+        nowLabel.setAttribute('font-weight', 'bold');
+        nowLabel.textContent = 'NOW';
+        svg.appendChild(nowLabel);
+
+        // Add Y-axis labels
+        const tempLabels = [];
+        for (let temp = Math.ceil(minTemp / 10) * 10; temp <= maxTemp; temp += 10) {
+            tempLabels.push(temp);
+        }
+
+        tempLabels.forEach(temp => {
+            const y = yScale(temp);
+
+            // Grid line
+            const gridLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            gridLine.setAttribute('x1', margin.left);
+            gridLine.setAttribute('y1', y);
+            gridLine.setAttribute('x2', width - margin.right);
+            gridLine.setAttribute('y2', y);
+            gridLine.setAttribute('class', 'chart-axis');
+            svg.appendChild(gridLine);
+
+            // Label
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', margin.left - 10);
+            label.setAttribute('y', y + 4);
+            label.setAttribute('text-anchor', 'end');
+            label.setAttribute('class', 'axis-label');
+            label.textContent = temp + '°';
+            svg.appendChild(label);
+        });
+
+        // Add X-axis labels (hours)
+        const hourSteps = Math.max(1, Math.floor(hourlyData.length / 8));
+        for (let i = 0; i < hourlyData.length; i += hourSteps) {
+            const x = xScale(i);
+            const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            label.setAttribute('x', x);
+            label.setAttribute('y', height - margin.bottom + 15);
+            label.setAttribute('class', 'axis-label');
+            label.textContent = i + 'h';
+            svg.appendChild(label);
+        }
+
+        // Add legend
+        let legendY = height - 15;
+        const legends = [
+            { color: '#3b82f6', text: 'Temperature', solid: true },
+        ];
+
+        if (this.showApparentTemp) {
+            legends.push({ color: '#f59e0b', text: 'Heat Index/Wind Chill', solid: false });
+        }
+
+        legends.forEach((legend, i) => {
+            const legendX = margin.left + i * 150;
+
+            const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+            line.setAttribute('x1', legendX);
+            line.setAttribute('y1', legendY);
+            line.setAttribute('x2', legendX + 20);
+            line.setAttribute('y2', legendY);
+            line.setAttribute('stroke', legend.color);
+            line.setAttribute('stroke-width', '2');
+            if (!legend.solid) {
+                line.setAttribute('stroke-dasharray', '5,5');
+            }
+            svg.appendChild(line);
+
+            const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+            text.setAttribute('x', legendX + 25);
+            text.setAttribute('y', legendY + 4);
+            text.setAttribute('class', 'chart-legend');
+            text.textContent = legend.text;
+            svg.appendChild(text);
+        });
+    }
+
+    update() {
+        this.loadTrendsData();
+    }
+}
+
+// Register the solar progress component
+customElements.define('solar-progress', SolarProgressWidget);
+
+// Register the enhanced temperature trends component
+customElements.define('enhanced-temperature-trends', EnhancedTemperatureTrendsWidget);

@@ -14,6 +14,22 @@ CHICAGO_LON = -87.6298
 PROVIDER_TIMEOUT = 10
 TEST_API_KEY = 'test_api_key_12345'
 
+# Radar tile and animation constants
+TILE_SIZE = 256  # Standard radar tile size in pixels
+RADAR_TIMEOUT = 10  # API timeout in seconds
+TOLERANCE_PIXELS = 2  # Allowed pixel tolerance for tile calculations
+EXPECTED_FRAMES = 19  # Historical + current + forecast frames
+ZOOM_LEVEL_COUNT = 3  # Number of zoom levels (6, 8, 10)
+TEST_TEMPERATURE = 45.3  # Test temperature value
+TEST_PRECIPITATION = 0.12  # Test precipitation amount
+CURRENT_FRAME_INDEX = 1  # Index of current frame in animation
+FORECAST_FRAMES = 1  # Number of forecast frames in test
+HISTORICAL_FRAMES = 1  # Number of historical frames in test
+TOTAL_TEST_FRAMES = 3  # Total frames in test data
+INTERVAL_MINUTES = 10  # Animation interval in minutes
+DURATION_HOURS = 0.5  # Animation duration in hours
+ANIMATION_INTERVAL = 10  # Animation frame interval
+
 
 class TestRadarProvider:
     """Test the OpenWeatherMap radar provider for precipitation visualization"""
@@ -48,14 +64,14 @@ class TestRadarProvider:
         assert (
             radar_provider.base_url == 'https://maps.openweathermap.org/maps/2.0/radar'
         )
-        assert radar_provider.tile_size == 256
-        assert radar_provider.timeout == 10
+        assert radar_provider.tile_size == TILE_SIZE
+        assert radar_provider.timeout == RADAR_TIMEOUT
 
     def test_lat_lon_to_tile_conversion(self, radar_provider: RadarProvider) -> None:
         """Test latitude/longitude to tile coordinate conversion"""
         # Test known coordinate conversions at different zoom levels
         test_cases = [
-            # (lat, lon, zoom, expected_x, expected_y)
+            # Test data format: latitude, longitude, zoom, expected_x, expected_y
             (0.0, 0.0, 0, 0, 0),  # Origin at zoom 0
             (CHICAGO_LAT, CHICAGO_LON, 8, 65, 95),  # Chicago at zoom 8
             (40.7128, -74.0060, 10, 301, 385),  # NYC at zoom 10 (approximate)
@@ -66,8 +82,8 @@ class TestRadarProvider:
             assert isinstance(tile_x, int)
             assert isinstance(tile_y, int)
             # Allow some tolerance for floating point calculations
-            assert abs(tile_x - expected_x) <= 2
-            assert abs(tile_y - expected_y) <= 2
+            assert abs(tile_x - expected_x) <= TOLERANCE_PIXELS
+            assert abs(tile_y - expected_y) <= TOLERANCE_PIXELS
 
     @patch('weather_providers.requests.get')
     def test_fetch_weather_data_success(
@@ -94,9 +110,9 @@ class TestRadarProvider:
         assert 'center_lon' in result
         assert 'weather_context' in result
 
-        # Check timestamps (should have 12 historical + 1 current + 6 forecast = 19 frames)
+        # Check timestamps (12 historical + 1 current + 6 forecast = 19 frames)
         timestamps = result['timestamps']
-        assert len(timestamps) == 19
+        assert len(timestamps) == EXPECTED_FRAMES
 
         # Check zoom levels
         zoom_levels = result['zoom_levels']
@@ -104,17 +120,17 @@ class TestRadarProvider:
 
         # Check tile URLs structure
         tile_urls = result['tile_urls']
-        assert len(tile_urls) == 3  # Three zoom levels
+        assert len(tile_urls) == ZOOM_LEVEL_COUNT  # Three zoom levels
         for level in tile_urls:
             assert 'zoom' in level
             assert 'tiles' in level
             assert level['zoom'] in [6, 8, 10]
-            assert len(level['tiles']) == 19  # Same as timestamps
+            assert len(level['tiles']) == EXPECTED_FRAMES  # Same as timestamps
 
         # Check weather context
         weather_context = result['weather_context']
-        assert weather_context['temperature'] == 45.3
-        assert weather_context['precipitation'] == 0.12
+        assert weather_context['temperature'] == TEST_TEMPERATURE
+        assert weather_context['precipitation'] == TEST_PRECIPITATION
         assert weather_context['description'] == 'light rain'
 
         # Verify API was called correctly
@@ -221,14 +237,14 @@ class TestRadarProvider:
 
         # Check animation metadata
         animation = radar['animation_metadata']
-        assert animation['total_frames'] == 3
+        assert animation['total_frames'] == TOTAL_TEST_FRAMES
         assert (
-            animation['historical_frames'] == 1
+            animation['historical_frames'] == HISTORICAL_FRAMES
         )  # min(12, 3) but only 1 frame before current
-        assert animation['current_frame'] == 1
-        assert animation['forecast_frames'] == 1  # 3 - 1 - 1
-        assert animation['interval_minutes'] == 10
-        assert animation['duration_hours'] == 0.5  # 3 * 10 / 60
+        assert animation['current_frame'] == CURRENT_FRAME_INDEX
+        assert animation['forecast_frames'] == FORECAST_FRAMES  # 3 - 1 - 1
+        assert animation['interval_minutes'] == INTERVAL_MINUTES
+        assert animation['duration_hours'] == DURATION_HOURS  # 3 * 10 / 60
 
         # Check map bounds
         bounds = radar['map_bounds']
@@ -338,7 +354,7 @@ class TestRadarProvider:
         info = radar_provider.get_provider_info()
 
         assert info['name'] == 'RadarProvider'
-        assert info['timeout'] == 10
+        assert info['timeout'] == RADAR_TIMEOUT
         assert 'precipitation visualization' in info['description']
 
     def test_tile_url_generation(self, radar_provider: RadarProvider) -> None:

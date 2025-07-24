@@ -12,6 +12,13 @@ CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
 PROVIDER_TIMEOUT = 10
 
+# NWS grid constants
+NWS_GRID_X = 75
+NWS_GRID_Y = 73
+EXPECTED_API_CALLS = 3
+EXPECTED_ALERT_COUNT = 2
+FORECAST_TEMP = 42
+
 
 class TestNationalWeatherServiceProvider:
     """Test the National Weather Service provider for weather alerts"""
@@ -43,7 +50,7 @@ class TestNationalWeatherServiceProvider:
                     'properties': {
                         'id': 'urn:oid:2.49.0.1.840.0.12345',
                         'event': 'Severe Thunderstorm Warning',
-                        'headline': 'Severe Thunderstorm Warning issued for Cook County',
+                        'headline': 'Severe Thunderstorm Warning issued for Cook',
                         'description': 'Large hail and damaging winds expected',
                         'severity': 'Severe',
                         'certainty': 'Likely',
@@ -104,7 +111,7 @@ class TestNationalWeatherServiceProvider:
         """Test NWS provider initialization"""
         assert nws_provider.name == 'NationalWeatherService'
         assert nws_provider.base_url == 'https://api.weather.gov'
-        assert nws_provider.timeout == 10
+        assert nws_provider.timeout == PROVIDER_TIMEOUT
         assert 'WeatherDashboard' in nws_provider.user_agent
 
     @patch('weather_providers.requests.get')
@@ -141,11 +148,11 @@ class TestNationalWeatherServiceProvider:
         assert 'forecast' in result
         assert 'grid_info' in result
         assert result['grid_info']['office'] == 'LOT'
-        assert result['grid_info']['x'] == 75
-        assert result['grid_info']['y'] == 73
+        assert result['grid_info']['x'] == NWS_GRID_X
+        assert result['grid_info']['y'] == NWS_GRID_Y
 
         # Verify API calls were made with correct parameters
-        assert mock_get.call_count == 3
+        assert mock_get.call_count == EXPECTED_API_CALLS
 
         # Verify points API call
         points_call = mock_get.call_args_list[0]
@@ -268,19 +275,16 @@ class TestNationalWeatherServiceProvider:
 
         # Check alerts processing
         alerts = result['alerts']
-        assert alerts['active_count'] == 2
+        assert alerts['active_count'] == EXPECTED_ALERT_COUNT
         assert alerts['has_warnings'] is True  # Has Severe alert
-        assert len(alerts['alerts']) == 2
+        assert len(alerts['alerts']) == EXPECTED_ALERT_COUNT
 
         # Check first alert (Severe Thunderstorm Warning)
         severe_alert = alerts['alerts'][0]
         assert severe_alert['type'] == 'Severe Thunderstorm Warning'
         assert severe_alert['severity'] == 'Severe'
         assert severe_alert['color'] == '#FF0000'  # Red for severe
-        assert (
-            severe_alert['headline']
-            == 'Severe Thunderstorm Warning issued for Cook County'
-        )
+        assert severe_alert['headline'] == 'Severe Thunderstorm Warning issued for Cook'
         assert severe_alert['areas'] == 'Cook County, IL'
 
         # Check second alert (Winter Weather Advisory)
@@ -294,7 +298,7 @@ class TestNationalWeatherServiceProvider:
         assert forecast['source'] == 'National Weather Service'
         assert len(forecast['periods']) == 1
         assert forecast['periods'][0]['name'] == 'Tonight'
-        assert forecast['periods'][0]['temperature'] == 42
+        assert forecast['periods'][0]['temperature'] == FORECAST_TEMP
 
     def test_process_weather_data_no_alerts(
         self,
@@ -405,7 +409,7 @@ class TestNationalWeatherServiceProvider:
         assert result is not None
         assert result['provider'] == 'NationalWeatherService'
         assert result['location_name'] == 'Chicago'
-        assert result['alerts']['active_count'] == 2
+        assert result['alerts']['active_count'] == EXPECTED_ALERT_COUNT
         assert result['alerts']['has_warnings'] is True
 
     @patch('weather_providers.requests.get')
@@ -428,5 +432,5 @@ class TestNationalWeatherServiceProvider:
         info = nws_provider.get_provider_info()
 
         assert info['name'] == 'NationalWeatherService'
-        assert info['timeout'] == 10
+        assert info['timeout'] == PROVIDER_TIMEOUT
         assert 'weather alerts' in info['description']
