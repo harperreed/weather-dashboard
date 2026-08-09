@@ -19,8 +19,11 @@ COPY pyproject.toml ./
 # Install UV
 RUN pip install uv
 
+# Create virtual environment
+RUN python -m venv /opt/venv
+
 # Install dependencies
-RUN uv pip install --system --compile-bytecode .
+RUN uv pip install --python /opt/venv/bin/python --compile-bytecode .
 
 # Production stage
 FROM python:3.13-slim-bookworm
@@ -38,9 +41,8 @@ RUN groupadd --gid 1000 app && \
 # Set working directory
 WORKDIR /app
 
-# Copy Python packages from builder
-COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+# Copy Python environment from builder
+COPY --from=builder /opt/venv /opt/venv
 
 # Copy application code
 COPY --chown=app:app . .
@@ -49,6 +51,7 @@ COPY --chown=app:app . .
 USER app
 
 # Set environment variables
+ENV PATH="/opt/venv/bin:$PATH"
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
