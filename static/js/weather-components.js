@@ -84,6 +84,22 @@ function getWeatherIconSmall(iconCode) {
     return getWeatherIcon(iconCode, '2.25rem');
 }
 
+function formatDailyTemperatureRange(daily) {
+    const today = daily?.[0];
+    if (!Number.isFinite(today?.h) || !Number.isFinite(today?.l)) {
+        return null;
+    }
+
+    return {
+        text: `H ${today.h}° · L ${today.l}°`,
+        ariaLabel: `Today's high ${today.h} degrees, low ${today.l} degrees.`
+    };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports = { formatDailyTemperatureRange };
+}
+
 // Helper function to determine if an hour is day/night/twilight
 function getTimeOfDay(hourString, sunData) {
     if (!sunData) return 'day';
