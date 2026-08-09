@@ -42,9 +42,10 @@ placeholders. No error message will appear when the range is unavailable.
 
 A Node built-in unit test, launched by pytest, will test the real JavaScript
 formatter with normal, zero, negative, missing, and invalid values. This adds
-no npm dependency or browser test framework. The existing weather API
-integration test will assert that today's high and low survive the server
-response unchanged.
+no npm dependency or browser test framework. A provider-to-formatter
+integration test will run the production Open-Meteo transformation and pass
+its result into the production JavaScript formatter. It will not extend the
+existing API tests that replace the weather manager with a mock.
 
 Manual verification will use the existing `test_components.html` harness to
 check the rendered Shadow DOM, the missing-data state, and theme readability.
