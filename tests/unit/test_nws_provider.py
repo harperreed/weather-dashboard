@@ -456,6 +456,40 @@ class TestNationalWeatherServiceProvider:
         assert mock_get.call_count == EXPECTED_API_CALLS
 
     @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_rejects_malformed_forecast_period(
+        self,
+        mock_get: MagicMock,
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_alerts_response: dict[str, Any],
+    ) -> None:
+        """Test malformed forecast periods do not discard valid alerts"""
+        malformed_forecast = {'properties': {'periods': [None]}}
+        mock_responses = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_alerts_response)
+            ),
+            MagicMock(status_code=200, json=MagicMock(return_value=malformed_forecast)),
+        ]
+        mock_get.side_effect = mock_responses * 2
+
+        processed = nws_provider.get_weather(CHICAGO_LAT, CHICAGO_LON, 'Chicago')
+
+        assert processed is not None
+        assert processed['alerts']['active_count'] == EXPECTED_ALERT_COUNT
+        assert processed['forecast']['periods'] == []
+
+        result = nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert result is not None
+        assert result['alerts'] == mock_alerts_response
+        assert result['forecast'] is None
+        assert mock_get.call_count == EXPECTED_API_CALLS * 2
+
+    @patch('weather_providers.requests.get')
     def test_fetch_weather_data_forecast_programmer_error(
         self,
         mock_get: MagicMock,

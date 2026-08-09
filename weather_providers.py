@@ -1875,8 +1875,13 @@ class NationalWeatherServiceProvider(WeatherProvider):
                         if isinstance(parsed_forecast, dict)
                         else None
                     )
-                    if isinstance(forecast_properties, dict) and isinstance(
-                        forecast_properties.get('periods'), list
+                    forecast_periods = (
+                        forecast_properties.get('periods')
+                        if isinstance(forecast_properties, dict)
+                        else None
+                    )
+                    if isinstance(forecast_periods, list) and all(
+                        isinstance(period, dict) for period in forecast_periods
                     ):
                         forecast_data = parsed_forecast
                     else:
