@@ -60,6 +60,8 @@
             <div class="test-title">Test Data</div>
             <div class="test-controls">
                 <button onclick="loadTestData()">Load Test Data</button>
+                <button onclick="loadFreezingRange()">Load Freezing Range</button>
+                <button onclick="loadMissingRange()">Load Missing Range</button>
                 <button onclick="testError()">Test Error State</button>
                 <button onclick="testWidgetVisibility()">Test Widget Visibility</button>
             </div>
@@ -126,6 +128,24 @@
         function loadTestData() {
             const event = new CustomEvent('weather-data-updated', { detail: testData });
             document.dispatchEvent(event);
+        }
+
+        function loadFreezingRange() {
+            const freezingData = {
+                ...testData,
+                daily: [{ ...testData.daily[0], h: 0, l: -12 }]
+            };
+            document.dispatchEvent(
+                new CustomEvent('weather-data-updated', { detail: freezingData })
+            );
+        }
+
+        function loadMissingRange() {
+            document.dispatchEvent(
+                new CustomEvent('weather-data-updated', {
+                    detail: { ...testData, daily: [] }
+                })
+            );
         }
 
         function testError() {
