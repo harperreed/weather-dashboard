@@ -466,9 +466,12 @@ class CurrentWeatherWidget extends WeatherWidget {
             ${this.getSharedStyles()}
 
             <div class="current-widget widget-content">
-                <div class="temp-display">
-                    <div class="temperature" id="temp">--°</div>
-                    <div class="weather-icon" id="icon">⏳</div>
+                <div class="current-temperature">
+                    <div class="temp-display">
+                        <div class="temperature" id="temp">--°</div>
+                        <div class="weather-icon" id="icon">⏳</div>
+                    </div>
+                    <div class="daily-range" id="daily-range" hidden></div>
                 </div>
 
                 <div class="feels-like" id="feels-like">LOADING...</div>
@@ -506,6 +509,17 @@ class CurrentWeatherWidget extends WeatherWidget {
         this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
         this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '6rem');
 
+        const dailyRangeEl = this.shadowRoot.getElementById('daily-range');
+        const dailyRange = formatDailyTemperatureRange(this.data.daily);
+        dailyRangeEl.textContent = '';
+        dailyRangeEl.removeAttribute('aria-label');
+        dailyRangeEl.hidden = true;
+        if (dailyRange) {
+            dailyRangeEl.textContent = dailyRange.text;
+            dailyRangeEl.setAttribute('aria-label', dailyRange.ariaLabel);
+            dailyRangeEl.hidden = false;
+        }
+
         const wetbulbTemp = calculateWetbulbTemp(current.temperature, current.humidity);
         this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}° • WETBULB ${wetbulbTemp}°`;
 
@@ -537,6 +551,10 @@ class CurrentWeatherWidget extends WeatherWidget {
         this.hideError();
         this.hideLoading();
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.CurrentWeatherWidget = CurrentWeatherWidget;
 }
 
 // Hourly Forecast Component
