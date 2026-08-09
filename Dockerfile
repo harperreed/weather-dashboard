@@ -13,17 +13,18 @@ RUN apt-get update && apt-get install -y \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy requirements
-COPY pyproject.toml ./
+# Copy dependency metadata
+COPY pyproject.toml uv.lock ./
 
 # Install UV
-RUN pip install uv
+RUN pip install uv==0.9.25
 
 # Create virtual environment
 RUN python -m venv /opt/venv
+ENV VIRTUAL_ENV=/opt/venv
 
 # Install dependencies
-RUN uv pip install --python /opt/venv/bin/python --compile-bytecode .
+RUN uv sync --active --locked --no-dev --no-install-project --compile-bytecode
 
 # Production stage
 FROM python:3.13-slim-bookworm
