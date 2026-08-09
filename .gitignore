@@ -16,3 +16,4 @@ tests/report.html
 htmlcov/
 .coverage
 .pytest_cache/
+.scratch/
