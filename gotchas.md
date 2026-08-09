@@ -1,6 +1,8 @@
 # Gotchas
 
-- PR #24's nine commits already exist on `main` as patch-equivalent commits; close it rather than merge it.
-- Keep Docker's copied `site-packages` path aligned with both Python base-image stages. The current 3.13 image still names the old 3.10 path and cannot build.
-- The NWS `/alerts/active` endpoint rejects the `limit` query parameter. Preserve upstream failures as errors; never cache them as a valid zero-alert result.
+- PR #24's nine commits already exist on `main` as patch-equivalent commits; it was closed as superseded on 2026-08-08.
+- Docker dependencies live in a locked `/opt/venv` copied between identical Python base images. Keep both stage images aligned and keep production installs tied to `uv.lock`.
+- Audit this project's environment with `uv run --locked --with pip-audit pip-audit`; `uvx pip-audit` audits its isolated tool environment and can give a false clean result.
+- NWS `/alerts/active` accepts the `point` and `status` filters used here, but rejects `limit`. Validate alert response shape and preserve upstream failures as errors; never cache them as a valid zero-alert result.
+- Unknown-city paths contain user input. Keep their 404 responses in a plain-text context unless a template escapes the value explicitly.
 - Parse location once for the whole page. Independent widget defaults currently mix data from several cities on one route.

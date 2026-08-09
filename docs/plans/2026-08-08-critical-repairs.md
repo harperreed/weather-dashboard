@@ -10,6 +10,17 @@
 
 ---
 
+## Execution status
+
+Implemented on `wip/critical-repairs`. The repair tasks and their task-level
+reviews are complete. Fresh verification recorded 284 passing tests at 83%
+coverage, a successful no-cache Docker build and container health request, a
+live NWS HTTP 200 response using only `point` and `status`, and an inert
+plain-text XSS reproduction. The existing project backlog remains at 27 Ruff
+errors and 18 MyPy errors outside this repair diff. A full lock refresh updated
+35 packages, added 3, removed 1, and reduced the project dependency audit from
+20 advisories across 12 packages to zero.
+
 ### Task 1: Make unknown-city errors inert
 
 **Files:**
@@ -265,7 +276,7 @@ uv run pytest
 uvx --from ruff==0.6.4 ruff check .
 uv run mypy . --ignore-missing-imports
 uv run bandit -r main.py weather_providers.py
-uvx --from pip-audit pip-audit
+uv run --locked --with pip-audit pip-audit
 ```
 
 Expected: the full tests pass, security and dependency checks pass, and Ruff
