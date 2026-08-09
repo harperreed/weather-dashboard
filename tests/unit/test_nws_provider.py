@@ -584,7 +584,7 @@ class TestNationalWeatherServiceProvider:
     ) -> None:
         """Test processing weather data with no alerts"""
 
-        raw_data = {
+        raw_data: dict[str, Any] = {
             'points': mock_points_response,
             'alerts': {'features': []},
             'forecast': None,
