@@ -1833,7 +1833,6 @@ class NationalWeatherServiceProvider(WeatherProvider):
             alerts_params: dict[str, str | int] = {
                 'point': f'{lat:.4f},{lon:.4f}',
                 'status': 'actual',
-                'limit': 20,
             }
 
             alerts_response = requests.get(
@@ -1844,7 +1843,8 @@ class NationalWeatherServiceProvider(WeatherProvider):
             if alerts_response.status_code == 200:  # noqa: PLR2004
                 alerts_data = alerts_response.json()
             else:
-                print(f'⚠️  NWS alerts API returned {alerts_response.status_code}')
+                print(f'❌ NWS alerts API returned {alerts_response.status_code}')
+                return None
 
             # Get current conditions and forecast (optional)
             forecast_url = (
@@ -2408,8 +2408,8 @@ class FreeRadarProvider(WeatherProvider):
 
     def fetch_weather_data(
         self,
-        lat: float,
-        lon: float,
+        lat: float,  # noqa: ARG002
+        lon: float,  # noqa: ARG002
         tz_name: str | None = None,  # noqa: ARG002
     ) -> dict | None:
         """Fetch radar tile URLs and timestamps using free RainViewer API"""
@@ -2466,7 +2466,7 @@ class FreeRadarProvider(WeatherProvider):
         self,
         raw_data: dict,
         location_name: str | None = None,
-        tz_name: str | None = None,
+        tz_name: str | None = None,  # noqa: ARG002
     ) -> dict | None:
         """Process radar data into a format suitable for the frontend"""
         if not raw_data:
@@ -2621,6 +2621,10 @@ class LunarDataProvider(WeatherProvider):
     SYNODIC_MONTH = 29.53058770576  # Average lunar cycle length in days
     NEW_MOON_REFERENCE = 2451549.5  # Julian day of known new moon (Jan 6, 2000)
     LUNAR_MONTH_SECONDS = SYNODIC_MONTH * 24 * 3600  # Synodic month in seconds
+    GREGORIAN_MONTH_ADJUSTMENT_THRESHOLD = 2
+    GREGORIAN_CALENDAR_START_JULIAN_DAY = 2_299_161
+    JULIAN_MONTH_PIVOT = 13
+    SINGLE_DAY_COUNTDOWN_LIMIT = 2
 
     def __init__(self) -> None:
         super().__init__('LunarDataProvider')
@@ -2637,7 +2641,7 @@ class LunarDataProvider(WeatherProvider):
 
     def process_weather_data(
         self,
-        raw_data: dict[str, Any],
+        raw_data: dict[str, Any],  # noqa: ARG002
         location_name: str | None = None,
         tz_name: str | None = None,
     ) -> dict[str, Any] | None:
@@ -2728,7 +2732,7 @@ class LunarDataProvider(WeatherProvider):
         second = dt.second + dt.microsecond / 1_000_000
 
         # Julian Day algorithm
-        if month <= 2:
+        if month <= self.GREGORIAN_MONTH_ADJUSTMENT_THRESHOLD:
             year -= 1
             month += 12
 
@@ -2777,7 +2781,11 @@ class LunarDataProvider(WeatherProvider):
 
         return max(0.0, min(1.0, illumination))
 
-    def _get_phase_name(self, lunar_age: float, illumination: float) -> str:
+    def _get_phase_name(  # noqa: PLR0911
+        self,
+        lunar_age: float,
+        illumination: float,  # noqa: ARG002
+    ) -> str:
         """Determine the name of the current moon phase"""
         # Phase boundaries in days (approximate)
         new_moon_threshold = 1.0
@@ -2848,7 +2856,7 @@ class LunarDataProvider(WeatherProvider):
         julian_day_int = int(julian_day + 0.5)
         fractional_day = julian_day + 0.5 - julian_day_int
 
-        if julian_day_int >= 2299161:  # Gregorian calendar
+        if julian_day_int >= self.GREGORIAN_CALENDAR_START_JULIAN_DAY:
             alpha = int((julian_day_int - 1867216.25) / 36524.25)
             beta = julian_day_int + 1 + alpha - int(alpha / 4)
         else:  # Julian calendar
@@ -2860,8 +2868,12 @@ class LunarDataProvider(WeatherProvider):
         zeta = int((gamma - epsilon) / 30.6001)
 
         day = gamma - epsilon - int(30.6001 * zeta)
-        month = zeta - 1 if zeta <= 13 else zeta - 13
-        year = delta - 4716 if month > 2 else delta - 4715
+        month = zeta - 1 if zeta <= self.JULIAN_MONTH_PIVOT else zeta - 13
+        year = (
+            delta - 4716
+            if month > self.GREGORIAN_MONTH_ADJUSTMENT_THRESHOLD
+            else delta - 4715
+        )
 
         # Convert fractional day to time
         total_seconds = fractional_day * 24 * 3600
@@ -2879,7 +2891,7 @@ class LunarDataProvider(WeatherProvider):
         if days < 1:
             hours = int(days * 24)
             return f'{hours} hours'
-        if days < 2:
+        if days < self.SINGLE_DAY_COUNTDOWN_LIMIT:
             return '1 day'
         return f'{int(days)} days'
 
@@ -2888,14 +2900,21 @@ class LunarDataProvider(WeatherProvider):
         illumination_percent = int(illumination * 100)
 
         descriptions = {
-            'New Moon': 'The moon is not visible, creating dark skies perfect for stargazing',
-            'Waxing Crescent': f'A thin crescent moon is growing brighter ({illumination_percent}% illuminated)',
+            'New Moon': (
+                'The moon is not visible, creating dark skies perfect for stargazing'
+            ),
+            'Waxing Crescent': (
+                f'A thin crescent moon is growing brighter '
+                f'({illumination_percent}% illuminated)'
+            ),
             'First Quarter': 'Half of the moon is illuminated, rising around noon',
             'Waxing Gibbous': (
                 f'More than half illuminated and growing brighter '
                 f'({illumination_percent}%)'
             ),
-            'Full Moon': 'The moon is fully illuminated, rising at sunset and setting at sunrise',
+            'Full Moon': (
+                'The moon is fully illuminated, rising at sunset and setting at sunrise'
+            ),
             'Waning Gibbous': (
                 f'More than half illuminated but decreasing '
                 f'({illumination_percent}%)'
