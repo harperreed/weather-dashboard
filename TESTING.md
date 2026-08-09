@@ -41,6 +41,8 @@ pip install -e .[test]
 pip install pytest pytest-flask pytest-cov pytest-mock requests-mock pytest-html
 ```
 
+Frontend JavaScript unit tests require Node.js to be available as the `node` command. They use Node's built-in test runner, so no npm packages are required.
+
 ### Verify Installation
 
 ```bash
