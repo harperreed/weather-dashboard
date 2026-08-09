@@ -6,3 +6,4 @@
 - NWS `/alerts/active` accepts the `point` and `status` filters used here, but rejects `limit`. Validate alert response shape and preserve upstream failures as errors; never cache them as a valid zero-alert result.
 - Unknown-city paths contain user input. Keep their 404 responses in a plain-text context unless a template escapes the value explicitly.
 - Parse location once for the whole page. Independent widget defaults currently mix data from several cities on one route.
+- Frontend JavaScript unit tests run through pytest and require `node` on `PATH`; they use Node's built-in test runner and need no npm packages.

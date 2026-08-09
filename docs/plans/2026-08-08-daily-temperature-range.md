@@ -8,6 +8,14 @@
 
 **Tech Stack:** Native JavaScript Web Components, Shadow DOM, CSS, Node `node:test`, Python, pytest, Flask/Open-Meteo provider transformation.
 
+**Status:** Implemented and verified on `wip/daily-high-low-impl` at `bd5a922`.
+
+**Next step:** Choose how to integrate the implementation branch.
+
+**Verification:** 286 pytest tests pass at 83% coverage; five Node tests, JavaScript syntax, targeted Ruff checks, and real-browser scenarios pass. Full MyPy matches the pre-feature 23-error baseline when run with `--no-strict-optional`.
+
+**Compaction count:** 1
+
 ---
 
 ### Task 1: Define the formatter contract
