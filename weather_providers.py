@@ -1796,7 +1796,7 @@ class NationalWeatherServiceProvider(WeatherProvider):
             'WeatherDashboard/1.0 (https://github.com/user/weather-dashboard)'
         )
 
-    def fetch_weather_data(
+    def fetch_weather_data(  # noqa: PLR0911
         self,
         lat: float,
         lon: float,
@@ -1817,7 +1817,14 @@ class NationalWeatherServiceProvider(WeatherProvider):
                 return None
 
             points_data = points_response.json()
-            properties = points_data.get('properties', {})
+            if not isinstance(points_data, dict):
+                print('❌ NWS points API returned malformed data')
+                return None
+
+            properties = points_data.get('properties')
+            if not isinstance(properties, dict):
+                print('❌ NWS points API returned malformed data')
+                return None
 
             # Extract grid info for forecast
             grid_office = properties.get('cwa')
@@ -1862,7 +1869,18 @@ class NationalWeatherServiceProvider(WeatherProvider):
                 )
 
                 if forecast_response.status_code == 200:  # noqa: PLR2004
-                    forecast_data = forecast_response.json()
+                    parsed_forecast = forecast_response.json()
+                    forecast_properties = (
+                        parsed_forecast.get('properties')
+                        if isinstance(parsed_forecast, dict)
+                        else None
+                    )
+                    if isinstance(forecast_properties, dict) and isinstance(
+                        forecast_properties.get('periods'), list
+                    ):
+                        forecast_data = parsed_forecast
+                    else:
+                        print('⚠️  NWS forecast API returned malformed data')
                 else:
                     print(
                         f'⚠️  NWS forecast API returned '
