@@ -11,7 +11,7 @@ from typing import Any
 try:
     import zoneinfo
 except ImportError:
-    from backports import zoneinfo  # type: ignore[attr-defined,no-redef,unused-ignore]
+    import backports.zoneinfo as zoneinfo  # type: ignore[no-redef]  # noqa: PLR0402
 
 import requests
 
