@@ -479,7 +479,7 @@ def index() -> str:
 
 
 @app.route('/<city>')
-def weather_by_city(city: str) -> str | tuple[str, int]:
+def weather_by_city(city: str) -> str | Response:
     """Weather page for common cities"""
     city_lower = city.lower()
     if city_lower in CITY_COORDS:
@@ -502,9 +502,11 @@ def weather_by_city(city: str) -> str | tuple[str, int]:
         except ValueError:
             pass
 
-    return (
-        f"City '{city}' not found. Available cities: {', '.join(CITY_COORDS.keys())}"
-    ), 404
+    return Response(
+        f"City '{city}' not found. Available cities: {', '.join(CITY_COORDS.keys())}",
+        status=404,
+        mimetype='text/plain',
+    )
 
 
 @app.route('/<coords>', methods=['GET'])

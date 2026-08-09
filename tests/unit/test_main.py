@@ -184,6 +184,13 @@ class TestFlaskRoutes:
         assert response.status_code == HTTP_NOT_FOUND
         assert b'not found' in response.data
 
+    def test_weather_by_city_route_invalid_is_plain_text(self, client: Any) -> None:
+        """Test invalid city responses cannot execute injected markup"""
+        response = client.get('/%3Cimg%20src=x%20onerror=alert(1)%3E')
+
+        assert response.status_code == HTTP_NOT_FOUND
+        assert response.content_type == 'text/plain; charset=utf-8'
+
     def test_static_files_route(self, client: Any) -> None:
         """Test static files route"""
         response = client.get('/static/js/weather-components.js')
