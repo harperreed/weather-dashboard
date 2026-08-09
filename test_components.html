@@ -133,7 +133,7 @@
         function loadFreezingRange() {
             const freezingData = {
                 ...testData,
-                daily: [{ ...testData.daily[0], h: 0, l: -12 }]
+                daily: [{ ...testData.daily[0], h: 0, l: -12 }, ...testData.daily.slice(1)]
             };
             document.dispatchEvent(
                 new CustomEvent('weather-data-updated', { detail: freezingData })
