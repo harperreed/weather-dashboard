@@ -237,6 +237,60 @@ class TestNationalWeatherServiceProvider:
         assert result is None
         assert mock_get.call_count == EXPECTED_ALERT_FAILURE_API_CALLS
 
+    @pytest.mark.parametrize('alerts_data', [{}, {'features': {}}])
+    @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_rejects_malformed_alerts(
+        self,
+        mock_get: MagicMock,
+        alerts_data: dict[str, Any],
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_forecast_response: dict[str, Any],
+    ) -> None:
+        """Test fetch weather data when the alerts payload has an invalid shape"""
+
+        mock_get.side_effect = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(status_code=200, json=MagicMock(return_value=alerts_data)),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_forecast_response)
+            ),
+        ]
+
+        result = nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert result is None
+        assert mock_get.call_count == EXPECTED_ALERT_FAILURE_API_CALLS
+
+    @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_accepts_empty_alerts(
+        self,
+        mock_get: MagicMock,
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_forecast_response: dict[str, Any],
+    ) -> None:
+        """Test fetch weather data when no alerts are active"""
+        empty_alerts = {'type': 'FeatureCollection', 'features': []}
+        mock_get.side_effect = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(status_code=200, json=MagicMock(return_value=empty_alerts)),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_forecast_response)
+            ),
+        ]
+
+        result = nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert result is not None
+        assert result['alerts'] == empty_alerts
+        assert result['forecast'] == mock_forecast_response
+        assert mock_get.call_count == EXPECTED_API_CALLS
+
     @patch('weather_providers.requests.get')
     def test_fetch_weather_data_forecast_failure(
         self,
@@ -266,6 +320,84 @@ class TestNationalWeatherServiceProvider:
         assert result['alerts'] == mock_alerts_response
         assert result['forecast'] is None
         assert result['grid_info']['office'] == 'LOT'
+
+    @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_forecast_timeout(
+        self,
+        mock_get: MagicMock,
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_alerts_response: dict[str, Any],
+    ) -> None:
+        """Test fetch weather data when the optional forecast request times out"""
+        mock_get.side_effect = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_alerts_response)
+            ),
+            requests.Timeout('Forecast timed out'),
+        ]
+
+        result = nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert result is not None
+        assert result['alerts'] == mock_alerts_response
+        assert result['forecast'] is None
+        assert mock_get.call_count == EXPECTED_API_CALLS
+
+    @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_forecast_invalid_json(
+        self,
+        mock_get: MagicMock,
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_alerts_response: dict[str, Any],
+    ) -> None:
+        """Test fetch weather data when the optional forecast JSON is invalid"""
+        invalid_forecast_response = MagicMock(status_code=200)
+        invalid_forecast_response.json.side_effect = ValueError('Invalid JSON')
+        mock_get.side_effect = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_alerts_response)
+            ),
+            invalid_forecast_response,
+        ]
+
+        result = nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert result is not None
+        assert result['alerts'] == mock_alerts_response
+        assert result['forecast'] is None
+        assert mock_get.call_count == EXPECTED_API_CALLS
+
+    @patch('weather_providers.requests.get')
+    def test_fetch_weather_data_forecast_programmer_error(
+        self,
+        mock_get: MagicMock,
+        nws_provider: NationalWeatherServiceProvider,
+        mock_points_response: dict[str, Any],
+        mock_alerts_response: dict[str, Any],
+    ) -> None:
+        """Test unexpected forecast errors are not hidden"""
+        mock_get.side_effect = [
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_points_response)
+            ),
+            MagicMock(
+                status_code=200, json=MagicMock(return_value=mock_alerts_response)
+            ),
+            RuntimeError('Programmer error'),
+        ]
+
+        with pytest.raises(RuntimeError, match='Programmer error'):
+            nws_provider.fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        assert mock_get.call_count == EXPECTED_API_CALLS
 
     @patch('weather_providers.requests.get')
     def test_fetch_weather_data_network_error(

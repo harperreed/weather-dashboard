@@ -1839,30 +1839,41 @@ class NationalWeatherServiceProvider(WeatherProvider):
                 alerts_url, params=alerts_params, headers=headers, timeout=self.timeout
             )
 
-            alerts_data = None
             if alerts_response.status_code == 200:  # noqa: PLR2004
                 alerts_data = alerts_response.json()
             else:
                 print(f'❌ NWS alerts API returned {alerts_response.status_code}')
                 return None
 
+            if not isinstance(alerts_data, dict) or not isinstance(
+                alerts_data.get('features'), list
+            ):
+                print('❌ NWS alerts API returned malformed data')
+                return None
+
             # Get current conditions and forecast (optional)
             forecast_url = (
                 f'{self.base_url}/gridpoints/{grid_office}/{grid_x},{grid_y}/forecast'
             )
-            forecast_response = requests.get(
-                forecast_url, headers=headers, timeout=self.timeout
-            )
-
             forecast_data = None
-            if forecast_response.status_code == 200:  # noqa: PLR2004
-                forecast_data = forecast_response.json()
-            else:
-                print(f'⚠️  NWS forecast API returned {forecast_response.status_code}')
+            try:
+                forecast_response = requests.get(
+                    forecast_url, headers=headers, timeout=self.timeout
+                )
+
+                if forecast_response.status_code == 200:  # noqa: PLR2004
+                    forecast_data = forecast_response.json()
+                else:
+                    print(
+                        f'⚠️  NWS forecast API returned '
+                        f'{forecast_response.status_code}'
+                    )
+            except (requests.RequestException, ValueError) as e:
+                print(f'⚠️  NWS forecast API error: {str(e)}')
 
             print(f'🏛️  NWS API: Grid {grid_office}/{grid_x},{grid_y}')
 
-        except Exception as e:
+        except (requests.RequestException, ValueError) as e:
             print(f'❌ NWS API error: {str(e)}')
             return None
         else:

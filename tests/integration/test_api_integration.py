@@ -719,6 +719,7 @@ class TestWeatherAlertsAPIIntegration:
         # Should still provide empty alerts structure
         assert 'alerts' in data
         assert data['alerts']['active_count'] == 0
+        mock_cache.__setitem__.assert_not_called()
 
     def test_weather_alerts_api_default_location(self, client: FlaskClient) -> None:
         """Test weather alerts API with default location (Chicago)"""
