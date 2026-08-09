@@ -110,7 +110,9 @@ test('returns null for incomplete or non-numeric ranges', () => {
         [{ h: 77 }],
         [{ l: 65 }],
         [{ h: '77', l: 65 }],
-        [{ h: 77, l: Number.NaN }]
+        [{ h: 77, l: Number.NaN }],
+        [{ h: Number.POSITIVE_INFINITY, l: 65 }],
+        [{ h: 77, l: Number.NEGATIVE_INFINITY }]
     ];
 
     invalidDailyData.forEach((daily) => {
