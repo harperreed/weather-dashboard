@@ -52,6 +52,7 @@ USER app
 
 # Set environment variables
 ENV PATH="/opt/venv/bin:$PATH"
+ENV HOST=0.0.0.0
 ENV FLASK_ENV=production
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
