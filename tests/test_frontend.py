@@ -28,17 +28,17 @@ class TestFrontendIntegration:
         )
         assert 'const theme = urlParams.get' not in html
 
-    def test_service_worker_uses_v3_cache_names_for_component_release(
+    def test_service_worker_uses_v4_cache_names_for_spacing_release(
         self, client
     ) -> None:
         source = client.get('/sw.js').get_data(as_text=True)
         static_files = source.split('const STATIC_FILES = [', 1)[1].split('];', 1)[0]
 
         assert "'/static/js/dashboard-config.js'" in static_files
-        assert "const CACHE_NAME = 'weather-dashboard-v3';" in source
-        assert "const STATIC_CACHE_NAME = 'weather-dashboard-static-v3';" in source
-        assert 'weather-dashboard-v2' not in source
-        assert 'weather-dashboard-static-v2' not in source
+        assert "const CACHE_NAME = 'weather-dashboard-v4';" in source
+        assert "const STATIC_CACHE_NAME = 'weather-dashboard-static-v4';" in source
+        assert 'weather-dashboard-v3' not in source
+        assert 'weather-dashboard-static-v3' not in source
 
     def test_shadow_dom_eink_selectors_target_widget_hosts(self) -> None:
         project_root = os.path.join(os.path.dirname(__file__), '..')

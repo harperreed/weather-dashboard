@@ -290,12 +290,6 @@ class WeatherWidget extends HTMLElement {
                     margin-bottom: 0.5rem !important;
                 }
 
-                :host([data-theme="eink"]) .summary {
-                    font-size: 2rem !important;
-                    font-weight: 900 !important;
-                    margin-bottom: 1.5rem !important;
-                }
-
                 :host([data-theme="eink"]) .detail-value {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;

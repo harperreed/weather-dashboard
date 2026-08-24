@@ -238,3 +238,47 @@ test('returns null for incomplete or non-numeric ranges', () => {
         assert.equal(formatDailyTemperatureRange(daily), null);
     });
 });
+
+test('eInk page uses the full layout width with an 8px gutter', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const containerRule = template.match(
+        /\[data-theme="eink"\] \.weather-container\s*\{[^}]*\}/s
+    )?.[0] || '';
+
+    assert.match(containerRule, /max-width:\s*none;/);
+    assert.match(containerRule, /width:\s*100%;/);
+    assert.match(containerRule, /padding:\s*0\.5rem;/);
+    assert.match(containerRule, /box-sizing:\s*border-box;/);
+    assert.doesNotMatch(containerRule, /100vw/);
+    assert.doesNotMatch(
+        template,
+        /@media \(max-width: 390px\)[\s\S]*?\[data-theme="eink"\] \.weather-container/
+    );
+});
+
+test('eInk summary owns one compact gap before the detail cards', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.summary\s*\{[^}]*margin-bottom:\s*0\.5rem;/s
+    );
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*margin-top:\s*0;/s
+    );
+    assert.doesNotMatch(
+        components,
+        /:host\(\[data-theme="eink"\]\) \.summary\s*\{/
+    );
+});

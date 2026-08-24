@@ -148,16 +148,10 @@
 
         /* eInk theme - full viewport width for high-contrast displays */
         [data-theme="eink"] .weather-container {
-            max-width: 100vw;
-            width: 100vw;
-            padding: 1.25rem 2rem;
+            max-width: none;
+            width: 100%;
+            padding: 0.5rem;
             box-sizing: border-box;
-        }
-
-        @media (max-width: 390px) {
-            [data-theme="eink"] .weather-container {
-                padding: 1.25rem 1rem;
-            }
         }
     </style>
 </head>
