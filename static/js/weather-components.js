@@ -537,6 +537,26 @@ class HourlyForecastWidget extends WeatherWidget {
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
+        this.setupChartResizeObserver();
+    }
+
+    setupChartResizeObserver() {
+        this.chartResizeObserver?.disconnect();
+        this.chartResizeObserver = null;
+
+        const svg = this.shadowRoot?.getElementById?.('hourly-chart');
+        if (typeof ResizeObserver === 'undefined' || !svg) return;
+
+        this.chartResizeObserver = new ResizeObserver(() => {
+            if (!this.data || this.config.hourly === false) return;
+            this.drawTemperatureChart(this.data.hourly.slice(0, 12));
+        });
+        this.chartResizeObserver.observe(svg);
+    }
+
+    disconnectedCallback() {
+        this.chartResizeObserver?.disconnect();
+        this.chartResizeObserver = null;
     }
 
     update() {

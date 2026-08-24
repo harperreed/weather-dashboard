@@ -58,12 +58,24 @@ Run the two dependency-free Node suites directly:
 ```bash
 node --test tests/js/current-weather-range.test.js
 node --test tests/js/dashboard-config.test.js
+node --test tests/js/hourly-forecast-layout.test.js
 ```
 
 For browser checks, open `test_components.html` and verify that valid data shows
 separate High and Low values, the freezing scenario keeps `0°` and `-12°`, and
 the missing scenario hides the range. Use the blue, light, and eInk links, then
 open the catalog selection link to confirm it uses only canonical widget IDs.
+
+### Hourly forecast layout
+
+Verify the hourly chart and forecast cells in these browser cases:
+
+- Blue theme at 390x844: `http://127.0.0.1:5001/chicago`
+- eInk theme at 390x844: `http://127.0.0.1:5001/chicago?theme=eink`
+- eInk theme at 800x480: `http://127.0.0.1:5001/chicago?theme=eink`
+
+In each case, confirm the page, chart, and hourly row fit without horizontal
+scrolling, and each chart point centers above its matching forecast cell.
 
 ### Basic Test Execution
 

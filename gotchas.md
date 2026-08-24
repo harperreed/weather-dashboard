@@ -9,3 +9,4 @@
 - Frontend JavaScript unit tests run through pytest and require `node` on `PATH`; they use Node's built-in test runner and need no npm packages.
 - The widget catalog is the only source for widget URL names; do not recreate aliases or host mappings in components.
 - Public theme names are `blue|light|eink`; normalize legacy aliases before applying any styles.
+- Keep the hourly chart, temperatures, icons, and times on the same centers for the actual number of rendered hours. Separate flex rows produce different widths and independent scroll positions, especially in eInk.

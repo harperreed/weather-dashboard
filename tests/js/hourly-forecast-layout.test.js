@@ -56,7 +56,55 @@ test('renders time inside each hourly cell without a second time row', () => {
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
 });
 
-test('uses a responsive external eInk time label without an inline override', () => {
+test('redraws current forecast hours when the rendered chart box changes size', (t) => {
+    const originalResizeObserver = global.ResizeObserver;
+    const observers = [];
+    const chart = {};
+    const hourly = Array.from({ length: 13 }, (_, index) => ({ temp: index }));
+
+    global.ResizeObserver = class {
+        constructor(callback) {
+            this.callback = callback;
+            this.disconnected = false;
+            observers.push(this);
+        }
+
+        observe(target) {
+            this.target = target;
+        }
+
+        disconnect() {
+            this.disconnected = true;
+        }
+    };
+    t.after(() => {
+        global.ResizeObserver = originalResizeObserver;
+    });
+
+    const widget = Object.create(HourlyForecastWidget.prototype);
+    widget.config = { hourly: true };
+    widget.data = { hourly };
+    widget.shadowRoot = {
+        getElementById(id) {
+            return id === 'hourly-chart' ? chart : null;
+        },
+        innerHTML: ''
+    };
+    const redraws = [];
+    widget.drawTemperatureChart = (hours) => redraws.push(hours);
+
+    widget.render();
+
+    assert.equal(observers.length, 1);
+    assert.equal(observers[0].target, chart);
+    observers[0].callback();
+    assert.deepEqual(redraws, [hourly.slice(0, 12)]);
+
+    widget.disconnectedCallback();
+    assert.equal(observers[0].disconnected, true);
+});
+
+test('uses an eInk time label that fits full hour strings without an inline override', () => {
     const components = fs.readFileSync(
         path.join(__dirname, '../../static/js/weather-components.js'),
         'utf8'
@@ -66,7 +114,7 @@ test('uses a responsive external eInk time label without an inline override', ()
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.625rem, 2\.25vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.5rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 

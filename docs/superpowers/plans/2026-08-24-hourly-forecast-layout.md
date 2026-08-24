@@ -121,7 +121,7 @@ test('uses a responsive external eInk time label without an inline override', ()
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.625rem, 2\.25vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.5rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
@@ -252,10 +252,15 @@ truth:
 :host([data-theme="eink"]) .hour-time {
     min-width: 0;
     text-align: center;
-    font-size: clamp(0.625rem, 2.25vw, 1rem);
+    font-size: clamp(0.5rem, 2vw, 1rem);
     font-weight: 800;
 }
 ```
+
+Task 3 adds a `ResizeObserver` owned by `HourlyForecastWidget`. It disconnects
+before each new chart SVG is observed and on widget teardown. When the chart
+border box changes after external styles load, it redraws the current up-to-12
+hour data through the existing `drawTemperatureChart()` geometry renderer.
 
 Replace the hourly layout rules with:
 

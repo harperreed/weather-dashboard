@@ -29,7 +29,9 @@ sides.
 One to twelve real columns will fit the widget at supported widths. The widget
 and its rows will not expose horizontal scrolling. Small screens will reduce
 type, icon, and cell padding through responsive CSS rather than invent
-placeholder hours, hide real hours, or create another scroll surface.
+placeholder hours, hide real hours, or create another scroll surface. At 390px
+in eInk, hour labels use `clamp(0.5rem, 2vw, 1rem)` with weight 800 so full
+times such as `11pm` and `12am` remain visible inside their cells.
 
 Doctor Biz approved this dynamic-column resolution: `displayHours` retains its
 maximum of 12 entries, and gapless CSS Grid automatic columns fill the width for
@@ -63,7 +65,10 @@ because it comes from forecast data.
 A pure chart-point helper will calculate coordinates from temperatures and the
 rendered SVG size. It will return one centered point per hourly column and keep
 all y values inside the chart's plot padding. The SVG renderer will consume
-those points for the line and current-time marker.
+those points for the line and current-time marker. `HourlyForecastWidget` will
+observe the rendered chart box and redraw the current up-to-12-hour data when
+its border-box size changes, so asynchronous stylesheet layout cannot leave the
+SVG path based on a stale width.
 
 ## Verification
 
