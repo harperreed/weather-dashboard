@@ -11,8 +11,93 @@ const {
     parseDashboardConfig
 } = require('../../static/js/dashboard-config.js');
 
+const EXPECTED_WIDGET_CATALOG = [
+    {
+        id: 'current',
+        host: 'current-weather',
+        aliases: ['now'],
+        parameters: ['current']
+    },
+    {
+        id: 'alerts',
+        host: 'weather-alerts',
+        aliases: ['warnings'],
+        parameters: []
+    },
+    {
+        id: 'hourly',
+        host: 'hourly-forecast',
+        aliases: ['hours'],
+        parameters: ['hourly']
+    },
+    {
+        id: 'daily',
+        host: 'daily-forecast',
+        aliases: ['week', 'days'],
+        parameters: ['daily']
+    },
+    {
+        id: 'temperature-trends',
+        host: 'enhanced-temperature-trends',
+        aliases: ['temperature', 'temp-trends'],
+        parameters: []
+    },
+    {
+        id: 'radar',
+        host: 'precipitation-radar',
+        aliases: ['precipitation'],
+        parameters: []
+    },
+    {
+        id: 'clothing',
+        host: 'clothing-recommendations',
+        aliases: ['clothes'],
+        parameters: []
+    },
+    {
+        id: 'air-quality',
+        host: 'air-quality',
+        aliases: ['airquality', 'air', 'aqi'],
+        parameters: ['air-quality', 'airquality']
+    },
+    {
+        id: 'wind',
+        host: 'wind-direction',
+        aliases: ['wind-direction', 'compass'],
+        parameters: ['wind-direction', 'wind']
+    },
+    {
+        id: 'pressure',
+        host: 'pressure-trends',
+        aliases: ['pressure-trends', 'trends'],
+        parameters: ['pressure-trends', 'pressure']
+    },
+    {
+        id: 'solar',
+        host: 'solar-progress',
+        aliases: ['sun'],
+        parameters: []
+    },
+    {
+        id: 'moon',
+        host: 'moon-phase',
+        aliases: ['lunar'],
+        parameters: []
+    },
+    {
+        id: 'timeline',
+        host: 'hourly-timeline',
+        aliases: ['list'],
+        parameters: ['timeline']
+    }
+];
+
+test('production catalog matches the approved widget contract', () => {
+    assert.deepEqual(WIDGET_CATALOG, EXPECTED_WIDGET_CATALOG);
+});
+
 test('every public widget name and alias selects its catalog widget', () => {
-    WIDGET_CATALOG.forEach(({ id, aliases }) => {
+    EXPECTED_WIDGET_CATALOG.forEach(({ id, aliases }) => {
         [id, ...aliases].forEach((name) => {
             const config = parseDashboardConfig(`?widgets=${name}`);
             assert.equal(config.hasWidgetSelection, true);
@@ -77,13 +162,29 @@ test('themes resolve to canonical names', () => {
     });
 });
 
+test('__proto__ theme canonicalizes to blue', () => {
+    assert.equal(parseDashboardConfig('?theme=__proto__').theme, 'blue');
+});
+
+test('constructor theme canonicalizes to blue', () => {
+    assert.equal(parseDashboardConfig('?theme=constructor').theme, 'blue');
+});
+
+test('inherited property names are not enabled widgets', () => {
+    const config = parseDashboardConfig('');
+
+    for (const widgetId of ['__proto__', 'constructor', 'toString']) {
+        assert.equal(isWidgetEnabled(config, widgetId), false, widgetId);
+    }
+});
+
 function createDocumentHolder() {
     const body = {
         attributes: new Map(),
         setAttribute(name, value) { this.attributes.set(name, value); }
     };
     const hosts = new Map(
-        [...WIDGET_CATALOG.map(({ host }) => host), 'help-section'].map(
+        [...EXPECTED_WIDGET_CATALOG.map(({ host }) => host), 'help-section'].map(
             (host) => [host, {
                 hidden: false,
                 attributes: new Map(),
@@ -105,7 +206,7 @@ test('applies selected widget visibility and theme to every host', () => {
     applyDashboardConfig(documentHolder, config);
 
     assert.equal(documentHolder.body.attributes.get('data-theme'), 'light');
-    WIDGET_CATALOG.forEach(({ id, host }) => {
+    EXPECTED_WIDGET_CATALOG.forEach(({ id, host }) => {
         assert.equal(documentHolder.hosts.get(host).hidden, !config.enabledWidgets[id]);
         assert.equal(documentHolder.hosts.get(host).attributes.get('data-theme'), 'light');
     });

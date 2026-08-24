@@ -52,7 +52,7 @@
 - Produces: `applyDashboardConfig(documentRoot: DocumentLike, config: DashboardConfig): void`
 - `DashboardConfig` shape: `{ theme: 'blue' | 'light' | 'eink', hasWidgetSelection: boolean, enabledWidgets: Record<string, boolean> }`
 
-- [ ] **Step 1: Write failing parser tests**
+- [x] **Step 1: Write failing parser tests**
 
 Create `tests/js/dashboard-config.test.js` with table-driven coverage for all
 public names, all aliases, empty and invalid widget lists, repeated names,
@@ -126,7 +126,7 @@ test('themes resolve to canonical names', () => {
 });
 ```
 
-- [ ] **Step 2: Add failing DOM application tests**
+- [x] **Step 2: Add failing DOM application tests**
 
 Add this holder and test to the same file; it covers every real host because it
 builds from `WIDGET_CATALOG`:
@@ -178,13 +178,13 @@ test('empty widget selection leaves widgets and help visible', () => {
 });
 ```
 
-- [ ] **Step 3: Run JavaScript tests and verify failure**
+- [x] **Step 3: Run JavaScript tests and verify failure**
 
 Run: `node --test tests/js/dashboard-config.test.js`
 
 Expected: FAIL because `static/js/dashboard-config.js` does not exist.
 
-- [ ] **Step 4: Implement the configuration module**
+- [x] **Step 4: Implement the configuration module**
 
 Create `static/js/dashboard-config.js` with frozen catalog entries for the 13
 weather hosts. Use these exact public IDs and aliases from the approved spec.
@@ -305,26 +305,26 @@ if (typeof window !== 'undefined') window.DashboardConfig = DashboardConfig;
 if (typeof module !== 'undefined' && module.exports) module.exports = DashboardConfig;
 ```
 
-- [ ] **Step 5: Run JavaScript tests and verify success**
+- [x] **Step 5: Run JavaScript tests and verify success**
 
 Run: `node --test tests/js/dashboard-config.test.js`
 
 Expected: all configuration tests PASS with no warnings.
 
-- [ ] **Step 6: Add the suite to the pytest bridge**
+- [x] **Step 6: Add the suite to the pytest bridge**
 
 Parameterize `tests/unit/test_frontend_javascript.py` over
 `current-weather-range.test.js` and `dashboard-config.test.js`. Keep
 `capture_output=True`, `check=False`, and assert the return code with combined
 stdout and stderr.
 
-- [ ] **Step 7: Run the pytest bridge**
+- [x] **Step 7: Run the pytest bridge**
 
 Run: `uv run --locked pytest tests/unit/test_frontend_javascript.py -v`
 
 Expected: both JavaScript suite bridge cases PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add static/js/dashboard-config.js tests/js/dashboard-config.test.js tests/unit/test_frontend_javascript.py
@@ -345,7 +345,7 @@ git commit -m "feat: centralize dashboard configuration"
 - Produces: `WeatherWidget.isEnabled(widgetId: string): boolean`
 - Produces: canonical `data-theme` values on the body and every widget host
 
-- [ ] **Step 1: Add a failing template integration assertion**
+- [x] **Step 1: Add a failing template integration assertion**
 
 The Task 1 catalog-driven DOM test already covers every host. Add this distinct
 template contract test to `TestFrontendIntegration` in
@@ -361,7 +361,7 @@ def test_dashboard_config_loads_before_components(self, client) -> None:
     assert 'const theme = urlParams.get' not in html
 ```
 
-- [ ] **Step 2: Run focused tests and verify failure**
+- [x] **Step 2: Run focused tests and verify failure**
 
 Run:
 
@@ -373,7 +373,7 @@ uv run --locked pytest tests/test_frontend.py -v
 Expected: FAIL until the template loads and applies the module in the required
 order.
 
-- [ ] **Step 3: Integrate canonical configuration in the template**
+- [x] **Step 3: Integrate canonical configuration in the template**
 
 Load `/static/js/dashboard-config.js` after the widget hosts and before
 `realtime-weather.js`. Immediately parse and apply configuration:
@@ -397,7 +397,7 @@ Remove the duplicate inline theme handler. Rename template CSS selectors
 `[data-theme="blue"]` selector only where the root defaults do not already
 cover the property.
 
-- [ ] **Step 4: Make components consume the shared configuration**
+- [x] **Step 4: Make components consume the shared configuration**
 
 Replace the base class switch statement with catalog-backed values:
 
@@ -433,7 +433,7 @@ Rename all component theme selectors and checks from `white`/`dashboard` to
 `light`/`eink`. Do not keep dual CSS paths; URL aliases normalize before styles
 run.
 
-- [ ] **Step 5: Make hidden hosts authoritative**
+- [x] **Step 5: Make hidden hosts authoritative**
 
 Add this shared rule to `static/css/weather-components.css`:
 
@@ -447,7 +447,7 @@ Add this shared rule to `static/css/weather-components.css`:
 Ensure enabled render paths do not remove a host's `hidden` attribute. The
 configuration module alone owns host visibility.
 
-- [ ] **Step 6: Run focused tests**
+- [x] **Step 6: Run focused tests**
 
 Run:
 
@@ -458,7 +458,7 @@ uv run --locked pytest tests/test_frontend.py tests/unit/test_frontend_javascrip
 
 Expected: all focused tests PASS with no new warnings.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add templates/weather.html static/js/weather-components.js static/css/weather-components.css tests/js/dashboard-config.test.js tests/test_frontend.py
@@ -480,7 +480,7 @@ git commit -m "fix: apply dashboard controls to every widget"
 - Produces: `formatDailyTemperatureRange(daily)` with visible text `HIGH 77° LOW 65°` and the unchanged accessible label
 - Produces: `.daily-range`, `.daily-range-item`, `.daily-range-label`, and `.daily-range-value` markup hooks
 
-- [ ] **Step 1: Update tests first**
+- [x] **Step 1: Update tests first**
 
 Change formatter expectations in the Node and integration tests from
 `H 77° · L 65°` to `HIGH 77° LOW 65°`. Update the render assertion to require
@@ -506,7 +506,7 @@ test('daily range has primary contrast and stable numerals', () => {
 });
 ```
 
-- [ ] **Step 2: Run focused tests and verify failure**
+- [x] **Step 2: Run focused tests and verify failure**
 
 Run:
 
@@ -518,7 +518,7 @@ uv run --locked pytest tests/integration/test_daily_temperature_range.py -v
 Expected: FAIL because production still returns abbreviated copy and one text
 node.
 
-- [ ] **Step 3: Implement the range markup and update path**
+- [x] **Step 3: Implement the range markup and update path**
 
 Keep `formatDailyTemperatureRange` pure and return:
 
@@ -550,7 +550,7 @@ On update, clear both values and the accessible label before validating new
 data. Set `daily-high` and `daily-low` separately when valid, then reveal the
 container. Never rebuild this markup with weather data.
 
-- [ ] **Step 4: Implement visual hierarchy**
+- [x] **Step 4: Implement visual hierarchy**
 
 Add theme tokens and use this range structure in
 `static/css/weather-components.css`:
@@ -593,7 +593,7 @@ blue and light. Define both as `currentColor` for e-ink.
 Do not use `transition: all`. Keep the range static during weather refreshes to
 avoid distracting layout movement.
 
-- [ ] **Step 5: Generate clear help names**
+- [x] **Step 5: Generate clear help names**
 
 Render the catalog's public IDs into the widget help copy with
 `WIDGET_CATALOG.map(({ id }) => id).join(', ')`. Advertise only:
@@ -605,7 +605,7 @@ Themes: blue (default), light, eink
 Update examples to `?theme=light` and `?theme=eink`. Do not advertise
 `white`, `dashboard`, or `background`; compatibility remains in the parser.
 
-- [ ] **Step 6: Update the manual harness and test guide**
+- [x] **Step 6: Update the manual harness and test guide**
 
 Keep the harness scenarios for valid, freezing, and missing ranges. Add links
 or controls for `blue`, `light`, and `eink`, plus a full-catalog selection such
@@ -613,7 +613,7 @@ as `?widgets=alerts,radar,clothing,solar,moon,temperature-trends`.
 
 Document the two Node suites and these browser checks in `TESTING.md`.
 
-- [ ] **Step 7: Run focused tests**
+- [x] **Step 7: Run focused tests**
 
 Run:
 
@@ -624,7 +624,7 @@ uv run --locked pytest tests/integration/test_daily_temperature_range.py tests/u
 
 Expected: all focused tests PASS with no warnings.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add static/js/weather-components.js static/css/weather-components.css tests/js/current-weather-range.test.js tests/integration/test_daily_temperature_range.py test_components.html TESTING.md

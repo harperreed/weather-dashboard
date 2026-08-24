@@ -9,7 +9,11 @@ import pytest
 
 @pytest.mark.parametrize(
     'test_name',
-    ['current-weather-range.test.js', 'dashboard-config.test.js'],
+    [
+        'current-weather-range.test.js',
+        'dashboard-config.test.js',
+        'help-section.test.js',
+    ],
 )
 def test_frontend_javascript(test_name: str) -> None:
     test_file = Path(__file__).parents[1] / 'js' / test_name

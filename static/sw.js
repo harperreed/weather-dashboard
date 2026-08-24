@@ -1,11 +1,13 @@
-// Service Worker for Weather Dashboard PWA
-const CACHE_NAME = 'weather-dashboard-v1';
-const STATIC_CACHE_NAME = 'weather-dashboard-static-v1';
+// ABOUTME: Caches the weather dashboard application shell and weather icons for offline use.
+// ABOUTME: Serves cached assets, refreshes API data, and handles PWA background events.
+const CACHE_NAME = 'weather-dashboard-v2';
+const STATIC_CACHE_NAME = 'weather-dashboard-static-v2';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
   '/',
   '/static/css/weather-components.css',
+  '/static/js/dashboard-config.js',
   '/static/js/weather-components.js',
   '/static/js/realtime-weather.js',
   '/static/manifest.json',

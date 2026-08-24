@@ -133,14 +133,20 @@ function parseDashboardConfig(search) {
         .toLowerCase();
 
     return {
-        theme: THEME_NAMES[requestedTheme] || 'blue',
+        theme: Object.prototype.hasOwnProperty.call(THEME_NAMES, requestedTheme)
+            ? THEME_NAMES[requestedTheme]
+            : 'blue',
         hasWidgetSelection,
         enabledWidgets
     };
 }
 
 function isWidgetEnabled(config, widgetId) {
-    return Boolean(config?.enabledWidgets?.[widgetId]);
+    return Boolean(
+        config?.enabledWidgets
+        && Object.prototype.hasOwnProperty.call(config.enabledWidgets, widgetId)
+        && config.enabledWidgets[widgetId]
+    );
 }
 
 function applyDashboardConfig(documentRoot, config) {

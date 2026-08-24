@@ -1839,6 +1839,7 @@ class HelpSection extends HTMLElement {
             this.isVisible = !this.isVisible;
             helpContent.style.display = this.isVisible ? 'block' : 'none';
             toggleButton.textContent = this.isVisible ? '▼ Hide Help' : '▲ Show Help';
+            toggleButton.setAttribute('aria-expanded', String(this.isVisible));
         });
     }
 
@@ -1927,7 +1928,7 @@ class HelpSection extends HTMLElement {
                 }
             </style>
 
-            <button id="help-toggle" class="help-toggle theme-card">▲ Show Help</button>
+            <button id="help-toggle" class="help-toggle theme-card" aria-controls="help-content" aria-expanded="false">▲ Show Help</button>
 
             <div id="help-content" class="help-content theme-card">
                 <div class="help-section">
@@ -2019,7 +2020,6 @@ class HelpSection extends HTMLElement {
 
                 <div class="help-section">
                     <h3>💡 Tips</h3>
-                    <p>• Widget names accept aliases: current/now, hourly/hours, daily/days/week, timeline/list</p>
                     <p>• Parameters can be combined for maximum customization</p>
                     <p>• Default location is Chicago if no location is specified</p>
                     <p>• All weather data includes beautiful sunrise/sunset color coding</p>
@@ -2027,6 +2027,10 @@ class HelpSection extends HTMLElement {
             </div>
         `;
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.HelpSection = HelpSection;
 }
 
 /**
