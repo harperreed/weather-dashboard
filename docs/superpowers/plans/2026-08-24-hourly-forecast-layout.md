@@ -47,7 +47,7 @@
 - Produces: `HourlyForecastWidget` CommonJS export for dependency-free unit tests.
 - Preserves: `HourlyForecastWidget.update()` and `drawTemperatureChart(hourlyData)` component methods.
 
-- [ ] **Step 1: Write failing geometry and markup tests**
+- [x] **Step 1: Write failing geometry and markup tests**
 
 Create `tests/js/hourly-forecast-layout.test.js` with production-module stubs and
 these checks:
@@ -121,7 +121,7 @@ test('uses a responsive external eInk time label without an inline override', ()
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.5rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.4375rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
@@ -135,7 +135,7 @@ test('uses a responsive external eInk temperature without an inline override', (
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.75rem, 2\.5vw, 1rem\);/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.5625rem, 2vw, 1rem\);/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
 });
 
@@ -155,7 +155,7 @@ test('uses one gapless auto-column grid with no hourly scrolling', () => {
 });
 ```
 
-- [ ] **Step 2: Register and run the failing JavaScript suite**
+- [x] **Step 2: Register and run the failing JavaScript suite**
 
 Add `'hourly-forecast-layout.test.js'` to the parameter list in
 `tests/unit/test_frontend_javascript.py`.
@@ -166,7 +166,7 @@ Expected: FAIL because `calculateHourlyChartPoints` and the
 `HourlyForecastWidget` export do not exist and the old markup has a separate
 time row.
 
-- [ ] **Step 3: Implement centered chart geometry**
+- [x] **Step 3: Implement centered chart geometry**
 
 Add this pure helper after `formatDailyTemperatureRange`:
 
@@ -196,7 +196,7 @@ Export it with the existing CommonJS formatter export. Update
 `drawTemperatureChart()` to build its path from the returned points, place the
 current-time marker at `points[0].x`, and return early when no points exist.
 
-- [ ] **Step 4: Render one hourly cell per data point**
+- [x] **Step 4: Render one hourly cell per data point**
 
 Change the hourly placeholder and update loop so `.hour-time` lives inside
 `.hour-temp`:
@@ -229,7 +229,7 @@ Remove `hourlyTimesContainer`, the separate time loop, and the inline border,
 padding, and margin assignments. Export `HourlyForecastWidget` beside the
 existing widget export block.
 
-- [ ] **Step 5: Fit and align up to 12 real CSS columns**
+- [x] **Step 5: Fit and align up to 12 real CSS columns**
 
 Doctor Biz approved `gap: 0`, `grid-auto-flow: column`, and
 `grid-auto-columns: minmax(0, 1fr)` for the hourly grid. The chart helper
@@ -246,13 +246,17 @@ truth:
 ```css
 :host([data-theme="eink"]) .hour-temp-value {
     font-weight: 900;
-    font-size: clamp(0.75rem, 2.5vw, 1rem);
+    font-size: clamp(0.5625rem, 2vw, 1rem);
+}
+
+:host([data-theme="eink"]) .hour-temp {
+    padding-inline: 0;
 }
 
 :host([data-theme="eink"]) .hour-time {
     min-width: 0;
     text-align: center;
-    font-size: clamp(0.5rem, 2vw, 1rem);
+    font-size: clamp(0.4375rem, 2vw, 1rem);
     font-weight: 800;
 }
 ```
@@ -316,7 +320,7 @@ Replace the hourly layout rules with:
 Delete `.hourly-times` and the breakpoint-specific `.chart-container` heights.
 Remove the obsolete eInk scrolling and `min-width: 4rem` rules.
 
-- [ ] **Step 6: Run focused tests and commit**
+- [x] **Step 6: Run focused tests and commit**
 
 Run:
 
@@ -346,7 +350,7 @@ git commit -m "fix: align hourly forecast columns"
 - Consumes: the `.hour-temp`, `.temp-display`, `.weather-details`, and `.detail-card` selectors.
 - Preserves: the canonical `eink` theme name and all theme color tokens.
 
-- [ ] **Step 1: Add failing eInk density tests**
+- [x] **Step 1: Add failing eInk density tests**
 
 Append a test that reads the template and shared stylesheet:
 
@@ -367,14 +371,14 @@ test('eInk keeps strong type with compact page and component spacing', () => {
 });
 ```
 
-- [ ] **Step 2: Run the eInk test and verify failure**
+- [x] **Step 2: Run the eInk test and verify failure**
 
 Run: `node --test tests/js/hourly-forecast-layout.test.js`
 
 Expected: FAIL because eInk still uses 3rem page padding and a 2.5rem current
 gap.
 
-- [ ] **Step 3: Consolidate and reduce eInk spacing**
+- [x] **Step 3: Consolidate and reduce eInk spacing**
 
 Change the template's eInk container padding to `1.25rem 2rem`. In
 `getSharedStyles()`, remove inline eInk rules for `.temp-display`,
@@ -404,7 +408,7 @@ Set these shared eInk values:
 
 Keep existing color, border, and font-weight rules unchanged.
 
-- [ ] **Step 4: Run focused tests and commit**
+- [x] **Step 4: Run focused tests and commit**
 
 Run:
 
@@ -431,7 +435,7 @@ git commit -m "fix: tighten eink dashboard spacing"
 **Interfaces:**
 - Verifies: deployed DOM geometry without changing application behavior.
 
-- [ ] **Step 1: Document the repeatable focused checks**
+- [x] **Step 1: Document the repeatable focused checks**
 
 Add `node --test tests/js/hourly-forecast-layout.test.js` to the frontend test
 commands in `TESTING.md`. Record the three browser viewport and theme cases from
@@ -441,7 +445,7 @@ the design spec. Add this project note to `gotchas.md`:
 - Keep the hourly chart, temperatures, icons, and times on the same centers for the actual number of rendered hours. Separate flex rows produce different widths and independent scroll positions, especially in eInk.
 ```
 
-- [ ] **Step 2: Run the canonical project checks**
+- [x] **Step 2: Run the canonical project checks**
 
 Run:
 
@@ -453,12 +457,13 @@ uv run --locked mypy .
 git diff --check
 ```
 
-Expected: pytest, Ruff lint, and Ruff format PASS with no new warnings; mypy
-must introduce no new diagnostics compared with `main`; `git diff --check`
-prints nothing. Ruff uses the exact version pinned in `.pre-commit-config.yaml`
-because Ruff is not part of the application's locked dependency groups.
+Expected: pytest and Ruff format PASS with no new warnings. Ruff lint reports
+only the accepted 27 findings in untouched `tests/unit/test_lunar_provider.py`;
+mypy reports only the 22 unchanged-file diagnostics; `git diff --check` prints
+nothing. Ruff uses the exact version pinned in `.pre-commit-config.yaml` because
+Ruff is not part of the application's locked dependency groups.
 
-- [ ] **Step 3: Run browser end-to-end geometry assertions**
+- [x] **Step 3: Run browser end-to-end geometry assertions**
 
 Start the app in a separate terminal with:
 
@@ -489,14 +494,14 @@ const chart = root.querySelector('.temperature-chart');
 Expected: every returned value is `true`. Capture screenshots for visual review
 and confirm chart points sit above their matching forecast cells.
 
-- [ ] **Step 4: Commit verification documentation**
+- [x] **Step 4: Commit verification documentation**
 
 ```bash
 git add TESTING.md gotchas.md
 git commit -m "docs: record hourly layout verification"
 ```
 
-- [ ] **Step 5: Run a fresh-eyes review before integration**
+- [x] **Step 5: Run a fresh-eyes review before integration**
 
 Inspect the complete branch diff against `main`, fix any correctness or scope
 issues, rerun the checks affected by each fix, and leave the branch ready for a

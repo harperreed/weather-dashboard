@@ -30,8 +30,13 @@ One to twelve real columns will fit the widget at supported widths. The widget
 and its rows will not expose horizontal scrolling. Small screens will reduce
 type, icon, and cell padding through responsive CSS rather than invent
 placeholder hours, hide real hours, or create another scroll surface. At 390px
-in eInk, hour labels use `clamp(0.5rem, 2vw, 1rem)` with weight 800 so full
+in eInk, hour labels use `clamp(0.4375rem, 2vw, 1rem)` with weight 800 so full
 times such as `11pm` and `12am` remain visible inside their cells.
+Hourly temperatures use `clamp(0.5625rem, 2vw, 1rem)` with weight 900 so the
+full `-12°` and `100°` values fit inside the same 12-column layout.
+At 390px in focused Chrome, the prior 0.5625rem temperature minimum measured
+`100°` at 24px in a 22px cell. The eInk rule removes the cell's horizontal
+padding, restoring its 24px content width without reducing the requested type.
 
 Doctor Biz approved this dynamic-column resolution: `displayHours` retains its
 maximum of 12 entries, and gapless CSS Grid automatic columns fill the width for
@@ -50,7 +55,7 @@ The eInk theme will retain high contrast and heavier type while reducing:
 - widget and section margins;
 - current-condition gaps;
 - detail-card padding and gaps;
-- hourly-cell padding and icon size.
+- hourly-cell horizontal padding and icon size.
 
 No weather data, URL option, API, or component registration changes.
 
@@ -81,6 +86,8 @@ SVG path based on a stale width.
 - Browser checks at 390x844 in blue, 390x844 in eInk, and 800x480 in eInk must
   show up to 12 aligned real cells with no document or hourly horizontal
   overflow.
+- The 390x844 eInk manual fixture must keep all 12 full hour strings and
+  temperatures inside their cells, including `-12°` and `100°`.
 
 ## Out of Scope
 

@@ -764,7 +764,11 @@
 
 :host([data-theme="eink"]) .hour-temp-value {
     font-weight: 900;
-    font-size: clamp(0.75rem, 2.5vw, 1rem);
+    font-size: clamp(0.5625rem, 2vw, 1rem);
+}
+
+:host([data-theme="eink"]) .hour-temp {
+    padding-inline: 0;
 }
 
 /* Bigger icons for hourly forecast in the eInk theme */
@@ -792,7 +796,7 @@
 :host([data-theme="eink"]) .hour-time {
     min-width: 0;
     text-align: center;
-    font-size: clamp(0.5rem, 2vw, 1rem);
+    font-size: clamp(0.4375rem, 2vw, 1rem);
     font-weight: 800;
 }
 

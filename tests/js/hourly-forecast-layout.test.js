@@ -59,7 +59,8 @@ test('renders time inside each hourly cell without a second time row', () => {
 test('redraws current forecast hours when the rendered chart box changes size', (t) => {
     const originalResizeObserver = global.ResizeObserver;
     const observers = [];
-    const chart = {};
+    const firstChart = {};
+    const replacementChart = {};
     const hourly = Array.from({ length: 13 }, (_, index) => ({ temp: index }));
 
     global.ResizeObserver = class {
@@ -84,24 +85,40 @@ test('redraws current forecast hours when the rendered chart box changes size', 
     const widget = Object.create(HourlyForecastWidget.prototype);
     widget.config = { hourly: true };
     widget.data = { hourly };
-    widget.shadowRoot = {
+    let renderCount = 0;
+    const shadowRoot = {
         getElementById(id) {
-            return id === 'hourly-chart' ? chart : null;
-        },
-        innerHTML: ''
+            if (id !== 'hourly-chart') return null;
+            return renderCount === 1 ? firstChart : replacementChart;
+        }
     };
+    Object.defineProperty(shadowRoot, 'innerHTML', {
+        get() {
+            return '';
+        },
+        set() {
+            renderCount += 1;
+        }
+    });
+    widget.shadowRoot = shadowRoot;
     const redraws = [];
     widget.drawTemperatureChart = (hours) => redraws.push(hours);
 
     widget.render();
 
     assert.equal(observers.length, 1);
-    assert.equal(observers[0].target, chart);
+    assert.equal(observers[0].target, firstChart);
     observers[0].callback();
     assert.deepEqual(redraws, [hourly.slice(0, 12)]);
 
-    widget.disconnectedCallback();
+    widget.render();
+
     assert.equal(observers[0].disconnected, true);
+    assert.equal(observers.length, 2);
+    assert.equal(observers[1].target, replacementChart);
+
+    widget.disconnectedCallback();
+    assert.equal(observers[1].disconnected, true);
 });
 
 test('uses an eInk time label that fits full hour strings without an inline override', () => {
@@ -114,11 +131,11 @@ test('uses an eInk time label that fits full hour strings without an inline over
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.5rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.4375rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
-test('uses a responsive external eInk temperature without an inline override', () => {
+test('uses a responsive external eInk temperature that fits 12 compact cells', () => {
     const components = fs.readFileSync(
         path.join(__dirname, '../../static/js/weather-components.js'),
         'utf8'
@@ -128,8 +145,20 @@ test('uses a responsive external eInk temperature without an inline override', (
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.75rem, 2\.5vw, 1rem\);/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.5625rem, 2vw, 1rem\);/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
+});
+
+test('keeps 12 extreme hourly temperatures with full hour strings in the manual fixture', () => {
+    const harness = fs.readFileSync(
+        path.join(__dirname, '../../test_components.html'),
+        'utf8'
+    );
+    const fixture = harness.match(/hourly:\s*\[(.*?)\n\s*\],\n\s*daily:/s)?.[1] ?? '';
+
+    assert.equal((fixture.match(/\{ t:/g) ?? []).length, 12);
+    assert.match(fixture, /t:\s*'[^']+[ap]m',\s*temp:\s*-12/);
+    assert.match(fixture, /t:\s*'[^']+[ap]m',\s*temp:\s*100/);
 });
 
 test('eInk keeps strong type with compact page and component spacing', () => {
