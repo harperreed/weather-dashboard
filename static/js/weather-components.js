@@ -357,34 +357,7 @@ class WeatherWidget extends HTMLElement {
                     stroke-width: 6 !important;
                 }
 
-                :host([data-theme="eink"]) .temp-display {
-                    gap: 2.5rem !important;
-                    margin-bottom: 2.5rem !important;
-                }
-
-                :host([data-theme="eink"]) .weather-details {
-                    gap: 1.25rem !important;
-                    margin-top: 1.5rem !important;
-                }
-
-                :host([data-theme="eink"]) .detail-card {
-                    padding: 1rem 1.5rem !important;
-                    font-size: 1.125rem !important;
-                }
-
                 @media (max-width: 640px) {
-                    :host([data-theme="eink"]) .weather-details {
-                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                        gap: 0.75rem !important;
-                    }
-
-                    :host([data-theme="eink"]) .detail-card {
-                        min-width: 0;
-                        padding: 0.75rem !important;
-                        font-size: 1rem !important;
-                        gap: 0.5rem;
-                    }
-
                     :host([data-theme="eink"]) .detail-label {
                         font-size: 0.875rem !important;
                     }

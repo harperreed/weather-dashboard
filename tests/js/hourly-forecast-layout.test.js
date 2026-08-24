@@ -84,6 +84,21 @@ test('uses a responsive external eInk temperature without an inline override', (
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
 });
 
+test('eInk keeps strong type with compact page and component spacing', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(template, /\[data-theme="eink"\] \.weather-container\s*\{[^}]*padding:\s*1\.25rem 2rem;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.temp-display\s*\{[^}]*gap:\s*1\.5rem;[^}]*margin-bottom:\s*1\.25rem;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*gap:\s*0\.75rem;[^}]*margin-top:\s*1rem;/s);
+});
+
 test('uses one gapless auto-column grid with no hourly scrolling', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),

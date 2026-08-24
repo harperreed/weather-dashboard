@@ -168,13 +168,13 @@ test('canonical themes define range and help contrast tokens', () => {
 });
 
 test('eInk current weather keeps detail cards inside a mobile grid', () => {
-    const components = fs.readFileSync(
-        path.join(__dirname, '../../static/js/weather-components.js'),
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
 
     assert.match(
-        components,
+        styles,
         /@media \(max-width: 640px\)\s*\{[\s\S]*?:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)(?: !important)?;/s
     );
 });
