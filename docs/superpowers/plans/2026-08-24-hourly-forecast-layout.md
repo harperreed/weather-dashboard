@@ -513,3 +513,8 @@ separate merge and push decision.
 - [x] The layout work deliberately left provider behavior unchanged. A separate
   regression fix now preserves `10pm` and removes only a leading zero for both
   OpenMeteo and PirateWeather hourly labels.
+
+### Service-worker release follow-up
+
+- [x] Bumped both service-worker cache names to v3 so the changed cached hourly
+  UI assets cannot be served from the prior cache-first release.
