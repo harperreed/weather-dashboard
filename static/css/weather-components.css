@@ -605,18 +605,18 @@
 }
 
 /* eInk theme - high contrast for eInk displays */
-[data-theme="eink"] .weather-widget {
+:host([data-theme="eink"]) .weather-widget {
     border: 2px solid #000000;
     margin-bottom: 2.5rem;
 }
 
-[data-theme="eink"] .theme-card {
+:host([data-theme="eink"]) .theme-card {
     background: #ffffff;
     border: 2px solid #000000;
     box-shadow: none;
 }
 
-[data-theme="eink"] .chart-line {
+:host([data-theme="eink"]) .chart-line {
     stroke: #000000 !important;
     stroke-width: 6 !important;
     stroke-linecap: round;
@@ -630,27 +630,27 @@
     stroke-linejoin: round;
 }
 
-[data-theme="eink"] .timeline-dot.current {
+:host([data-theme="eink"]) .timeline-dot.current {
     background-color: #000000;
     border: 2px solid #000000;
     width: 0.75rem;
 }
 
-[data-theme="eink"] .timeline-dot.future {
+:host([data-theme="eink"]) .timeline-dot.future {
     background-color: #ffffff;
     border: 2px solid #000000;
     width: 0.75rem;
 }
 
-[data-theme="eink"] .connection-status {
+:host([data-theme="eink"]) .connection-status {
     display: none !important;
 }
 
-[data-theme="eink"] .help-toggle:hover {
+:host([data-theme="eink"]) .help-toggle:hover {
     background-color: #f0f0f0;
 }
 
-[data-theme="eink"] .weather-icon img {
+:host([data-theme="eink"]) .weather-icon img {
     filter: contrast(2) brightness(0.8);
     width: 20rem !important;
     height: 20rem !important;
@@ -659,7 +659,7 @@
 }
 
 /* Adjust layout for larger main icon */
-[data-theme="eink"] .temp-display {
+:host([data-theme="eink"]) .temp-display {
     gap: 2.5rem;
     margin-bottom: 2.5rem;
     align-items: center;
@@ -667,81 +667,81 @@
 }
 
 /* Make temperature bigger to match large icon */
-[data-theme="eink"] .temperature {
+:host([data-theme="eink"]) .temperature {
     font-size: 6rem;
     font-weight: 900;
     line-height: 1;
 }
 
-[data-theme="eink"] .feels-like {
+:host([data-theme="eink"]) .feels-like {
     font-size: 1.5rem;
     font-weight: 900;
     margin-bottom: 1rem;
 }
 
-[data-theme="eink"] .summary {
+:host([data-theme="eink"]) .summary {
     font-size: 2rem;
     font-weight: 900;
     margin-bottom: 1.5rem;
 }
 
-[data-theme="eink"] .detail-value {
+:host([data-theme="eink"]) .detail-value {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="eink"] .detail-label {
+:host([data-theme="eink"]) .detail-label {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="eink"] .detail-card {
+:host([data-theme="eink"]) .detail-card {
     padding: 1rem 1.5rem;
     font-size: 1.125rem;
 }
 
-[data-theme="eink"] .weather-details {
+:host([data-theme="eink"]) .weather-details {
     gap: 1.25rem;
     margin-top: 1.5rem;
 }
 
-[data-theme="eink"] .timeline-time {
+:host([data-theme="eink"]) .timeline-time {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="eink"] .timeline-temp {
+:host([data-theme="eink"]) .timeline-temp {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="eink"] .timeline-desc {
+:host([data-theme="eink"]) .timeline-desc {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="eink"] .day-high {
+:host([data-theme="eink"]) .day-high {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="eink"] .day-low {
+:host([data-theme="eink"]) .day-low {
     font-weight: 800;
     font-size: 1.125rem;
 }
 
-[data-theme="eink"] .day-name {
+:host([data-theme="eink"]) .day-name {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="eink"] .hour-temp-value {
+:host([data-theme="eink"]) .hour-temp-value {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
 /* Bigger icons for hourly forecast in the eInk theme */
-[data-theme="eink"] .hour-icon img {
+:host([data-theme="eink"]) .hour-icon img {
     width: 6rem !important;
     height: 6rem !important;
     min-width: 6rem;
@@ -749,7 +749,7 @@
 }
 
 /* Bigger icons for daily forecast in the eInk theme */
-[data-theme="eink"] .day-icon img {
+:host([data-theme="eink"]) .day-icon img {
     width: 6rem !important;
     height: 6rem !important;
     min-width: 6rem;
@@ -757,13 +757,13 @@
 }
 
 /* Adjust spacing for bigger hourly icons */
-[data-theme="eink"] .hour-icon {
+:host([data-theme="eink"]) .hour-icon {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
 }
 
 /* Fix hourly forecast layout for bigger icons */
-[data-theme="eink"] .hourly-temps {
+:host([data-theme="eink"]) .hourly-temps {
     display: flex;
     gap: 0.5rem;
     overflow-x: auto;
@@ -771,12 +771,12 @@
     justify-content: space-between;
 }
 
-[data-theme="eink"] .hour-temp {
+:host([data-theme="eink"]) .hour-temp {
     min-width: 4rem;
     flex-shrink: 0;
 }
 
-[data-theme="eink"] .hourly-times {
+:host([data-theme="eink"]) .hourly-times {
     display: flex;
     overflow-x: auto;
     padding-top: 0.5rem;
@@ -784,7 +784,7 @@
     justify-content: space-between;
 }
 
-[data-theme="eink"] .hour-time {
+:host([data-theme="eink"]) .hour-time {
     min-width: 4rem;
     flex-shrink: 0;
     text-align: center;
@@ -793,12 +793,12 @@
 }
 
 /* Adjust spacing for bigger daily icons */
-[data-theme="eink"] .day-icon {
+:host([data-theme="eink"]) .day-icon {
     margin: 0.5rem 0;
 }
 
 /* Smaller buttons for the eInk theme */
-[data-theme="eink"] .help-toggle {
+:host([data-theme="eink"]) .help-toggle {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
     font-weight: 800;

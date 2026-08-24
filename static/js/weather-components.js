@@ -2287,12 +2287,12 @@ class PressureTrendsWidget extends WeatherWidget {
                 }
 
                 /* eInk theme adjustments */
-                [data-theme="eink"] .pressure-card {
+                :host([data-theme="eink"]) .pressure-card {
                     border: 2px solid var(--card-border);
                     background: var(--card-bg);
                 }
 
-                [data-theme="eink"] .pressure-prediction {
+                :host([data-theme="eink"]) .pressure-prediction {
                     background: rgba(0, 0, 0, 0.1);
                     border: 1px solid var(--card-border);
                 }

@@ -1,3 +1,6 @@
+# ABOUTME: Verifies Flask-served frontend assets and dashboard integration contracts.
+# ABOUTME: Keeps script loading, static files, and page-level behavior under test.
+
 import json
 import os
 from unittest.mock import patch
@@ -24,6 +27,23 @@ class TestFrontendIntegration:
             '/static/js/weather-components.js'
         )
         assert 'const theme = urlParams.get' not in html
+
+    def test_shadow_dom_eink_selectors_target_widget_hosts(self) -> None:
+        project_root = os.path.join(os.path.dirname(__file__), '..')
+        with open(
+            os.path.join(project_root, 'static', 'css', 'weather-components.css'),
+            encoding='utf-8',
+        ) as css_file:
+            component_css = css_file.read()
+        with open(
+            os.path.join(project_root, 'static', 'js', 'weather-components.js'),
+            encoding='utf-8',
+        ) as components_file:
+            component_source = components_file.read()
+
+        assert ':host([data-theme="eink"]) .weather-widget' in component_css
+        assert ':host([data-theme="eink"]) .theme-card' in component_css
+        assert ':host([data-theme="eink"]) .pressure-card' in component_source
 
     def test_static_js_file_exists(self) -> None:
         """Test that the weather components JS file exists"""
