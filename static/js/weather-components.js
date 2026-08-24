@@ -90,7 +90,9 @@ function formatDailyTemperatureRange(daily) {
     }
 
     return {
-        text: `H ${today.h}° · L ${today.l}°`,
+        high: today.h,
+        low: today.l,
+        text: `HIGH ${today.h}° LOW ${today.l}°`,
         ariaLabel: `Today's high ${today.h} degrees, low ${today.l} degrees.`
     };
 }
@@ -408,7 +410,16 @@ class CurrentWeatherWidget extends WeatherWidget {
                         <div class="temperature" id="temp">--°</div>
                         <div class="weather-icon" id="icon">⏳</div>
                     </div>
-                    <div class="daily-range" id="daily-range" hidden></div>
+                    <div class="daily-range" id="daily-range" hidden>
+                        <span class="daily-range-item daily-range-high">
+                            <span class="daily-range-label">High</span>
+                            <span class="daily-range-value" id="daily-high">--°</span>
+                        </span>
+                        <span class="daily-range-item daily-range-low">
+                            <span class="daily-range-label">Low</span>
+                            <span class="daily-range-value" id="daily-low">--°</span>
+                        </span>
+                    </div>
                 </div>
 
                 <div class="feels-like" id="feels-like">LOADING...</div>
@@ -447,12 +458,16 @@ class CurrentWeatherWidget extends WeatherWidget {
         this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '6rem');
 
         const dailyRangeEl = this.shadowRoot.getElementById('daily-range');
-        const dailyRange = formatDailyTemperatureRange(this.data.daily);
-        dailyRangeEl.textContent = '';
+        const dailyHighEl = this.shadowRoot.getElementById('daily-high');
+        const dailyLowEl = this.shadowRoot.getElementById('daily-low');
+        dailyHighEl.textContent = '';
+        dailyLowEl.textContent = '';
         dailyRangeEl.removeAttribute('aria-label');
         dailyRangeEl.hidden = true;
+        const dailyRange = formatDailyTemperatureRange(this.data.daily);
         if (dailyRange) {
-            dailyRangeEl.textContent = dailyRange.text;
+            dailyHighEl.textContent = `${dailyRange.high}°`;
+            dailyLowEl.textContent = `${dailyRange.low}°`;
             dailyRangeEl.setAttribute('aria-label', dailyRange.ariaLabel);
             dailyRangeEl.hidden = false;
         }
@@ -1806,6 +1821,10 @@ class HelpSection extends HTMLElement {
     }
 
     render() {
+        const widgetIds = window.DashboardConfig.WIDGET_CATALOG
+            .map(({ id }) => id)
+            .join(', ');
+
         this.shadowRoot.innerHTML = `
             <style>
                 :host {
@@ -1824,7 +1843,7 @@ class HelpSection extends HTMLElement {
                     font-size: 0.875rem;
                     width: 100%;
                     text-align: center;
-                    transition: all 0.2s ease;
+                    transition: opacity 0.2s ease;
                     background: var(--card-bg);
                     border: 1px solid var(--card-border);
                     color: var(--text-primary);
@@ -1925,35 +1944,7 @@ class HelpSection extends HTMLElement {
                     <ul class="param-list">
                         <li>
                             <span class="param-name">widgets</span> - Comma-separated list of widgets to show
-                            <span class="param-example">?widgets=current,hourly,daily,air-quality,wind,pressure</span>
-                        </li>
-                        <li>
-                            <span class="param-name">current</span> - Show/hide current weather (true/false)
-                            <span class="param-example">?current=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">hourly</span> - Show/hide hourly forecast (true/false)
-                            <span class="param-example">?hourly=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">daily</span> - Show/hide daily forecast (true/false)
-                            <span class="param-example">?daily=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">timeline</span> - Show/hide hourly timeline (true/false)
-                            <span class="param-example">?timeline=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">air-quality</span> - Show/hide air quality index (true/false)
-                            <span class="param-example">?air-quality=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">wind-direction</span> - Show/hide wind compass (true/false)
-                            <span class="param-example">?wind-direction=false</span>
-                        </li>
-                        <li>
-                            <span class="param-name">pressure-trends</span> - Show/hide atmospheric pressure (true/false)
-                            <span class="param-example">?pressure-trends=false</span>
+                            <span class="param-example">?widgets=${widgetIds}</span>
                         </li>
                     </ul>
                 </div>
@@ -1967,12 +1958,8 @@ class HelpSection extends HTMLElement {
                             <span class="param-example">?animated=false</span>
                         </li>
                         <li>
-                            <span class="param-name">theme</span> - Background theme (light/eink available)
+                            <span class="param-name">theme</span> - Themes: blue (default), light, eink
                             <span class="param-example">?theme=light</span>
-                        </li>
-                        <li>
-                            <span class="param-name">background</span> - Alias for theme parameter
-                            <span class="param-example">?background=light</span>
                         </li>
                     </ul>
                 </div>

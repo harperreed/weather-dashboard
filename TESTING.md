@@ -51,6 +51,20 @@ pytest --version
 
 ## Running Tests
 
+### Dashboard range and controls
+
+Run the two dependency-free Node suites directly:
+
+```bash
+node --test tests/js/current-weather-range.test.js
+node --test tests/js/dashboard-config.test.js
+```
+
+For browser checks, open `test_components.html` and verify that valid data shows
+separate High and Low values, the freezing scenario keeps `0°` and `-12°`, and
+the missing scenario hides the range. Use the blue, light, and eInk links, then
+open the catalog selection link to confirm it uses only canonical widget IDs.
+
 ### Basic Test Execution
 
 ```bash

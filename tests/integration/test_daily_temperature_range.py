@@ -37,6 +37,8 @@ process.stdout.write(JSON.stringify(formatDailyTemperatureRange(weather.daily)))
 
     assert result.returncode == 0, result.stdout + result.stderr
     assert json.loads(result.stdout) == {
-        'text': 'H 77° · L 65°',
+        'high': 77,
+        'low': 65,
+        'text': 'HIGH 77° LOW 65°',
         'ariaLabel': "Today's high 77 degrees, low 65 degrees.",
     }

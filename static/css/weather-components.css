@@ -41,7 +41,7 @@
     font-weight: 500;
     z-index: 1000;
     opacity: 0.9;
-    transition: all 0.3s ease;
+    transition: background-color 0.3s ease, opacity 0.3s ease;
 }
 
 .connection-status.connected {
@@ -86,9 +86,37 @@
 }
 
 .daily-range {
-    margin-top: 0.375rem;
+    display: flex;
+    gap: 1rem;
+    margin-top: 0.625rem;
+    opacity: 1;
+    font-variant-numeric: tabular-nums;
+}
+
+.daily-range-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.375rem;
+}
+
+.daily-range-label {
     font-size: 0.875rem;
-    opacity: 0.8;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.daily-range-value {
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.daily-range-high .daily-range-value {
+    color: var(--temp-high);
+}
+
+.daily-range-low .daily-range-value {
+    color: var(--temp-low);
 }
 
 .temperature {
@@ -614,6 +642,10 @@
     background: #ffffff;
     border: 2px solid #000000;
     box-shadow: none;
+}
+
+:host([data-theme="eink"]) .daily-range-value {
+    color: currentColor;
 }
 
 :host([data-theme="eink"]) .chart-line {

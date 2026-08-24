@@ -5,12 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Weather Components Test</title>
     <style>
+        :root {
+            --bg-primary: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+            --text-primary: #ffffff;
+            --temp-high: #fef3c7;
+            --temp-low: #dbeafe;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #ffffff;
+            --text-primary: #000000;
+            --temp-high: #b45309;
+            --temp-low: #0369a1;
+        }
+
+        [data-theme="eink"] {
+            --bg-primary: #eeeeee;
+            --text-primary: #000000;
+            --temp-high: currentColor;
+            --temp-low: currentColor;
+        }
+
         body {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 50%, #60a5fa 100%);
+            background: var(--bg-primary);
             margin: 0;
             padding: 2rem;
             min-height: 100vh;
-            color: white;
+            color: var(--text-primary);
             font-family: system-ui, -apple-system, sans-serif;
         }
 
@@ -36,18 +57,22 @@
             margin-bottom: 1rem;
         }
 
-        button {
+        button,
+        .test-controls a {
             background: rgba(255, 255, 255, 0.2);
             border: none;
-            color: white;
+            color: inherit;
             padding: 0.5rem 1rem;
             border-radius: 0.25rem;
             cursor: pointer;
             margin-right: 0.5rem;
             margin-bottom: 0.5rem;
+            display: inline-block;
+            text-decoration: none;
         }
 
-        button:hover {
+        button:hover,
+        .test-controls a:hover {
             background: rgba(255, 255, 255, 0.3);
         }
     </style>
@@ -64,6 +89,10 @@
                 <button onclick="loadMissingRange()">Load Missing Range</button>
                 <button onclick="testError()">Test Error State</button>
                 <button onclick="testWidgetVisibility()">Test Widget Visibility</button>
+                <a href="?theme=blue">Blue theme</a>
+                <a href="?theme=light">Light theme</a>
+                <a href="?theme=eink">eInk theme</a>
+                <a href="?widgets=alerts,radar,clothing,solar,moon,temperature-trends">Catalog selection</a>
             </div>
         </div>
 
@@ -88,6 +117,17 @@
         </div>
     </div>
 
+    <script src="static/js/dashboard-config.js"></script>
+    <script>
+        window.weatherDashboardConfig = window.DashboardConfig.parseDashboardConfig(
+            window.location.search
+        );
+        window.DashboardConfig.applyDashboardConfig(
+            document,
+            window.weatherDashboardConfig
+        );
+        document.body.setAttribute('data-theme', window.weatherDashboardConfig.theme);
+    </script>
     <script src="static/js/weather-components.js"></script>
     <script>
         // Test data
