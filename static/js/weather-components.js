@@ -97,8 +97,28 @@ function formatDailyTemperatureRange(daily) {
     };
 }
 
+function calculateHourlyChartPoints(temperatures, width, height) {
+    if (!temperatures.length || width <= 0 || height <= 0) return [];
+
+    const topPadding = 16;
+    const bottomPadding = 8;
+    const plotHeight = Math.max(height - topPadding - bottomPadding, 0);
+    const maxTemp = Math.max(...temperatures);
+    const minTemp = Math.min(...temperatures);
+    const tempRange = maxTemp - minTemp;
+    const columnWidth = width / temperatures.length;
+
+    return temperatures.map((temperature, index) => {
+        const ratio = tempRange === 0 ? 0.5 : (maxTemp - temperature) / tempRange;
+        return {
+            x: columnWidth * (index + 0.5),
+            y: topPadding + ratio * plotHeight
+        };
+    });
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { formatDailyTemperatureRange };
+    module.exports = { formatDailyTemperatureRange, calculateHourlyChartPoints };
 }
 
 // Helper function to determine if an hour is day/night/twilight
@@ -547,11 +567,8 @@ class HourlyForecastWidget extends WeatherWidget {
                     <div class="hour-temp">
                         <div class="hour-temp-value">--°</div>
                         <div class="hour-icon">--</div>
+                        <div class="hour-time">--</div>
                     </div>
-                </div>
-
-                <div class="hourly-times" id="hourly-times">
-                    <span class="hour-time">--</span>
                 </div>
 
                 <div class="error-message error hidden" id="error"></div>
@@ -566,15 +583,13 @@ class HourlyForecastWidget extends WeatherWidget {
 
         // Update hourly temperatures
         const hourlyContainer = this.shadowRoot.getElementById('hourly-temps');
-        const hourlyTimesContainer = this.shadowRoot.getElementById('hourly-times');
 
         hourlyContainer.innerHTML = '';
-        hourlyTimesContainer.innerHTML = '';
 
         // Show only next 12 hours for better readability
         const displayHours = hourlyData.slice(0, 12);
 
-        displayHours.forEach((hour, index) => {
+        displayHours.forEach((hour) => {
             const hourDiv = document.createElement('div');
             hourDiv.className = 'hour-temp';
 
@@ -584,26 +599,17 @@ class HourlyForecastWidget extends WeatherWidget {
 
             hourDiv.innerHTML = `
                 <div class="hour-temp-value">${hour.temp}°</div>
-                <div class="hour-icon">${getWeatherIcon(hour.icon, '1.75rem')}</div>
+                <div class="hour-icon">${getWeatherIcon(
+                    hour.icon,
+                    'clamp(1.125rem, 4vw, 1.75rem)'
+                )}</div>
+                <div class="hour-time">${hour.t}</div>
             `;
 
             // Apply background color based on time of day
             hourDiv.style.backgroundColor = backgroundColor;
-            hourDiv.style.borderRadius = '0.5rem';
-            hourDiv.style.padding = '0.5rem';
-            hourDiv.style.margin = '0.125rem';
 
             hourlyContainer.appendChild(hourDiv);
-
-            const timeSpan = document.createElement('span');
-            timeSpan.className = 'hour-time';
-            // Show every other hour on small screens, all hours on larger screens
-            if (index % 2 === 0) {
-                timeSpan.textContent = hour.t;
-            } else {
-                timeSpan.innerHTML = `<span class="hidden sm:inline">${hour.t}</span>`;
-            }
-            hourlyTimesContainer.appendChild(timeSpan);
         });
 
         // Draw temperature chart with 12-hour data
@@ -621,19 +627,13 @@ class HourlyForecastWidget extends WeatherWidget {
 
         svg.innerHTML = '';
 
-        if (width === 0 || height === 0) return;
-
         const temps = hourlyData.map(h => h.temp);
-        const maxTemp = Math.max(...temps);
-        const minTemp = Math.min(...temps);
-        const tempRange = maxTemp - minTemp || 1;
+        const points = calculateHourlyChartPoints(temps, width, height);
+        if (!points.length) return;
 
-        let pathData = '';
-        temps.forEach((temp, index) => {
-            const x = (index / (temps.length - 1)) * width;
-            const y = height - ((temp - minTemp) / tempRange) * height;
-            pathData += (index === 0 ? 'M' : 'L') + x + ',' + y;
-        });
+        const pathData = points.map(({ x, y }, index) => (
+            `${index === 0 ? 'M' : 'L'}${x},${y}`
+        )).join('');
 
         // Draw temperature line
         const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
@@ -643,7 +643,7 @@ class HourlyForecastWidget extends WeatherWidget {
 
         // Add vertical line to show current time position
         // Current time is at the first data point (index 0)
-        const currentTimeX = 0; // First hour position
+        const currentTimeX = points[0].x;
         const currentTimeLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
         currentTimeLine.setAttribute('x1', currentTimeX);
         currentTimeLine.setAttribute('y1', 0);
@@ -666,6 +666,10 @@ class HourlyForecastWidget extends WeatherWidget {
         nowLabel.textContent = 'NOW';
         svg.appendChild(nowLabel);
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.HourlyForecastWidget = HourlyForecastWidget;
 }
 
 // Daily Forecast Component
