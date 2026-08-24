@@ -10,3 +10,4 @@
 - The widget catalog is the only source for widget URL names; do not recreate aliases or host mappings in components.
 - Public theme names are `blue|light|eink`; normalize legacy aliases before applying any styles.
 - Keep the hourly chart, temperatures, icons, and times on the same centers for the actual number of rendered hours. Separate flex rows produce different widths and independent scroll positions, especially in eInk.
+- Hour labels use zero-padded `%I%p`; strip only the leading padding with `lstrip('0')`, because replacing every zero corrupts labels such as `10pm`.

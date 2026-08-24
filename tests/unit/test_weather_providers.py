@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -6,6 +7,7 @@ import requests
 
 from weather_providers import (
     OpenMeteoProvider,
+    PirateWeatherProvider,
     WeatherProvider,
     WeatherProviderManager,
 )
@@ -124,6 +126,21 @@ class TestOpenMeteoProvider:
         assert current['icon'] == 'clear-day'
         assert current['summary'] == 'Clear sky'
 
+    def test_process_weather_data_preserves_tens_digit_in_hour_labels(
+        self, mock_open_meteo_response: dict[str, Any]
+    ) -> None:
+        """Test OpenMeteo hourly labels only remove a leading zero."""
+        mock_open_meteo_response['timezone'] = 'UTC'
+        mock_open_meteo_response['hourly']['time'] = [
+            '2024-01-01T22:00:00Z',
+            '2024-01-01T13:00:00Z',
+        ]
+
+        result = OpenMeteoProvider().process_weather_data(mock_open_meteo_response)
+
+        assert result is not None
+        assert [hour['t'] for hour in result['hourly']] == ['10pm', '1pm']
+
     def test_process_weather_data_empty(self) -> None:
         """Test processing with empty data"""
         provider = OpenMeteoProvider()
@@ -165,6 +182,37 @@ class TestOpenMeteoProvider:
 
         # Test unknown code
         assert provider._get_weather_description(999) == 'Unknown'
+
+
+class TestPirateWeatherProvider:
+    """Test the PirateWeather weather provider."""
+
+    def test_process_weather_data_preserves_tens_digit_in_hour_labels(self) -> None:
+        """Test PirateWeather hourly labels only remove a leading zero."""
+        raw_data = {
+            'currently': {},
+            'hourly': {
+                'data': [
+                    {
+                        'time': datetime(
+                            2024, 1, 1, 22, tzinfo=timezone.utc
+                        ).timestamp(),
+                    },
+                    {
+                        'time': datetime(
+                            2024, 1, 1, 13, tzinfo=timezone.utc
+                        ).timestamp(),
+                    },
+                ]
+            },
+        }
+
+        result = PirateWeatherProvider('test-key').process_weather_data(
+            raw_data, tz_name='UTC'
+        )
+
+        assert result is not None
+        assert [hour['t'] for hour in result['hourly_short']] == ['10pm', '1pm']
 
 
 class TestWeatherProviderManager:

@@ -507,3 +507,9 @@ git commit -m "docs: record hourly layout verification"
 Inspect the complete branch diff against `main`, fix any correctness or scope
 issues, rerun the checks affected by each fix, and leave the branch ready for a
 separate merge and push decision.
+
+### Provider time-label follow-up
+
+- [x] The layout work deliberately left provider behavior unchanged. A separate
+  regression fix now preserves `10pm` and removes only a leading zero for both
+  OpenMeteo and PirateWeather hourly labels.

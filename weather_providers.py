@@ -222,7 +222,7 @@ class OpenMeteoProvider(WeatherProvider):
                         .astimezone(tz)
                         .strftime('%I%p')
                         .lower()
-                        .replace('0', ''),
+                        .lstrip('0'),
                         'desc': self._get_weather_description(
                             hourly['weather_code'][i]
                         ),
@@ -521,7 +521,7 @@ class PirateWeatherProvider(WeatherProvider):
                         .astimezone(tz)
                         .strftime('%I%p')
                         .lower()
-                        .replace('0', ''),
+                        .lstrip('0'),
                         'desc': hour.get('summary', 'Unknown'),
                     }
                     hourly_forecast.append(hour_data)
