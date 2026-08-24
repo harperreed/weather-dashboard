@@ -34,6 +34,19 @@ test('empty widget selection behaves like an omitted parameter', () => {
     }
 });
 
+test('unknown-only widget selection disables every widget and help', () => {
+    const documentHolder = createDocumentHolder();
+    const config = parseDashboardConfig('?widgets=nope');
+
+    assert.equal(config.hasWidgetSelection, true);
+    assert.equal(Object.values(config.enabledWidgets).every(Boolean), false);
+    assert.equal(Object.values(config.enabledWidgets).every((enabled) => !enabled), true);
+
+    applyDashboardConfig(documentHolder, config);
+
+    assert.equal(documentHolder.hosts.get('help-section').hidden, true);
+});
+
 test('valid widgets survive unknown and repeated names', () => {
     const config = parseDashboardConfig('?widgets=radar,nope,radar,moon');
     assert.equal(isWidgetEnabled(config, 'radar'), true);

@@ -105,14 +105,14 @@ function parseDashboardConfig(search) {
 
     const widgetNames = new Set();
     const widgetsParam = urlParams.get('widgets');
-    if (widgetsParam && widgetsParam.trim()) {
+    const hasWidgetSelection = Boolean(widgetsParam && widgetsParam.trim());
+    if (hasWidgetSelection) {
         widgetsParam.split(',').forEach((name) => {
             const canonicalId = WIDGET_NAMES.get(name.trim().toLowerCase());
             if (canonicalId) widgetNames.add(canonicalId);
         });
     }
 
-    const hasWidgetSelection = widgetNames.size > 0;
     if (hasWidgetSelection) {
         WIDGET_CATALOG.forEach(({ id }) => {
             enabledWidgets[id] = widgetNames.has(id);
