@@ -56,6 +56,65 @@ test('renders time inside each hourly cell without a second time row', () => {
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
 });
 
+test('inserts an hourly time as literal text instead of hourly cell markup', (t) => {
+    const originalDocument = global.document;
+    global.document = {
+        addEventListener() {},
+        createElement() {
+            const element = {
+                children: [],
+                innerHTMLAssignments: [],
+                style: {},
+                appendChild(child) {
+                    this.children.push(child);
+                }
+            };
+            Object.defineProperty(element, 'innerHTML', {
+                get() {
+                    return this.innerHTMLAssignments.at(-1) ?? '';
+                },
+                set(value) {
+                    this.innerHTMLAssignments.push(value);
+                }
+            });
+            let textContent = '';
+            Object.defineProperty(element, 'textContent', {
+                get() {
+                    return textContent;
+                },
+                set(value) {
+                    textContent = value;
+                    this.textContentAssignments = (this.textContentAssignments ?? []).concat(value);
+                }
+            });
+            return element;
+        }
+    };
+    t.after(() => {
+        global.document = originalDocument;
+    });
+
+    const unsafeTime = '<img src=x onerror=alert(1)>';
+    const hourlyContainer = { innerHTML: '', children: [], appendChild(child) { this.children.push(child); } };
+    const widget = Object.create(HourlyForecastWidget.prototype);
+    widget.config = { hourly: true };
+    widget.data = { hourly: [{ t: unsafeTime, temp: 72, icon: 'clear-day' }] };
+    widget.shadowRoot = { getElementById: (id) => id === 'hourly-temps' ? hourlyContainer : null };
+    widget.drawTemperatureChart = () => {};
+    widget.hideError = () => {};
+    widget.hideLoading = () => {};
+
+    widget.update();
+
+    const hourDiv = hourlyContainer.children[0];
+    const timeSpan = hourDiv.children.find((child) => child.className === 'hour-time');
+    assert.deepEqual(timeSpan.textContentAssignments, [unsafeTime]);
+    assert.equal(timeSpan.textContent, unsafeTime);
+    assert.doesNotMatch(hourDiv.innerHTMLAssignments[0], /<img src=x on/);
+    assert.match(hourDiv.innerHTMLAssignments[0], /hour-temp-value">72°/);
+    assert.match(hourDiv.innerHTMLAssignments[0], /<weather-icon icon="clear-day"/);
+});
+
 test('redraws current forecast hours when the rendered chart box changes size', (t) => {
     const originalResizeObserver = global.ResizeObserver;
     const observers = [];

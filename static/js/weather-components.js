@@ -586,8 +586,12 @@ class HourlyForecastWidget extends WeatherWidget {
                     hour.icon,
                     'clamp(1.125rem, 4vw, 1.75rem)'
                 )}</div>
-                <div class="hour-time">${hour.t}</div>
             `;
+
+            const timeSpan = document.createElement('div');
+            timeSpan.className = 'hour-time';
+            timeSpan.textContent = hour.t;
+            hourDiv.appendChild(timeSpan);
 
             // Apply background color based on time of day
             hourDiv.style.backgroundColor = backgroundColor;
