@@ -442,13 +442,16 @@ Run:
 
 ```bash
 uv run --locked pytest tests
-uv run --locked ruff check .
+uvx --from ruff==0.6.4 ruff check .
+uvx --from ruff==0.6.4 ruff format --check .
 uv run --locked mypy .
 git diff --check
 ```
 
-Expected: pytest and Ruff PASS with no new warnings; mypy must introduce no new
-diagnostics compared with `main`; `git diff --check` prints nothing.
+Expected: pytest, Ruff lint, and Ruff format PASS with no new warnings; mypy
+must introduce no new diagnostics compared with `main`; `git diff --check`
+prints nothing. Ruff uses the exact version pinned in `.pre-commit-config.yaml`
+because Ruff is not part of the application's locked dependency groups.
 
 - [ ] **Step 3: Run browser end-to-end geometry assertions**
 
