@@ -39,6 +39,7 @@
 - Create: `tests/js/hourly-forecast-layout.test.js`
 - Modify: `tests/unit/test_frontend_javascript.py`
 - Modify: `static/js/weather-components.js:86-102,534-670`
+- Modify: `static/js/weather-components.js:309-317`
 - Modify: `static/css/weather-components.css:167-223,492-500,555-566,623-635,777-831`
 
 **Interfaces:**
@@ -108,6 +109,20 @@ test('renders time inside each hourly cell without a second time row', () => {
     assert.match(widget.shadowRoot.innerHTML, /id="hourly-temps"/);
     assert.match(widget.shadowRoot.innerHTML, /class="hour-time"/);
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
+});
+
+test('uses a responsive external eInk time label without an inline override', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.625rem, 2\.25vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
 test('uses one gapless auto-column grid with no hourly scrolling', () => {
@@ -209,6 +224,19 @@ automatic CSS column per real entry keeps the cell centers aligned. Do not add
 gap-aware chart math, placeholder forecasts, provider changes, or JavaScript
 layout state.
 
+Task 1 also owns the 390px eInk hourly-label fit exposed by the fitted grid.
+Remove only the inline `getSharedStyles()` eInk `.hour-time` override. Keep the
+external stylesheet as the source of truth:
+
+```css
+:host([data-theme="eink"]) .hour-time {
+    min-width: 0;
+    text-align: center;
+    font-size: clamp(0.625rem, 2.25vw, 1rem);
+    font-weight: 800;
+}
+```
+
 Replace the hourly layout rules with:
 
 ```css
@@ -284,27 +312,23 @@ git commit -m "fix: align hourly forecast columns"
 ### Task 2: Compact eInk Layout
 
 **Files:**
-- Modify: `static/js/weather-components.js:249-386`
+- Modify: `static/js/weather-components.js:249-386` for the remaining eInk density overrides
 - Modify: `static/css/weather-components.css:638-835`
 - Modify: `templates/weather.html:149-155`
 - Modify: `tests/js/hourly-forecast-layout.test.js`
 
 **Interfaces:**
-- Consumes: the `.hour-temp`, `.hour-time`, `.temp-display`, `.weather-details`, and `.detail-card` selectors.
+- Consumes: the `.hour-temp`, `.temp-display`, `.weather-details`, and `.detail-card` selectors.
 - Preserves: the canonical `eink` theme name and all theme color tokens.
 
 - [ ] **Step 1: Add failing eInk density tests**
 
-Append a test that reads the template, component source, and shared stylesheet:
+Append a test that reads the template and shared stylesheet:
 
 ```javascript
 test('eInk keeps strong type with compact page and component spacing', () => {
     const template = fs.readFileSync(
         path.join(__dirname, '../../templates/weather.html'),
-        'utf8'
-    );
-    const components = fs.readFileSync(
-        path.join(__dirname, '../../static/js/weather-components.js'),
         'utf8'
     );
     const styles = fs.readFileSync(
@@ -313,10 +337,8 @@ test('eInk keeps strong type with compact page and component spacing', () => {
     );
 
     assert.match(template, /\[data-theme="eink"\] \.weather-container\s*\{[^}]*padding:\s*1\.25rem 2rem;/s);
-    assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.temp-display\s*\{[^}]*gap:\s*1\.5rem;[^}]*margin-bottom:\s*1\.25rem;/s);
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*gap:\s*0\.75rem;[^}]*margin-top:\s*1rem;/s);
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*font-size:\s*clamp\(0\.625rem, 2\.25vw, 1rem\);/s);
 });
 ```
 
@@ -324,15 +346,16 @@ test('eInk keeps strong type with compact page and component spacing', () => {
 
 Run: `node --test tests/js/hourly-forecast-layout.test.js`
 
-Expected: FAIL because eInk still uses 3rem page padding, 2.5rem current gap,
-and duplicate inline hourly overrides.
+Expected: FAIL because eInk still uses 3rem page padding and a 2.5rem current
+gap.
 
 - [ ] **Step 3: Consolidate and reduce eInk spacing**
 
 Change the template's eInk container padding to `1.25rem 2rem`. In
 `getSharedStyles()`, remove inline eInk rules for `.hour-temp-value`,
-`.hour-time`, `.temp-display`, `.weather-details`, and `.detail-card`, including
-their mobile duplicates, so the external stylesheet owns those values.
+`.temp-display`, `.weather-details`, and `.detail-card`, including their mobile
+duplicates, so the external stylesheet owns those values. Task 1 already owns
+the external responsive `.hour-time` rule and removal of its inline override.
 
 Set these shared eInk values:
 
@@ -356,11 +379,6 @@ Set these shared eInk values:
     font-weight: 900;
 }
 
-:host([data-theme="eink"]) .hour-time {
-    min-width: 0;
-    font-size: clamp(0.625rem, 2.25vw, 1rem);
-    font-weight: 800;
-}
 ```
 
 Keep existing color, border, and font-weight rules unchanged.

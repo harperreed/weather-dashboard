@@ -777,8 +777,9 @@
 }
 
 :host([data-theme="eink"]) .hour-time {
+    min-width: 0;
     text-align: center;
-    font-size: 1.125rem;
+    font-size: clamp(0.625rem, 2.25vw, 1rem);
     font-weight: 800;
 }
 
