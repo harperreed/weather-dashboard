@@ -640,7 +640,7 @@ git commit -m "feat: clarify dashboard temperature and controls"
 - Consumes: the completed dashboard refactor
 - Produces: fresh verification evidence for the branch
 
-- [ ] **Step 1: Run static JavaScript checks**
+- [x] **Step 1: Run static JavaScript checks**
 
 Run:
 
@@ -651,7 +651,7 @@ node --check static/js/weather-components.js
 
 Expected: both commands exit 0 with no output.
 
-- [ ] **Step 2: Run formatting and diff checks**
+- [x] **Step 2: Run formatting and diff checks**
 
 Run:
 
@@ -663,13 +663,13 @@ git diff --check main...HEAD
 
 Expected: all commands exit 0 with no new warnings.
 
-- [ ] **Step 3: Run the canonical suite**
+- [x] **Step 3: Run the canonical suite**
 
 Run: `uv run --locked pytest tests`
 
 Expected: all tests PASS and coverage does not drop below the current 83%.
 
-- [ ] **Step 4: Verify real-browser behavior**
+- [x] **Step 4: Verify real-browser behavior**
 
 Serve the app on an available local port and verify these URLs in a real
 browser at 390px and 1280px widths:
@@ -690,20 +690,20 @@ Confirm the high/low pair is visible in blue, light, and e-ink; only requested
 widgets appear; disabled widget APIs do not appear in the network log; aliases
 match their canonical themes; and there are no new console errors.
 
-- [ ] **Step 5: Run fresh-eyes review**
+- [x] **Step 5: Run fresh-eyes review**
 
 Review every changed file for unsafe query rendering, alias precedence,
 empty-selection behavior, stale range state, hidden-widget fetches, theme
 contrast, and mobile overflow. Fix findings with a failing test first, then
 repeat the relevant checks.
 
-- [ ] **Step 6: Record durable project knowledge**
+- [x] **Step 6: Record durable project knowledge**
 
 Append concise entries to `gotchas.md` stating that the widget catalog is the
 only source for widget URL names and that public theme names are
 `blue|light|eink` while legacy aliases normalize before styling.
 
-- [ ] **Step 7: Commit final verification notes**
+- [x] **Step 7: Commit final verification notes**
 
 ```bash
 git add gotchas.md docs/superpowers/plans/2026-08-24-dashboard-design-refactor.md
