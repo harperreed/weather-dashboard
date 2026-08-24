@@ -1844,7 +1844,7 @@ class HelpSection extends HTMLElement {
                     width: 100%;
                     text-align: center;
                     transition: opacity 0.2s ease;
-                    background: var(--card-bg);
+                    background: var(--help-surface);
                     border: 1px solid var(--card-border);
                     color: var(--text-primary);
                 }

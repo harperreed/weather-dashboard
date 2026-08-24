@@ -141,6 +141,7 @@ test('help content uses theme tokens instead of hard-coded contrast colors', () 
         components.indexOf('/**\n * Pressure Trends Widget')
     );
 
+    assert.match(helpSource, /\.help-toggle\s*\{[^}]*background:\s*var\(--help-surface\);/s);
     assert.match(helpSource, /\.help-content\s*\{[^}]*background:\s*var\(--help-surface\);/s);
     assert.match(helpSource, /\.param-name\s*\{[^}]*color:\s*var\(--help-param-color\);/s);
     assert.match(helpSource, /\.param-example\s*\{[^}]*color:\s*var\(--help-example-color\);/s);
