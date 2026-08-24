@@ -71,6 +71,7 @@ open the catalog selection link to confirm it uses only canonical widget IDs.
 Verify the hourly chart and forecast cells in these browser cases:
 
 - Blue theme at 390x844: `http://127.0.0.1:5001/chicago`
+- eInk theme at 320x844: `http://127.0.0.1:5001/chicago?theme=eink`
 - eInk theme at 390x844: `http://127.0.0.1:5001/chicago?theme=eink`
 - eInk theme at 800x480: `http://127.0.0.1:5001/chicago?theme=eink`
 
@@ -78,10 +79,10 @@ In each case, confirm the page, chart, and hourly row fit without horizontal
 scrolling, and each chart point centers above its matching forecast cell.
 
 For the eInk extreme-value regression, serve the repository locally, open
-`/test_components.html?theme=eink` at 390x844, and let its 12-entry hourly
-fixture load. Confirm every hourly time and temperature fits its cell. In
+`/test_components.html?theme=eink` at 320x844 and 390x844, and let its 12-entry
+hourly fixture load. Confirm every hourly time and temperature fits its cell. In
 particular, verify the `-12°` and `100°` `.hour-temp-value` elements satisfy
-`scrollWidth <= clientWidth`, then capture a screenshot.
+`scrollWidth <= clientWidth`, then capture screenshots.
 
 ### Basic Test Execution
 

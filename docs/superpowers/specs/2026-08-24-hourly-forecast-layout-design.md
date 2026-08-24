@@ -34,9 +34,10 @@ in eInk, hour labels use `clamp(0.4375rem, 2vw, 1rem)` with weight 800 so full
 times such as `11pm` and `12am` remain visible inside their cells.
 Hourly temperatures use `clamp(0.5625rem, 2vw, 1rem)` with weight 900 so the
 full `-12°` and `100°` values fit inside the same 12-column layout.
-At 390px in focused Chrome, the prior 0.5625rem temperature minimum measured
-`100°` at 24px in a 22px cell. The eInk rule removes the cell's horizontal
-padding, restoring its 24px content width without reducing the requested type.
+At 320px in focused Chrome, the eInk page uses `1.25rem 1rem` padding to retain
+the label sizes while freeing horizontal width. The standalone harness mirrors
+that outer spacing and removes its narrow eInk section padding so the fixture
+represents the production content width.
 
 Doctor Biz approved this dynamic-column resolution: `displayHours` retains its
 maximum of 12 entries, and gapless CSS Grid automatic columns fill the width for
@@ -83,10 +84,10 @@ SVG path based on a stale width.
   columns for the actual entry count, absence of horizontal overflow, responsive
   chart height, and dense eInk rules.
 - The canonical `uv run --locked pytest tests` check must pass.
-- Browser checks at 390x844 in blue, 390x844 in eInk, and 800x480 in eInk must
-  show up to 12 aligned real cells with no document or hourly horizontal
-  overflow.
-- The 390x844 eInk manual fixture must keep all 12 full hour strings and
+- Browser checks at 390x844 in blue, 320x844 and 390x844 in eInk, and 800x480
+  in eInk must show up to 12 aligned real cells with no document or hourly
+  horizontal overflow.
+- The 320x844 and 390x844 eInk manual fixture must keep all 12 full hour strings and
   temperatures inside their cells, including `-12°` and `100°`.
 
 ## Out of Scope

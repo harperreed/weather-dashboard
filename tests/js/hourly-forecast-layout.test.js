@@ -166,12 +166,19 @@ test('eInk keeps strong type with compact page and component spacing', () => {
         path.join(__dirname, '../../templates/weather.html'),
         'utf8'
     );
+    const harness = fs.readFileSync(
+        path.join(__dirname, '../../test_components.html'),
+        'utf8'
+    );
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
 
     assert.match(template, /\[data-theme="eink"\] \.weather-container\s*\{[^}]*padding:\s*1\.25rem 2rem;/s);
+    assert.match(template, /@media \(max-width:\s*390px\)\s*\{\s*\[data-theme="eink"\] \.weather-container\s*\{[^}]*padding:\s*1\.25rem 1rem;/s);
+    assert.match(harness, /@media \(max-width:\s*390px\)\s*\{\s*body\[data-theme="eink"\]\s*\{[^}]*padding:\s*2rem 1rem;/s);
+    assert.match(harness, /@media \(max-width:\s*390px\)[\s\S]*?\.test-section\s*\{[^}]*padding:\s*1rem 0;/);
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.temp-display\s*\{[^}]*gap:\s*1\.5rem;[^}]*margin-bottom:\s*1\.25rem;/s);
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*gap:\s*0\.75rem;[^}]*margin-top:\s*1rem;/s);
 });

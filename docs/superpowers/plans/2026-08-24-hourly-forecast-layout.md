@@ -438,7 +438,7 @@ git commit -m "fix: tighten eink dashboard spacing"
 - [x] **Step 1: Document the repeatable focused checks**
 
 Add `node --test tests/js/hourly-forecast-layout.test.js` to the frontend test
-commands in `TESTING.md`. Record the three browser viewport and theme cases from
+commands in `TESTING.md`. Record the four browser viewport and theme cases from
 the design spec. Add this project note to `gotchas.md`:
 
 ```markdown
@@ -471,9 +471,9 @@ Start the app in a separate terminal with:
 HOST=127.0.0.1 PORT=5001 uv run --locked python main.py
 ```
 
-Use one isolated browser session to open `http://127.0.0.1:5001/chicago` at
-390x844 and `http://127.0.0.1:5001/chicago?theme=eink` at 390x844 and 800x480,
-then assert in each page:
+Use isolated browser sessions to open `http://127.0.0.1:5001/chicago` at
+390x844 and `http://127.0.0.1:5001/chicago?theme=eink` at 320x844, 390x844,
+and 800x480, then assert in each page:
 
 ```javascript
 const host = document.querySelector('hourly-forecast');
@@ -491,8 +491,9 @@ const chart = root.querySelector('.temperature-chart');
 });
 ```
 
-Expected: every returned value is `true`. Capture screenshots for visual review
-and confirm chart points sit above their matching forecast cells.
+Expected: every returned value is `true`. Also serve the manual 12-entry eInk
+extreme fixture at 320x844 and 390x844, confirm all times and temperatures fit,
+and capture screenshots for visual review.
 
 - [x] **Step 4: Commit verification documentation**
 
