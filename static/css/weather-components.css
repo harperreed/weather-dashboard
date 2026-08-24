@@ -97,6 +97,9 @@
     display: inline-flex;
     align-items: baseline;
     gap: 0.375rem;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.5rem;
+    background: var(--daily-range-surface);
 }
 
 .daily-range-label {
@@ -646,6 +649,10 @@
 
 :host([data-theme="eink"]) .daily-range-value {
     color: currentColor;
+}
+
+:host([data-theme="eink"]) .daily-range-item {
+    border: 1px solid currentColor;
 }
 
 :host([data-theme="eink"]) .chart-line {

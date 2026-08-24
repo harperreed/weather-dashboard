@@ -1858,23 +1858,23 @@ class HelpSection extends HTMLElement {
                     margin-top: 1rem;
                     padding: 1rem;
                     border-radius: 0.5rem;
-                    background: var(--card-bg);
+                    background: var(--help-surface);
                     border: 1px solid var(--card-border);
                 }
 
                 .param-name {
-                    color: #fbbf24;
+                    color: var(--help-param-color);
                     font-weight: 600;
                     font-family: monospace;
                 }
 
                 .param-example {
-                    color: #86efac;
+                    color: var(--help-example-color);
                     font-family: monospace;
                     font-size: 0.8rem;
                     display: block;
                     margin-top: 0.25rem;
-                    opacity: 0.8;
+                    opacity: 1;
                 }
 
                 .city-list {

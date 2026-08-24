@@ -1,4 +1,6 @@
 <!DOCTYPE html>
+<!-- ABOUTME: Manual browser harness for weather component states and theme controls. -->
+<!-- ABOUTME: Loads canonical dashboard configuration before weather components. -->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -10,6 +12,10 @@
             --text-primary: #ffffff;
             --temp-high: #fef3c7;
             --temp-low: #dbeafe;
+            --daily-range-surface: rgba(15, 23, 42, 0.92);
+            --help-surface: rgba(15, 23, 42, 0.92);
+            --help-param-color: #fef3c7;
+            --help-example-color: #dbeafe;
         }
 
         [data-theme="light"] {
@@ -17,6 +23,10 @@
             --text-primary: #000000;
             --temp-high: #b45309;
             --temp-low: #0369a1;
+            --daily-range-surface: #f8fafc;
+            --help-surface: #f8fafc;
+            --help-param-color: #92400e;
+            --help-example-color: #0369a1;
         }
 
         [data-theme="eink"] {
@@ -24,6 +34,10 @@
             --text-primary: #000000;
             --temp-high: currentColor;
             --temp-low: currentColor;
+            --daily-range-surface: #ffffff;
+            --help-surface: #ffffff;
+            --help-param-color: currentColor;
+            --help-example-color: currentColor;
         }
 
         body {

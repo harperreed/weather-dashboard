@@ -122,6 +122,58 @@ test('daily range has primary contrast and stable numerals', () => {
     assert.match(styles, /:host\(\[data-theme="eink"\]\)[^{]*\.daily-range-value\s*\{[^}]*color:\s*currentColor;/s);
 });
 
+test('daily range items use the theme surface token', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /\.daily-range-item\s*\{[^}]*background:\s*var\(--daily-range-surface\);/s);
+});
+
+test('help content uses theme tokens instead of hard-coded contrast colors', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const helpSource = components.slice(
+        components.indexOf('class HelpSection'),
+        components.indexOf('/**\n * Pressure Trends Widget')
+    );
+
+    assert.match(helpSource, /\.help-content\s*\{[^}]*background:\s*var\(--help-surface\);/s);
+    assert.match(helpSource, /\.param-name\s*\{[^}]*color:\s*var\(--help-param-color\);/s);
+    assert.match(helpSource, /\.param-example\s*\{[^}]*color:\s*var\(--help-example-color\);/s);
+    assert.doesNotMatch(helpSource, /#fbbf24|#86efac/i);
+});
+
+test('canonical themes define range and help contrast tokens', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    [':root', '[data-theme="light"]', '[data-theme="eink"]'].forEach((selector) => {
+        const escapedSelector = selector.replace(/[\[\]]/g, '\\$&');
+        const themeBlock = new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`, 's');
+        const block = template.match(themeBlock)?.[0] || '';
+
+        ['--daily-range-surface', '--help-surface', '--help-param-color', '--help-example-color']
+            .forEach((token) => {
+                assert.match(block, new RegExp(`${token}:`), `${selector} is missing ${token}`);
+            });
+    });
+});
+
+test('manual harness starts with ABOUTME documentation', () => {
+    const harness = fs.readFileSync(
+        path.join(__dirname, '../../test_components.html'),
+        'utf8'
+    );
+
+    assert.match(harness, /^<!DOCTYPE html>\s*\n<!-- ABOUTME: .+ -->\s*\n<!-- ABOUTME: .+ -->/);
+});
+
 test('returns null for incomplete or non-numeric ranges', () => {
     const invalidDailyData = [
         undefined,
