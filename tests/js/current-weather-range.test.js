@@ -17,7 +17,8 @@ global.document = { addEventListener() {} };
 
 const {
     CurrentWeatherWidget,
-    formatDailyTemperatureRange
+    formatDailyTemperatureRange,
+    SolarProgressWidget
 } = require('../../static/js/weather-components.js');
 
 test('renders a hidden daily range beneath the current temperature', () => {
@@ -192,19 +193,23 @@ test('solar widget uses a block host so its card cannot widen the page', () => {
 });
 
 test('solar data replaces the loading layout before rendering its content', () => {
-    const components = fs.readFileSync(
-        path.join(__dirname, '../../static/js/weather-components.js'),
-        'utf8'
-    );
-    const solarSource = components.slice(
-        components.indexOf('class SolarProgressWidget'),
-        components.indexOf('// Enhanced Temperature Trends Widget')
+    const classNames = new Set(['loading-state']);
+    const solarContent = {
+        classList: {
+            contains(name) { return classNames.has(name); },
+            remove(name) { classNames.delete(name); }
+        },
+        innerHTML: ''
+    };
+    const widget = new SolarProgressWidget();
+    widget.shadowRoot.getElementById = (id) => (
+        id === 'solar-content' ? solarContent : null
     );
 
-    assert.match(
-        solarSource,
-        /renderSolarData\(solarData\)\s*\{[\s\S]*?content\.classList\.remove\('loading-state'\);/s
-    );
+    widget.renderSolarData({});
+
+    assert.equal(solarContent.classList.contains('loading-state'), false);
+    assert.match(solarContent.innerHTML, /progress-arc-container/);
 });
 
 test('manual harness starts with ABOUTME documentation', () => {

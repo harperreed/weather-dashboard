@@ -4348,6 +4348,10 @@ class EnhancedTemperatureTrendsWidget extends WeatherWidget {
 // Register the solar progress component
 customElements.define('solar-progress', SolarProgressWidget);
 
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.SolarProgressWidget = SolarProgressWidget;
+}
+
 // Register the enhanced temperature trends component
 customElements.define('enhanced-temperature-trends', EnhancedTemperatureTrendsWidget);
 
