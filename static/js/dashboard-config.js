@@ -155,7 +155,10 @@ function applyDashboardConfig(documentRoot, config) {
     });
 
     const helpSection = documentRoot.querySelector('help-section');
-    if (helpSection) helpSection.hidden = config.hasWidgetSelection;
+    if (helpSection) {
+        helpSection.hidden = config.hasWidgetSelection;
+        helpSection.setAttribute('data-theme', config.theme);
+    }
 }
 
 const DashboardConfig = {

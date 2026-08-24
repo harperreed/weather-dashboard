@@ -110,6 +110,10 @@ test('applies selected widget visibility and theme to every host', () => {
         assert.equal(documentHolder.hosts.get(host).attributes.get('data-theme'), 'light');
     });
     assert.equal(documentHolder.hosts.get('help-section').hidden, true);
+    assert.equal(
+        documentHolder.hosts.get('help-section').attributes.get('data-theme'),
+        'light'
+    );
 });
 
 test('empty widget selection leaves widgets and help visible', () => {

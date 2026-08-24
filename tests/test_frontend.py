@@ -44,6 +44,8 @@ class TestFrontendIntegration:
         assert ':host([data-theme="eink"]) .weather-widget' in component_css
         assert ':host([data-theme="eink"]) .theme-card' in component_css
         assert ':host([data-theme="eink"]) .pressure-card' in component_source
+        assert '[data-theme="eink"] .connection-status' in component_css
+        assert ':host([data-theme="eink"]) .connection-status' not in component_css
 
     def test_static_js_file_exists(self) -> None:
         """Test that the weather components JS file exists"""

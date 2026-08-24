@@ -642,7 +642,7 @@
     width: 0.75rem;
 }
 
-:host([data-theme="eink"]) .connection-status {
+[data-theme="eink"] .connection-status {
     display: none !important;
 }
 
