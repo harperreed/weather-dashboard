@@ -345,50 +345,10 @@ git commit -m "feat: centralize dashboard configuration"
 - Produces: `WeatherWidget.isEnabled(widgetId: string): boolean`
 - Produces: canonical `data-theme` values on the body and every widget host
 
-- [ ] **Step 1: Add failing integration assertions**
+- [ ] **Step 1: Add a failing template integration assertion**
 
-Extend `tests/js/dashboard-config.test.js` with a document holder constructed
-from every catalog host:
-
-```javascript
-function createDocumentHolder() {
-    const body = { attributes: new Map(), setAttribute(name, value) {
-        this.attributes.set(name, value);
-    }};
-    const hosts = new Map(
-        [...WIDGET_CATALOG.map(({ host }) => host), 'help-section'].map(
-            (host) => [host, {
-                hidden: false,
-                attributes: new Map(),
-                setAttribute(name, value) { this.attributes.set(name, value); }
-            }]
-        )
-    );
-    return {
-        body,
-        hosts,
-        getElementById(id) { return id === 'app-body' ? body : null; },
-        querySelector(selector) { return hosts.get(selector) ?? null; }
-    };
-}
-
-test('applies selection and canonical theme to every host', () => {
-    const documentHolder = createDocumentHolder();
-    const config = parseDashboardConfig(
-        '?widgets=alerts,radar,clothing,solar,moon,temperature-trends&theme=light'
-    );
-    applyDashboardConfig(documentHolder, config);
-
-    assert.equal(documentHolder.body.attributes.get('data-theme'), 'light');
-    WIDGET_CATALOG.forEach(({ id, host }) => {
-        assert.equal(documentHolder.hosts.get(host).hidden, !config.enabledWidgets[id]);
-        assert.equal(documentHolder.hosts.get(host).attributes.get('data-theme'), 'light');
-    });
-    assert.equal(documentHolder.hosts.get('help-section').hidden, true);
-});
-```
-
-Add this template contract test to `TestFrontendIntegration` in
+The Task 1 catalog-driven DOM test already covers every host. Add this distinct
+template contract test to `TestFrontendIntegration` in
 `tests/test_frontend.py`:
 
 ```python
