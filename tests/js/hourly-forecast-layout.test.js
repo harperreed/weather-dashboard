@@ -70,6 +70,20 @@ test('uses a responsive external eInk time label without an inline override', ()
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
+test('uses a responsive external eInk temperature without an inline override', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.75rem, 2\.5vw, 1rem\);/s);
+    assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
+});
+
 test('uses one gapless auto-column grid with no hourly scrolling', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),

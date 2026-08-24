@@ -306,11 +306,6 @@ class WeatherWidget extends HTMLElement {
                     font-weight: 800 !important;
                 }
 
-                :host([data-theme="eink"]) .hour-temp-value {
-                    font-weight: 900 !important;
-                    font-size: 1.25rem !important;
-                }
-
                 :host([data-theme="eink"]) .day-high {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;

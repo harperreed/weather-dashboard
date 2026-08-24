@@ -751,7 +751,7 @@
 
 :host([data-theme="eink"]) .hour-temp-value {
     font-weight: 900;
-    font-size: 1.25rem;
+    font-size: clamp(0.75rem, 2.5vw, 1rem);
 }
 
 /* Bigger icons for hourly forecast in the eInk theme */

@@ -125,6 +125,20 @@ test('uses a responsive external eInk time label without an inline override', ()
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
+test('uses a responsive external eInk temperature without an inline override', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.75rem, 2\.5vw, 1rem\);/s);
+    assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
+});
+
 test('uses one gapless auto-column grid with no hourly scrolling', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
@@ -224,11 +238,17 @@ automatic CSS column per real entry keeps the cell centers aligned. Do not add
 gap-aware chart math, placeholder forecasts, provider changes, or JavaScript
 layout state.
 
-Task 1 also owns the 390px eInk hourly-label fit exposed by the fitted grid.
-Remove only the inline `getSharedStyles()` eInk `.hour-time` override. Keep the
-external stylesheet as the source of truth:
+Task 1 also owns both 390px eInk hourly-label fits exposed by the fitted grid.
+Remove only the inline `getSharedStyles()` eInk `.hour-time` and
+`.hour-temp-value` overrides. Keep the external stylesheet as the source of
+truth:
 
 ```css
+:host([data-theme="eink"]) .hour-temp-value {
+    font-weight: 900;
+    font-size: clamp(0.75rem, 2.5vw, 1rem);
+}
+
 :host([data-theme="eink"]) .hour-time {
     min-width: 0;
     text-align: center;
@@ -352,10 +372,11 @@ gap.
 - [ ] **Step 3: Consolidate and reduce eInk spacing**
 
 Change the template's eInk container padding to `1.25rem 2rem`. In
-`getSharedStyles()`, remove inline eInk rules for `.hour-temp-value`,
-`.temp-display`, `.weather-details`, and `.detail-card`, including their mobile
-duplicates, so the external stylesheet owns those values. Task 1 already owns
-the external responsive `.hour-time` rule and removal of its inline override.
+`getSharedStyles()`, remove inline eInk rules for `.temp-display`,
+`.weather-details`, and `.detail-card`, including their mobile duplicates, so
+the external stylesheet owns those values. Task 1 already owns the external
+responsive `.hour-temp-value` and `.hour-time` rules and removal of their inline
+overrides.
 
 Set these shared eInk values:
 
@@ -372,11 +393,6 @@ Set these shared eInk values:
 
 :host([data-theme="eink"]) .detail-card {
     padding: 0.75rem 1rem;
-}
-
-:host([data-theme="eink"]) .hour-temp-value {
-    font-size: clamp(0.75rem, 2.5vw, 1rem);
-    font-weight: 900;
 }
 
 ```
