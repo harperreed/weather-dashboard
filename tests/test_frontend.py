@@ -17,6 +17,14 @@ MAX_RESPONSE_SIZE = 50000
 class TestFrontendIntegration:
     """Test frontend integration and static file serving"""
 
+    def test_dashboard_config_loads_before_components(self, client) -> None:
+        html = client.get('/').get_data(as_text=True)
+
+        assert html.index('/static/js/dashboard-config.js') < html.index(
+            '/static/js/weather-components.js'
+        )
+        assert 'const theme = urlParams.get' not in html
+
     def test_static_js_file_exists(self) -> None:
         """Test that the weather components JS file exists"""
         js_file_path = os.path.join(

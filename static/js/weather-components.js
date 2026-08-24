@@ -45,11 +45,10 @@ class WeatherIcon extends HTMLElement {
         const size = this.getAttribute('size') || '2.5rem';
         const alt = this.getAttribute('alt') || iconCode;
 
-        // Check URL parameter for animation preference
+        // Use static icons on high-contrast eInk displays.
         const urlParams = new URLSearchParams(window.location.search);
-        const theme = urlParams.get('theme') || urlParams.get('background');
-        const isDashboard = theme === 'dashboard' || theme === 'eink';
-        const useAnimated = urlParams.get('animated') !== 'false' && !isDashboard;
+        const isEink = window.weatherDashboardConfig?.theme === 'eink';
+        const useAnimated = urlParams.get('animated') !== 'false' && !isEink;
         const iconType = useAnimated ? 'animated' : 'static';
 
         const iconFile = WEATHER_ICONS[iconCode] || WEATHER_ICONS['clear-day'];
@@ -179,22 +178,22 @@ class WeatherWidget extends HTMLElement {
         super();
         this.attachShadow({ mode: 'open' });
         this.data = null;
-        this.config = {
-            current: true,
-            hourly: true,
-            daily: true,
-            timeline: true,
-            airquality: true,
-            wind: true,
-            pressure: true
-        };
+        this.config = {};
     }
 
     connectedCallback() {
         this.parseConfig();
+        if (this.hidden) return;
         this.observeTheme();
         this.render();
         this.setupEventListeners();
+    }
+
+    isEnabled(widgetId) {
+        return window.DashboardConfig.isWidgetEnabled(
+            window.weatherDashboardConfig,
+            widgetId
+        );
     }
 
     observeTheme() {
@@ -223,69 +222,12 @@ class WeatherWidget extends HTMLElement {
     }
 
     parseConfig() {
-        const urlParams = new URLSearchParams(window.location.search);
-
-        // Parse widgets parameter
-        const widgetsParam = urlParams.get('widgets');
-        if (widgetsParam) {
-            this.config = {
-                current: false,
-                hourly: false,
-                daily: false,
-                timeline: false,
-                airquality: false,
-                wind: false,
-                pressure: false
-            };
-
-            const requestedWidgets = widgetsParam.split(',').map(w => w.trim().toLowerCase());
-            requestedWidgets.forEach(widget => {
-                switch (widget) {
-                    case 'current':
-                    case 'now':
-                        this.config.current = true;
-                        break;
-                    case 'hourly':
-                    case 'hours':
-                        this.config.hourly = true;
-                        break;
-                    case 'daily':
-                    case 'week':
-                    case 'days':
-                        this.config.daily = true;
-                        break;
-                    case 'timeline':
-                    case 'list':
-                        this.config.timeline = true;
-                        break;
-                    case 'air-quality':
-                    case 'airquality':
-                    case 'air':
-                    case 'aqi':
-                        this.config.airquality = true;
-                        break;
-                    case 'wind-direction':
-                    case 'wind':
-                    case 'compass':
-                        this.config.wind = true;
-                        break;
-                    case 'pressure-trends':
-                    case 'pressure':
-                    case 'trends':
-                        this.config.pressure = true;
-                        break;
-                }
-            });
-        }
-
-        // Individual widget parameters
-        if (urlParams.has('current')) this.config.current = urlParams.get('current') !== 'false';
-        if (urlParams.has('hourly')) this.config.hourly = urlParams.get('hourly') !== 'false';
-        if (urlParams.has('daily')) this.config.daily = urlParams.get('daily') !== 'false';
-        if (urlParams.has('timeline')) this.config.timeline = urlParams.get('timeline') !== 'false';
-        if (urlParams.has('air-quality') || urlParams.has('airquality')) this.config.airquality = urlParams.get('air-quality') !== 'false' && urlParams.get('airquality') !== 'false';
-        if (urlParams.has('wind-direction') || urlParams.has('wind')) this.config.wind = urlParams.get('wind-direction') !== 'false' && urlParams.get('wind') !== 'false';
-        if (urlParams.has('pressure-trends') || urlParams.has('pressure')) this.config.pressure = urlParams.get('pressure-trends') !== 'false' && urlParams.get('pressure') !== 'false';
+        this.config = Object.fromEntries(
+            window.DashboardConfig.WIDGET_CATALOG.map(({ id }) => [
+                id,
+                this.isEnabled(id)
+            ])
+        );
     }
 
     setupEventListeners() {
@@ -302,7 +244,7 @@ class WeatherWidget extends HTMLElement {
         });
     }
 
-    // Import external CSS into Shadow DOM + dashboard theme styles
+    // Import external CSS into Shadow DOM + eInk theme styles
     getSharedStyles() {
         return `
             <link rel="stylesheet" href="/static/css/weather-components.css">
@@ -313,107 +255,107 @@ class WeatherWidget extends HTMLElement {
                     font-family: system-ui, -apple-system, sans-serif;
                 }
 
-                /* Dashboard theme overrides for Shadow DOM */
-                :host([data-theme="dashboard"]) .temperature {
+                /* eInk theme overrides for Shadow DOM */
+                :host([data-theme="eink"]) .temperature {
                     font-size: 6rem !important;
                     font-weight: 900 !important;
                     line-height: 1 !important;
                 }
 
-                :host([data-theme="dashboard"]) .feels-like {
+                :host([data-theme="eink"]) .feels-like {
                     font-size: 1.5rem !important;
                     font-weight: 900 !important;
                     margin-bottom: 0.5rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .summary {
+                :host([data-theme="eink"]) .summary {
                     font-size: 2rem !important;
                     font-weight: 900 !important;
                     margin-bottom: 1.5rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .detail-value {
+                :host([data-theme="eink"]) .detail-value {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .detail-label {
+                :host([data-theme="eink"]) .detail-label {
                     font-size: 1.125rem !important;
                     font-weight: 800 !important;
                 }
 
-                :host([data-theme="dashboard"]) .hour-temp-value {
+                :host([data-theme="eink"]) .hour-temp-value {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .hour-time {
+                :host([data-theme="eink"]) .hour-time {
                     font-size: 1.125rem !important;
                     font-weight: 800 !important;
                 }
 
-                :host([data-theme="dashboard"]) .day-high {
+                :host([data-theme="eink"]) .day-high {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .day-low {
+                :host([data-theme="eink"]) .day-low {
                     font-weight: 800 !important;
                     font-size: 1.125rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .day-name {
+                :host([data-theme="eink"]) .day-name {
                     font-size: 1.125rem !important;
                     font-weight: 800 !important;
                 }
 
-                :host([data-theme="dashboard"]) .timeline-time {
+                :host([data-theme="eink"]) .timeline-time {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .timeline-temp {
+                :host([data-theme="eink"]) .timeline-temp {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .timeline-desc {
+                :host([data-theme="eink"]) .timeline-desc {
                     font-size: 1.125rem !important;
                     font-weight: 800 !important;
                 }
 
-                :host([data-theme="dashboard"]) .weather-icon img {
+                :host([data-theme="eink"]) .weather-icon img {
                     width: 12rem !important;
                     height: 12rem !important;
                     filter: contrast(2) brightness(0.8) !important;
                 }
 
-                :host([data-theme="dashboard"]) .hour-icon img {
+                :host([data-theme="eink"]) .hour-icon img {
                     width: 6rem !important;
                     height: 6rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .day-icon img {
+                :host([data-theme="eink"]) .day-icon img {
                     width: 6rem !important;
                     height: 6rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .chart-line {
+                :host([data-theme="eink"]) .chart-line {
                     stroke: #000000 !important;
                     stroke-width: 6 !important;
                 }
 
-                :host([data-theme="dashboard"]) .temp-display {
+                :host([data-theme="eink"]) .temp-display {
                     gap: 2.5rem !important;
                     margin-bottom: 2.5rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .weather-details {
+                :host([data-theme="eink"]) .weather-details {
                     gap: 1.25rem !important;
                     margin-top: 1.5rem !important;
                 }
 
-                :host([data-theme="dashboard"]) .detail-card {
+                :host([data-theme="eink"]) .detail-card {
                     padding: 1rem 1.5rem !important;
                     font-size: 1.125rem !important;
                 }
@@ -456,12 +398,7 @@ class WeatherWidget extends HTMLElement {
 // Current Weather Component
 class CurrentWeatherWidget extends WeatherWidget {
     render() {
-        if (!this.config.current) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
+        if (this.config.current === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -502,7 +439,7 @@ class CurrentWeatherWidget extends WeatherWidget {
     }
 
     update() {
-        if (!this.data || !this.config.current) return;
+        if (!this.data || this.config.current === false) return;
 
         const current = this.data.current;
 
@@ -560,12 +497,7 @@ if (typeof module !== 'undefined' && module.exports) {
 // Hourly Forecast Component
 class HourlyForecastWidget extends WeatherWidget {
     render() {
-        if (!this.config.hourly) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
+        if (this.config.hourly === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -591,7 +523,7 @@ class HourlyForecastWidget extends WeatherWidget {
     }
 
     update() {
-        if (!this.data || !this.config.hourly) return;
+        if (!this.data || this.config.hourly === false) return;
 
         const hourlyData = this.data.hourly;
 
@@ -702,12 +634,7 @@ class HourlyForecastWidget extends WeatherWidget {
 // Daily Forecast Component
 class DailyForecastWidget extends WeatherWidget {
     render() {
-        if (!this.config.daily) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
+        if (this.config.daily === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -731,7 +658,7 @@ class DailyForecastWidget extends WeatherWidget {
     }
 
     update() {
-        if (!this.data || !this.config.daily) return;
+        if (!this.data || this.config.daily === false) return;
 
         const dailyData = this.data.daily;
 
@@ -818,12 +745,7 @@ class DailyForecastWidget extends WeatherWidget {
 // Hourly Timeline Component
 class HourlyTimelineWidget extends WeatherWidget {
     render() {
-        if (!this.config.timeline) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
+        if (this.config.timeline === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -838,7 +760,7 @@ class HourlyTimelineWidget extends WeatherWidget {
     }
 
     update() {
-        if (!this.data || !this.config.timeline) return;
+        if (!this.data || this.config.timeline === false) return;
 
         const hourlyData = this.data.hourly.slice(0, 8);
         const timelineContainer = this.shadowRoot.getElementById('timeline-container');
@@ -885,6 +807,7 @@ class HourlyTimelineWidget extends WeatherWidget {
 // Air Quality Widget Component
 class AirQualityWidget extends WeatherWidget {
     render() {
+        if (this.config['air-quality'] === false) return;
         this.style.display = 'block';
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
@@ -1038,15 +961,8 @@ class AirQualityWidget extends WeatherWidget {
     }
 
     connectedCallback() {
+        if (!this.isEnabled('air-quality')) return;
         super.connectedCallback();
-
-        // Check if this widget should be displayed
-        if (!this.config.airquality) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
         this.fetchAirQuality();
 
         // Refresh air quality every 30 minutes
@@ -1205,16 +1121,13 @@ class WindDirectionWidget extends WeatherWidget {
         super.connectedCallback();
 
         // Check if this widget should be displayed
-        if (!this.config.wind) {
-            this.style.display = 'none';
+        if (this.config.wind === false) {
             return;
         }
-
-        this.style.display = 'block';
     }
 
     render() {
-        this.style.display = 'block';
+        if (this.config.wind === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -1875,12 +1788,7 @@ class HelpSection extends HTMLElement {
     }
 
     connectedCallback() {
-        // Hide help section if widgets parameter is specified
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('widgets')) {
-            this.style.display = 'none';
-            return;
-        }
+        if (this.hidden) return;
 
         this.render();
         this.setupEventListeners();
@@ -2059,8 +1967,8 @@ class HelpSection extends HTMLElement {
                             <span class="param-example">?animated=false</span>
                         </li>
                         <li>
-                            <span class="param-name">theme</span> - Background theme (white/light/dashboard/eink available)
-                            <span class="param-example">?theme=white</span>
+                            <span class="param-name">theme</span> - Background theme (light/eink available)
+                            <span class="param-example">?theme=light</span>
                         </li>
                         <li>
                             <span class="param-name">background</span> - Alias for theme parameter
@@ -2090,12 +1998,12 @@ class HelpSection extends HTMLElement {
                             <span class="param-example">/london?widgets=hourly</span>
                         </li>
                         <li>
-                            <strong>White background theme:</strong>
-                            <span class="param-example">/tokyo?theme=white</span>
+                            <strong>Light background theme:</strong>
+                            <span class="param-example">/tokyo?theme=light</span>
                         </li>
                         <li>
-                            <strong>High contrast dashboard (eInk displays):</strong>
-                            <span class="param-example">/chicago?theme=dashboard</span>
+                            <strong>High contrast eInk display:</strong>
+                            <span class="param-example">/chicago?theme=eink</span>
                         </li>
                     </ul>
                 </div>
@@ -2122,15 +2030,8 @@ class PressureTrendsWidget extends WeatherWidget {
     }
 
     connectedCallback() {
+        if (!this.isEnabled('pressure')) return;
         super.connectedCallback();
-
-        // Check if this widget should be displayed
-        if (!this.config.pressure) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
         this.render();
 
         // Listen for weather data updates
@@ -2385,13 +2286,13 @@ class PressureTrendsWidget extends WeatherWidget {
                     }
                 }
 
-                /* Dashboard theme adjustments */
-                [data-theme="dashboard"] .pressure-card {
+                /* eInk theme adjustments */
+                [data-theme="eink"] .pressure-card {
                     border: 2px solid var(--card-border);
                     background: var(--card-bg);
                 }
 
-                [data-theme="dashboard"] .pressure-prediction {
+                [data-theme="eink"] .pressure-prediction {
                     background: rgba(0, 0, 0, 0.1);
                     border: 1px solid var(--card-border);
                 }
@@ -2445,6 +2346,7 @@ class WeatherAlertsWidget extends WeatherWidget {
     }
 
     connectedCallback() {
+        if (!this.isEnabled('alerts')) return;
         super.connectedCallback();
         this.loadAlerts();
 
@@ -2766,6 +2668,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
     }
 
     connectedCallback() {
+        if (!this.isEnabled('radar')) return;
         super.connectedCallback();
         this.loadRadar();
 
@@ -3262,6 +3165,10 @@ class ClothingRecommendationsWidget extends HTMLElement {
     }
 
     connectedCallback() {
+        if (!window.DashboardConfig.isWidgetEnabled(
+            window.weatherDashboardConfig,
+            'clothing'
+        )) return;
         this.render();
         this.fetchClothingRecommendations();
     }
@@ -3535,6 +3442,10 @@ class SolarProgressWidget extends HTMLElement {
     }
 
     connectedCallback() {
+        if (!window.DashboardConfig.isWidgetEnabled(
+            window.weatherDashboardConfig,
+            'solar'
+        )) return;
         this.render();
         this.fetchSolarData();
     }
@@ -3873,16 +3784,16 @@ class EnhancedTemperatureTrendsWidget extends WeatherWidget {
     }
 
     getDefaultConfig() {
-        return { temperatureTrends: true };
+        return { 'temperature-trends': true };
+    }
+
+    connectedCallback() {
+        if (!this.isEnabled('temperature-trends')) return;
+        super.connectedCallback();
     }
 
     render() {
-        if (!this.config.temperatureTrends) {
-            this.style.display = 'none';
-            return;
-        }
-
-        this.style.display = 'block';
+        if (this.config['temperature-trends'] === false) return;
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
@@ -4436,6 +4347,10 @@ class MoonPhaseWidget extends HTMLElement {
     }
 
     connectedCallback() {
+        if (!window.DashboardConfig.isWidgetEnabled(
+            window.weatherDashboardConfig,
+            'moon'
+        )) return;
         this.render();
         this.loadLunarData();
     }

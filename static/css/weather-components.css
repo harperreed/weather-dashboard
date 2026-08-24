@@ -26,6 +26,11 @@
     display: none !important;
 }
 
+:host([hidden]),
+[hidden] {
+    display: none !important;
+}
+
 .connection-status {
     position: fixed;
     top: 1rem;
@@ -599,19 +604,19 @@
     }
 }
 
-/* Dashboard theme - High contrast for eInk displays */
-[data-theme="dashboard"] .weather-widget {
+/* eInk theme - high contrast for eInk displays */
+[data-theme="eink"] .weather-widget {
     border: 2px solid #000000;
     margin-bottom: 2.5rem;
 }
 
-[data-theme="dashboard"] .theme-card {
+[data-theme="eink"] .theme-card {
     background: #ffffff;
     border: 2px solid #000000;
     box-shadow: none;
 }
 
-[data-theme="dashboard"] .chart-line {
+[data-theme="eink"] .chart-line {
     stroke: #000000 !important;
     stroke-width: 6 !important;
     stroke-linecap: round;
@@ -625,27 +630,27 @@
     stroke-linejoin: round;
 }
 
-[data-theme="dashboard"] .timeline-dot.current {
+[data-theme="eink"] .timeline-dot.current {
     background-color: #000000;
     border: 2px solid #000000;
     width: 0.75rem;
 }
 
-[data-theme="dashboard"] .timeline-dot.future {
+[data-theme="eink"] .timeline-dot.future {
     background-color: #ffffff;
     border: 2px solid #000000;
     width: 0.75rem;
 }
 
-[data-theme="dashboard"] .connection-status {
+[data-theme="eink"] .connection-status {
     display: none !important;
 }
 
-[data-theme="dashboard"] .help-toggle:hover {
+[data-theme="eink"] .help-toggle:hover {
     background-color: #f0f0f0;
 }
 
-[data-theme="dashboard"] .weather-icon img {
+[data-theme="eink"] .weather-icon img {
     filter: contrast(2) brightness(0.8);
     width: 20rem !important;
     height: 20rem !important;
@@ -654,7 +659,7 @@
 }
 
 /* Adjust layout for larger main icon */
-[data-theme="dashboard"] .temp-display {
+[data-theme="eink"] .temp-display {
     gap: 2.5rem;
     margin-bottom: 2.5rem;
     align-items: center;
@@ -662,89 +667,89 @@
 }
 
 /* Make temperature bigger to match large icon */
-[data-theme="dashboard"] .temperature {
+[data-theme="eink"] .temperature {
     font-size: 6rem;
     font-weight: 900;
     line-height: 1;
 }
 
-[data-theme="dashboard"] .feels-like {
+[data-theme="eink"] .feels-like {
     font-size: 1.5rem;
     font-weight: 900;
     margin-bottom: 1rem;
 }
 
-[data-theme="dashboard"] .summary {
+[data-theme="eink"] .summary {
     font-size: 2rem;
     font-weight: 900;
     margin-bottom: 1.5rem;
 }
 
-[data-theme="dashboard"] .detail-value {
+[data-theme="eink"] .detail-value {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="dashboard"] .detail-label {
+[data-theme="eink"] .detail-label {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="dashboard"] .detail-card {
+[data-theme="eink"] .detail-card {
     padding: 1rem 1.5rem;
     font-size: 1.125rem;
 }
 
-[data-theme="dashboard"] .weather-details {
+[data-theme="eink"] .weather-details {
     gap: 1.25rem;
     margin-top: 1.5rem;
 }
 
-[data-theme="dashboard"] .timeline-time {
+[data-theme="eink"] .timeline-time {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="dashboard"] .timeline-temp {
+[data-theme="eink"] .timeline-temp {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="dashboard"] .timeline-desc {
+[data-theme="eink"] .timeline-desc {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="dashboard"] .day-high {
+[data-theme="eink"] .day-high {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-[data-theme="dashboard"] .day-low {
+[data-theme="eink"] .day-low {
     font-weight: 800;
     font-size: 1.125rem;
 }
 
-[data-theme="dashboard"] .day-name {
+[data-theme="eink"] .day-name {
     font-size: 1.125rem;
     font-weight: 800;
 }
 
-[data-theme="dashboard"] .hour-temp-value {
+[data-theme="eink"] .hour-temp-value {
     font-weight: 900;
     font-size: 1.25rem;
 }
 
-/* Bigger icons for hourly forecast in dashboard theme */
-[data-theme="dashboard"] .hour-icon img {
+/* Bigger icons for hourly forecast in the eInk theme */
+[data-theme="eink"] .hour-icon img {
     width: 6rem !important;
     height: 6rem !important;
     min-width: 6rem;
     min-height: 6rem;
 }
 
-/* Bigger icons for daily forecast in dashboard theme */
-[data-theme="dashboard"] .day-icon img {
+/* Bigger icons for daily forecast in the eInk theme */
+[data-theme="eink"] .day-icon img {
     width: 6rem !important;
     height: 6rem !important;
     min-width: 6rem;
@@ -752,13 +757,13 @@
 }
 
 /* Adjust spacing for bigger hourly icons */
-[data-theme="dashboard"] .hour-icon {
+[data-theme="eink"] .hour-icon {
     margin-top: 0.5rem;
     margin-bottom: 0.5rem;
 }
 
 /* Fix hourly forecast layout for bigger icons */
-[data-theme="dashboard"] .hourly-temps {
+[data-theme="eink"] .hourly-temps {
     display: flex;
     gap: 0.5rem;
     overflow-x: auto;
@@ -766,12 +771,12 @@
     justify-content: space-between;
 }
 
-[data-theme="dashboard"] .hour-temp {
+[data-theme="eink"] .hour-temp {
     min-width: 4rem;
     flex-shrink: 0;
 }
 
-[data-theme="dashboard"] .hourly-times {
+[data-theme="eink"] .hourly-times {
     display: flex;
     overflow-x: auto;
     padding-top: 0.5rem;
@@ -779,7 +784,7 @@
     justify-content: space-between;
 }
 
-[data-theme="dashboard"] .hour-time {
+[data-theme="eink"] .hour-time {
     min-width: 4rem;
     flex-shrink: 0;
     text-align: center;
@@ -788,12 +793,12 @@
 }
 
 /* Adjust spacing for bigger daily icons */
-[data-theme="dashboard"] .day-icon {
+[data-theme="eink"] .day-icon {
     margin: 0.5rem 0;
 }
 
-/* Smaller buttons for dashboard theme */
-[data-theme="dashboard"] .help-toggle {
+/* Smaller buttons for the eInk theme */
+[data-theme="eink"] .help-toggle {
     padding: 0.25rem 0.5rem;
     font-size: 0.75rem;
     font-weight: 800;
@@ -842,44 +847,44 @@
     text-decoration: underline;
 }
 
-/* Dashboard theme footer styles */
-[data-theme="dashboard"] .app-footer {
+/* eInk theme footer styles */
+[data-theme="eink"] .app-footer {
     border-top: 2px solid #000;
     color: #000;
     font-weight: 600;
 }
 
-[data-theme="dashboard"] .footer-left .git-hash {
+[data-theme="eink"] .footer-left .git-hash {
     background-color: #000;
     color: #fff;
     font-weight: 800;
 }
 
-[data-theme="dashboard"] .footer-right .copyright a {
+[data-theme="eink"] .footer-right .copyright a {
     color: #000;
     font-weight: 800;
 }
 
-[data-theme="dashboard"] .footer-right .copyright a:hover {
+[data-theme="eink"] .footer-right .copyright a:hover {
     color: #333;
 }
 
-/* White theme footer styles */
-[data-theme="white"] .app-footer {
+/* Light theme footer styles */
+[data-theme="light"] .app-footer {
     border-top: 1px solid #ddd;
     color: #777;
 }
 
-[data-theme="white"] .footer-left .git-hash {
+[data-theme="light"] .footer-left .git-hash {
     background-color: #f8f8f8;
     color: #555;
 }
 
-[data-theme="white"] .footer-right .copyright a {
+[data-theme="light"] .footer-right .copyright a {
     color: #777;
 }
 
-[data-theme="white"] .footer-right .copyright a:hover {
+[data-theme="light"] .footer-right .copyright a:hover {
     color: #555;
 }
 

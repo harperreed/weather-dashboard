@@ -37,7 +37,7 @@
             --connection-bg-disconnected: #ef4444;
         }
 
-        [data-theme="white"] {
+        [data-theme="light"] {
             --bg-primary: #ffffff;
             --text-primary: #000000;
             --card-bg: rgba(0, 0, 0, 0.05);
@@ -48,7 +48,7 @@
             --connection-bg-disconnected: #ef4444;
         }
 
-        [data-theme="dashboard"] {
+        [data-theme="eink"] {
             /* High contrast theme for eInk displays */
             --bg-primary: #eeeeee;
             --text-primary: #000000;
@@ -126,8 +126,8 @@
             }
         }
 
-        /* Dashboard theme - full viewport width for eInk displays */
-        [data-theme="dashboard"] .weather-container {
+        /* eInk theme - full viewport width for high-contrast displays */
+        [data-theme="eink"] .weather-container {
             max-width: 100vw;
             width: 100vw;
             padding: 2rem 3rem;
@@ -171,31 +171,22 @@
     <!-- Socket.IO client -->
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
+    <script src="/static/js/dashboard-config.js"></script>
+    <script>
+        window.weatherDashboardConfig = window.DashboardConfig.parseDashboardConfig(
+            window.location.search
+        );
+        window.DashboardConfig.applyDashboardConfig(
+            document,
+            window.weatherDashboardConfig
+        );
+    </script>
+
     <!-- Real-time weather manager -->
     <script src="/static/js/realtime-weather.js"></script>
 
     <!-- Weather components -->
     <script src="/static/js/weather-components.js"></script>
-
-    <!-- Theme handler -->
-    <script>
-        // Handle theme URL parameter
-        const urlParams = new URLSearchParams(window.location.search);
-        const theme = urlParams.get('theme') || urlParams.get('background');
-
-        // Apply theme based on URL parameter
-        if (theme === 'white' || theme === 'light') {
-            document.getElementById('app-body').setAttribute('data-theme', 'white');
-        } else if (theme === 'dashboard' || theme === 'eink') {
-            document.getElementById('app-body').setAttribute('data-theme', 'dashboard');
-        }
-        // Future themes can be added here:
-        // else if (theme === 'dark') {
-        //     document.getElementById('app-body').setAttribute('data-theme', 'dark');
-        // } else if (theme === 'sunset') {
-        //     document.getElementById('app-body').setAttribute('data-theme', 'sunset');
-        // }
-    </script>
 
     <!-- PWA Service Worker Registration -->
     <script>
