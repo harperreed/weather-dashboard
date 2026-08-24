@@ -50,7 +50,7 @@
 - Produces: an eInk page with an 8px outer gutter and an 8px summary-to-details gap.
 - Produces: `weather-dashboard-v4` and `weather-dashboard-static-v4` cache namespaces.
 
-- [ ] **Step 1: Write failing layout source contracts**
+- [x] **Step 1: Write failing layout source contracts**
 
 Append these tests to `tests/js/current-weather-range.test.js`:
 
@@ -100,7 +100,7 @@ test('eInk summary owns one compact gap before the detail cards', () => {
 });
 ```
 
-- [ ] **Step 2: Update the service-worker release contract**
+- [x] **Step 2: Update the service-worker release contract**
 
 In `tests/test_frontend.py`, rename the current cache test to
 `test_service_worker_uses_v4_cache_names_for_spacing_release` and require:
@@ -112,7 +112,7 @@ assert 'weather-dashboard-v3' not in source
 assert 'weather-dashboard-static-v3' not in source
 ```
 
-- [ ] **Step 3: Run the focused tests to verify RED**
+- [x] **Step 3: Run the focused tests to verify RED**
 
 Run:
 
@@ -126,7 +126,7 @@ and large padding, the summary/details rules still stack margins, and the
 inline summary override remains. The pytest contract fails because both cache
 names still use v3.
 
-- [ ] **Step 4: Implement the scoped eInk CSS changes**
+- [x] **Step 4: Implement the scoped eInk CSS changes**
 
 Replace the eInk container rules in `templates/weather.html` with:
 
@@ -162,7 +162,7 @@ Delete the complete inline eInk `.summary` block from `getSharedStyles()` in
 `static/js/weather-components.js`; the external rule already owns the same
 font size and weight.
 
-- [ ] **Step 5: Advance the service-worker cache names**
+- [x] **Step 5: Advance the service-worker cache names**
 
 Change the two declarations in `static/sw.js` to:
 
@@ -171,7 +171,7 @@ const CACHE_NAME = 'weather-dashboard-v4';
 const STATIC_CACHE_NAME = 'weather-dashboard-static-v4';
 ```
 
-- [ ] **Step 6: Record the layout rules**
+- [x] **Step 6: Record the layout rules**
 
 Append these lines to `gotchas.md`:
 
@@ -180,7 +180,7 @@ Append these lines to `gotchas.md`:
 - Give vertical space between adjacent eInk blocks one owner; stacked margins hid usable screen area in current conditions.
 ```
 
-- [ ] **Step 7: Run focused GREEN checks**
+- [x] **Step 7: Run focused GREEN checks**
 
 Run:
 
@@ -191,7 +191,7 @@ uv run --locked pytest tests/test_frontend.py -k service_worker_uses_v4_cache_na
 
 Expected: both commands pass with no warnings or errors.
 
-- [ ] **Step 8: Verify the rendered layout**
+- [x] **Step 8: Verify the rendered layout**
 
 Run the Flask application and inspect eInk at 800px and 320px. At each width,
 measure the document, `.weather-container`, current-widget top position,
@@ -205,7 +205,7 @@ Expected at both widths:
 - all four detail cards remain inside the viewport
 - the hourly chart and labels retain their prior no-overflow behavior
 
-- [ ] **Step 9: Run the full project checks**
+- [x] **Step 9: Run the full project checks**
 
 Run:
 
@@ -220,7 +220,7 @@ Expected: all 294 pytest items pass, including the expanded JavaScript suite;
 all Python files are formatted; the changed Python test passes Ruff; and the
 diff has no whitespace errors.
 
-- [ ] **Step 10: Fresh-eyes review and commit**
+- [x] **Step 10: Fresh-eyes review and commit**
 
 Review every changed file for theme leakage, duplicated spacing rules,
 horizontal overflow, cache-version mismatch, and test gaps. Then run:
@@ -229,3 +229,15 @@ horizontal overflow, cache-version mismatch, and test gaps. Then run:
 git add tests/js/current-weather-range.test.js tests/test_frontend.py templates/weather.html static/css/weather-components.css static/js/weather-components.js static/sw.js gotchas.md
 git commit -m "fix: tighten eink current conditions"
 ```
+
+## Verification evidence
+
+- RED: current-weather Node contracts failed 2 tests and the selected v4
+  service-worker pytest contract failed 1 test before production edits.
+- GREEN: current-weather Node contracts passed 15 tests, hourly layout passed
+  11 tests, and the selected service-worker contract passed.
+- Full suite: 294 pytest items passed with 85% coverage.
+- At 800px and 320px, the container computed to 8px padding on every side,
+  the current widget started at y=8, and the summary-to-details gap was 8px.
+- At both widths, document scroll width equaled viewport width; detail cards,
+  the hourly row, chart, and hour labels fit without horizontal overflow.
