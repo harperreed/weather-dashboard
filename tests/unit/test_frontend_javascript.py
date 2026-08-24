@@ -4,9 +4,15 @@
 import subprocess
 from pathlib import Path
 
+import pytest
 
-def test_current_weather_range_javascript() -> None:
-    test_file = Path(__file__).parents[1] / 'js' / 'current-weather-range.test.js'
+
+@pytest.mark.parametrize(
+    'test_name',
+    ['current-weather-range.test.js', 'dashboard-config.test.js'],
+)
+def test_frontend_javascript(test_name: str) -> None:
+    test_file = Path(__file__).parents[1] / 'js' / test_name
     result = subprocess.run(
         ['node', '--test', str(test_file)],
         capture_output=True,
