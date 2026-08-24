@@ -166,6 +166,47 @@ test('canonical themes define range and help contrast tokens', () => {
     });
 });
 
+test('eInk current weather keeps detail cards inside a mobile grid', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+
+    assert.match(
+        components,
+        /@media \(max-width: 640px\)\s*\{[\s\S]*?:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)(?: !important)?;/s
+    );
+});
+
+test('solar widget uses a block host so its card cannot widen the page', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const solarSource = components.slice(
+        components.indexOf('class SolarProgressWidget'),
+        components.indexOf('// Enhanced Temperature Trends Widget')
+    );
+
+    assert.match(solarSource, /:host\s*\{\s*display:\s*block;/s);
+});
+
+test('solar data replaces the loading layout before rendering its content', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const solarSource = components.slice(
+        components.indexOf('class SolarProgressWidget'),
+        components.indexOf('// Enhanced Temperature Trends Widget')
+    );
+
+    assert.match(
+        solarSource,
+        /renderSolarData\(solarData\)\s*\{[\s\S]*?content\.classList\.remove\('loading-state'\);/s
+    );
+});
+
 test('manual harness starts with ABOUTME documentation', () => {
     const harness = fs.readFileSync(
         path.join(__dirname, '../../test_components.html'),

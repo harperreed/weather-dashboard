@@ -361,6 +361,28 @@ class WeatherWidget extends HTMLElement {
                     padding: 1rem 1.5rem !important;
                     font-size: 1.125rem !important;
                 }
+
+                @media (max-width: 640px) {
+                    :host([data-theme="eink"]) .weather-details {
+                        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+                        gap: 0.75rem !important;
+                    }
+
+                    :host([data-theme="eink"]) .detail-card {
+                        min-width: 0;
+                        padding: 0.75rem !important;
+                        font-size: 1rem !important;
+                        gap: 0.5rem;
+                    }
+
+                    :host([data-theme="eink"]) .detail-label {
+                        font-size: 0.875rem !important;
+                    }
+
+                    :host([data-theme="eink"]) .detail-value {
+                        font-size: 1rem !important;
+                    }
+                }
             </style>
         `;
     }
@@ -3441,6 +3463,10 @@ class SolarProgressWidget extends HTMLElement {
         this.shadowRoot.innerHTML = `
             <link rel="stylesheet" href="/static/css/weather-components.css">
             <style>
+                :host {
+                    display: block;
+                }
+
                 .solar-widget {
                     background: var(--card-bg);
                     border: 1px solid var(--card-border);
@@ -3611,6 +3637,7 @@ class SolarProgressWidget extends HTMLElement {
 
     renderSolarData(solarData) {
         const content = this.shadowRoot.getElementById('solar-content');
+        content.classList.remove('loading-state');
         const times = solarData.times || {};
         const daylight = solarData.daylight || {};
         const solarElevation = solarData.solar_elevation || {};
