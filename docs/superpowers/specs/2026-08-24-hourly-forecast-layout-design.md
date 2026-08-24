@@ -5,9 +5,9 @@
 
 ## Goal
 
-Show all 12 forecast hours in one aligned view without horizontal scrolling, keep
-each time attached to its temperature and icon, restore a readable chart shape,
-and use eInk space more efficiently.
+Show up to 12 real forecast hours in one aligned view without horizontal
+scrolling, keep each time attached to its temperature and icon, restore a
+readable chart shape, and use eInk space more efficiently.
 
 ## Current Problems
 
@@ -20,15 +20,21 @@ and use eInk space more efficiently.
 
 ## Approved Layout
 
-The hourly widget will keep one chart followed by one 12-column forecast grid.
-Each grid cell will contain the temperature, weather icon, and time for the same
-hour. The chart will use the same 12 column centers for its points, including
-half a column of inset on both sides.
+The hourly widget will keep one chart followed by one forecast grid with one
+equal-width automatic column per real entry. Each grid cell will contain the
+temperature, weather icon, and time for the same hour. The chart will use the
+same column centers for its points, including half a column of inset on both
+sides.
 
-All 12 columns will fit the widget at supported widths. The widget and its rows
-will not expose horizontal scrolling. Small screens will reduce type, icon, gap,
-and cell padding through responsive CSS rather than hide hours or create another
-scroll surface.
+One to twelve real columns will fit the widget at supported widths. The widget
+and its rows will not expose horizontal scrolling. Small screens will reduce
+type, icon, and cell padding through responsive CSS rather than invent
+placeholder hours, hide real hours, or create another scroll surface.
+
+Doctor Biz approved this dynamic-column resolution: `displayHours` retains its
+maximum of 12 entries, and gapless CSS Grid automatic columns fill the width for
+the actual count. The chart helper keeps the same actual-count geometry; no
+provider changes or JavaScript layout state are needed.
 
 The chart will reserve top and bottom plot padding and use a responsive height
 bounded between 8rem and 11rem. This prevents clipped endpoint labels and keeps
@@ -62,16 +68,18 @@ those points for the line and current-time marker.
 ## Verification
 
 - Unit tests cover point count, centered x positions, padded y positions, and a
-  flat temperature range.
-- Frontend integration tests cover the single hourly grid, 12 equal columns,
-  absence of horizontal overflow, responsive chart height, and dense eInk rules.
+  flat temperature range, including the six-hour case.
+- Frontend integration tests cover the single hourly grid, equal automatic
+  columns for the actual entry count, absence of horizontal overflow, responsive
+  chart height, and dense eInk rules.
 - The canonical `uv run --locked pytest tests` check must pass.
 - Browser checks at 390x844 in blue, 390x844 in eInk, and 800x480 in eInk must
-  show 12 aligned cells with no document or hourly horizontal overflow.
+  show up to 12 aligned real cells with no document or hourly horizontal
+  overflow.
 
 ## Out of Scope
 
-- Changing the 12-hour forecast window
+- Changing the maximum 12-hour forecast window
 - Adding chart axes, tooltips, or interaction
 - Changing weather providers or response formats
 - Redesigning the daily forecast or temperature-trends widgets

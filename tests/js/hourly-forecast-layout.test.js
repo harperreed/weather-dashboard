@@ -1,4 +1,4 @@
-// ABOUTME: Tests hourly chart geometry and the shared 12-column forecast layout.
+// ABOUTME: Tests hourly chart geometry and the shared dynamic forecast layout.
 // ABOUTME: Runs production component and CSS contracts with Node's test runner.
 
 const assert = require('node:assert/strict');
@@ -20,7 +20,7 @@ const {
     calculateHourlyChartPoints
 } = require('../../static/js/weather-components.js');
 
-test('centers chart points in the same 12 columns as hourly cells', () => {
+test('centers chart points in the same equal-width cells as hourly entries', () => {
     const points = calculateHourlyChartPoints([10, 20, 30], 300, 120);
 
     assert.equal(points.length, 3);
@@ -34,6 +34,19 @@ test('centers a flat temperature range vertically', () => {
     assert.deepEqual(points, [{ x: 50, y: 64 }, { x: 150, y: 64 }]);
 });
 
+test('aligns six real forecast hours to six equal auto columns', () => {
+    const points = calculateHourlyChartPoints([10, 20, 30, 40, 50, 60], 600, 120);
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.deepEqual(points.map(({ x }) => x), [50, 150, 250, 350, 450, 550]);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-flow:\s*column;/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
+    assert.doesNotMatch(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:/s);
+});
+
 test('renders time inside each hourly cell without a second time row', () => {
     const widget = new HourlyForecastWidget();
     widget.render();
@@ -43,14 +56,15 @@ test('renders time inside each hourly cell without a second time row', () => {
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
 });
 
-test('uses one fitted 12-column grid with no hourly scrolling', () => {
+test('uses one gapless auto-column grid with no hourly scrolling', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
 
     assert.match(styles, /\.hourly-temps\s*\{[^}]*display:\s*grid;/s);
-    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:\s*repeat\(12, minmax\(0, 1fr\)\);/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-flow:\s*column;/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*gap:\s*0;/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*overflow-x:\s*visible;/s);
     assert.doesNotMatch(styles, /\.hourly-times\s*\{/);

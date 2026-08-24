@@ -5,15 +5,15 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Fit all 12 hourly forecasts in one aligned, non-scrolling view, restore the chart's vertical shape, and reduce excess eInk spacing.
+**Goal:** Fit up to 12 real hourly forecasts in one aligned, non-scrolling view, restore the chart's vertical shape, and reduce excess eInk spacing.
 
-**Architecture:** Render each hour's temperature, icon, and time in one gapless 12-column CSS grid. Calculate SVG points at those same column centers with a pure helper, then keep sizing and theme density in the shared stylesheet.
+**Architecture:** Render each hour's temperature, icon, and time in one gapless CSS Grid automatic column per real entry. Calculate SVG points at those same column centers with a pure helper, then keep sizing and theme density in the shared stylesheet.
 
 **Tech Stack:** Browser JavaScript, Web Components, SVG, responsive CSS, Node's built-in test runner, Python/pytest bridge, Flask templates
 
 ## Global Constraints
 
-- Keep all 12 forecast hours visible at every supported width.
+- Keep up to 12 real forecast hours visible at every supported width.
 - Do not add horizontal scrolling to the document or any hourly element.
 - Preserve weather data, API response shapes, URL options, and component registration.
 - Keep the time-of-day background as the only data-driven inline layout-adjacent style.
@@ -28,7 +28,7 @@
 - Create `tests/js/hourly-forecast-layout.test.js`: unit and markup/style contract tests for hourly geometry and layout.
 - Modify `tests/unit/test_frontend_javascript.py`: include the hourly JavaScript suite in the canonical pytest run.
 - Modify `static/js/weather-components.js`: add the point helper, render one shared hourly grid, and draw at grid centers.
-- Modify `static/css/weather-components.css`: define the 12-column grid, responsive chart height, no-overflow rules, and dense eInk spacing.
+- Modify `static/css/weather-components.css`: define equal automatic columns for up to 12 real entries, responsive chart height, no-overflow rules, and dense eInk spacing.
 - Modify `templates/weather.html`: reduce eInk page padding.
 - Modify `TESTING.md`: record the focused test and browser viewport checks.
 - Modify `gotchas.md`: preserve the discovered Shadow DOM alignment rule for future changes.
@@ -52,7 +52,7 @@ Create `tests/js/hourly-forecast-layout.test.js` with production-module stubs an
 these checks:
 
 ```javascript
-// ABOUTME: Tests hourly chart geometry and the shared 12-column forecast layout.
+// ABOUTME: Tests hourly chart geometry and the shared dynamic forecast layout.
 // ABOUTME: Runs production component and CSS contracts with Node's test runner.
 
 const assert = require('node:assert/strict');
@@ -74,7 +74,7 @@ const {
     calculateHourlyChartPoints
 } = require('../../static/js/weather-components.js');
 
-test('centers chart points in the same 12 columns as hourly cells', () => {
+test('centers chart points in the same equal-width cells as hourly entries', () => {
     const points = calculateHourlyChartPoints([10, 20, 30], 300, 120);
 
     assert.equal(points.length, 3);
@@ -88,6 +88,19 @@ test('centers a flat temperature range vertically', () => {
     assert.deepEqual(points, [{ x: 50, y: 64 }, { x: 150, y: 64 }]);
 });
 
+test('aligns six real forecast hours to six equal auto columns', () => {
+    const points = calculateHourlyChartPoints([10, 20, 30, 40, 50, 60], 600, 120);
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.deepEqual(points.map(({ x }) => x), [50, 150, 250, 350, 450, 550]);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-flow:\s*column;/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
+    assert.doesNotMatch(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:/s);
+});
+
 test('renders time inside each hourly cell without a second time row', () => {
     const widget = new HourlyForecastWidget();
     widget.render();
@@ -97,14 +110,16 @@ test('renders time inside each hourly cell without a second time row', () => {
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
 });
 
-test('uses one fitted 12-column grid with no hourly scrolling', () => {
+test('uses one gapless auto-column grid with no hourly scrolling', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
 
     assert.match(styles, /\.hourly-temps\s*\{[^}]*display:\s*grid;/s);
-    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:\s*repeat\(12, minmax\(0, 1fr\)\);/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-flow:\s*column;/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*gap:\s*0;/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*overflow-x:\s*visible;/s);
     assert.doesNotMatch(styles, /\.hourly-times\s*\{/);
     assert.match(styles, /\.chart-container\s*\{[^}]*height:\s*clamp\(8rem, 25vw, 11rem\);/s);
@@ -185,11 +200,14 @@ Remove `hourlyTimesContainer`, the separate time loop, and the inline border,
 padding, and margin assignments. Export `HourlyForecastWidget` beside the
 existing widget export block.
 
-- [ ] **Step 5: Fit and align the 12 CSS columns**
+- [ ] **Step 5: Fit and align up to 12 real CSS columns**
 
-Use `gap: 0` for the hourly grid. The chart helper divides the full chart width
-into twelve equal tracks, so a nonzero grid gap would shift cell centers away
-from the calculated SVG points. Do not add gap-aware chart math.
+Doctor Biz approved `gap: 0`, `grid-auto-flow: column`, and
+`grid-auto-columns: minmax(0, 1fr)` for the hourly grid. The chart helper
+divides the full chart width by the actual `displayHours` count, so one gapless
+automatic CSS column per real entry keeps the cell centers aligned. Do not add
+gap-aware chart math, placeholder forecasts, provider changes, or JavaScript
+layout state.
 
 Replace the hourly layout rules with:
 
@@ -202,7 +220,8 @@ Replace the hourly layout rules with:
 
 .hourly-temps {
     display: grid;
-    grid-template-columns: repeat(12, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
     align-items: stretch;
     gap: 0;
     margin-bottom: 0;
@@ -380,7 +399,7 @@ commands in `TESTING.md`. Record the three browser viewport and theme cases from
 the design spec. Add this project note to `gotchas.md`:
 
 ```markdown
-- Keep the hourly chart, temperatures, icons, and times on the same 12 column centers. Separate flex rows produce different widths and independent scroll positions, especially in eInk.
+- Keep the hourly chart, temperatures, icons, and times on the same centers for the actual number of rendered hours. Separate flex rows produce different widths and independent scroll positions, especially in eInk.
 ```
 
 - [ ] **Step 2: Run the canonical project checks**
@@ -419,7 +438,7 @@ const chart = root.querySelector('.temperature-chart');
 ({
     documentFits: document.documentElement.scrollWidth === document.documentElement.clientWidth,
     hourlyFits: temperatures.scrollWidth === temperatures.clientWidth,
-    twelveCells: cells.length === 12,
+    upToTwelveCells: cells.length > 0 && cells.length <= 12,
     chartFits: chart.scrollWidth === chart.clientWidth,
     everyTimeInsideCell: cells.every((cell) => cell.querySelector('.hour-time'))
 });
