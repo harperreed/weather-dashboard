@@ -51,6 +51,7 @@ test('uses one fitted 12-column grid with no hourly scrolling', () => {
 
     assert.match(styles, /\.hourly-temps\s*\{[^}]*display:\s*grid;/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:\s*repeat\(12, minmax\(0, 1fr\)\);/s);
+    assert.match(styles, /\.hourly-temps\s*\{[^}]*gap:\s*0;/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*overflow-x:\s*visible;/s);
     assert.doesNotMatch(styles, /\.hourly-times\s*\{/);
     assert.match(styles, /\.chart-container\s*\{[^}]*height:\s*clamp\(8rem, 25vw, 11rem\);/s);

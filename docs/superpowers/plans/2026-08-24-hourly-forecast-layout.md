@@ -7,7 +7,7 @@
 
 **Goal:** Fit all 12 hourly forecasts in one aligned, non-scrolling view, restore the chart's vertical shape, and reduce excess eInk spacing.
 
-**Architecture:** Render each hour's temperature, icon, and time in one cell of a 12-column CSS grid. Calculate SVG points at those same column centers with a pure helper, then keep sizing and theme density in the shared stylesheet.
+**Architecture:** Render each hour's temperature, icon, and time in one gapless 12-column CSS grid. Calculate SVG points at those same column centers with a pure helper, then keep sizing and theme density in the shared stylesheet.
 
 **Tech Stack:** Browser JavaScript, Web Components, SVG, responsive CSS, Node's built-in test runner, Python/pytest bridge, Flask templates
 
@@ -187,6 +187,10 @@ existing widget export block.
 
 - [ ] **Step 5: Fit and align the 12 CSS columns**
 
+Use `gap: 0` for the hourly grid. The chart helper divides the full chart width
+into twelve equal tracks, so a nonzero grid gap would shift cell centers away
+from the calculated SVG points. Do not add gap-aware chart math.
+
 Replace the hourly layout rules with:
 
 ```css
@@ -200,7 +204,7 @@ Replace the hourly layout rules with:
     display: grid;
     grid-template-columns: repeat(12, minmax(0, 1fr));
     align-items: stretch;
-    gap: clamp(0.125rem, 0.5vw, 0.375rem);
+    gap: 0;
     margin-bottom: 0;
     overflow-x: visible;
 }
