@@ -2466,7 +2466,7 @@ Append to `tests/unit/test_lunar_provider.py`, inside `TestLunarDataProvider`:
     def test_moonrise_matches_the_almanac_for_chicago(self) -> None:
         """Moonrise for Chicago on 2026-09-02 matches the published time"""
         moonrise, _ = self.provider.calculate_moon_times(
-            datetime(2026, 9, 2, tzinfo=timezone.utc),
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
             41.8781,
             -87.6298,
             'America/Chicago',
@@ -2478,7 +2478,7 @@ Append to `tests/unit/test_lunar_provider.py`, inside `TestLunarDataProvider`:
     def test_moonset_matches_the_almanac_for_chicago(self) -> None:
         """Moonset for Chicago on 2026-09-02 matches the published time"""
         _, moonset = self.provider.calculate_moon_times(
-            datetime(2026, 9, 2, tzinfo=timezone.utc),
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
             41.8781,
             -87.6298,
             'America/Chicago',
@@ -2507,7 +2507,7 @@ Append to `tests/unit/test_lunar_provider.py`, inside `TestLunarDataProvider`:
     def test_moon_times_carry_the_location_timezone(self) -> None:
         """Times come back in the location's own zone, not UTC"""
         moonrise, _ = self.provider.calculate_moon_times(
-            datetime(2026, 9, 2, tzinfo=timezone.utc),
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
             41.8781,
             -87.6298,
             'America/Chicago',
@@ -2540,14 +2540,20 @@ Add at the top of the file, beside the existing constants, with the imports it n
 ```python
 from datetime import datetime, timedelta, timezone
 
+# Times published by the US Naval Observatory for Chicago (41.85, -87.65)
+# and Tromso (69.6492, 18.9553): aa.usno.navy.mil/api/rstt/oneday.
 TOLERANCE = 5  # minutes; the low-precision series is good to a few tenths of a degree
-ALMANAC_CHICAGO_MOONRISE = '2026-09-02T00:00:00-05:00'  # replace with the almanac time
-ALMANAC_CHICAGO_MOONSET = '2026-09-02T00:00:00-05:00'  # replace with the almanac time
-NO_MOONRISE_DATE = datetime(2026, 9, 1, tzinfo=timezone.utc)  # replace once verified
-HIGH_LATITUDE_DATE = datetime(2026, 9, 2, tzinfo=timezone.utc)  # replace once verified
+ALMANAC_CHICAGO_MOONRISE = '2026-09-02T21:52:00-05:00'
+ALMANAC_CHICAGO_MOONSET = '2026-09-02T12:31:00-05:00'
+# Chicago sets at 15:59 this day and never rises: the rise slipped past midnight.
+NO_MOONRISE_DATE = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
+# Tromso holds the moon above the horizon all day: no rise and no set.
+HIGH_LATITUDE_DATE = datetime(2026, 9, 2, 12, tzinfo=timezone.utc)
 ```
 
-**Before writing any implementation, replace those four placeholder values with real published times.** Look them up at timeanddate.com/moon/usa/chicago (and .../norway/tromso), read the moonrise, moonset, and the day marked with no moonrise for that month, and paste them in. The test is the specification: the implementation is correct when it reproduces the almanac, not when it reproduces itself. Never widen `TOLERANCE` to make a test pass — if it needs more than five minutes, the position code is wrong.
+Those times are published by the US Naval Observatory, not derived from this code. The test is the specification: the implementation is correct when it reproduces the almanac, not when it reproduces itself. **Never widen `TOLERANCE` to make a test pass** — if it needs more than five minutes, the position code is wrong. Running these five cases against the series ahead of implementation put every one inside four minutes, so five is a real bound, not a hopeful one.
+
+Every moment handed to `calculate_moon_times` uses hour 12 UTC, never hour 0. Midnight UTC is the previous evening in Chicago, so `datetime(2026, 9, 2, tzinfo=timezone.utc)` would compute September 1st's crossings and miss the published times by forty minutes. Midday UTC lands on the intended calendar day in both Chicago and Tromso.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
