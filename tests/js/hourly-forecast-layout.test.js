@@ -55,7 +55,7 @@ test('the bar grid divides the chart into gapless columns', () => {
     assert.match(styles, /\.precip-bars\s*\{[^}]*grid-auto-flow:\s*column;/s);
     assert.match(styles, /\.precip-bars\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
     assert.match(styles, /\.precip-bars\s*\{[^}]*gap:\s*0;/s);
-    assert.match(styles, /\.precip-cell\s*\{[^}]*padding:\s*0 3px;/s);
+    assert.match(styles, /\.precip-cell\s*\{[^}]*padding:\s*0 1\.5px;/s);
 });
 
 const hourAt = (index, temp, rain) => ({
@@ -270,7 +270,7 @@ test('uses an eInk time label that fits full hour strings without an inline over
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.4375rem, 2vw, 1rem\);[^}]*font-weight:\s*800;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{[^}]*min-width:\s*0;[^}]*text-align:\s*center;[^}]*font-size:\s*clamp\(0\.4375rem, 1\.625vw, 0\.8125rem\);[^}]*font-weight:\s*800;/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-time\s*\{/);
 });
 
@@ -284,7 +284,7 @@ test('uses a responsive external eInk temperature that fits 12 compact cells', (
         'utf8'
     );
 
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.5625rem, 2vw, 1rem\);/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{[^}]*font-weight:\s*900;[^}]*font-size:\s*clamp\(0\.5625rem, 2\.5vw, 1\.25rem\);/s);
     assert.doesNotMatch(components, /:host\(\[data-theme="eink"\]\) \.hour-temp-value\s*\{/);
 });
 

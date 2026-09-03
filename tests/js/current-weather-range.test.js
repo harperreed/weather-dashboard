@@ -231,13 +231,56 @@ test('daily range has primary contrast and stable numerals', () => {
     assert.match(styles, /:host\(\[data-theme="eink"\]\)[^{]*\.daily-range-value\s*\{[^}]*color:\s*currentColor;/s);
 });
 
-test('daily range items use the theme surface token', () => {
+test('high and low render as bare text with no pill surface', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
+    const itemRule = styles.match(/\.daily-range-item\s*\{[^}]*\}/s)?.[0] || '';
 
-    assert.match(styles, /\.daily-range-item\s*\{[^}]*background:\s*var\(--daily-range-surface\);/s);
+    assert.match(itemRule, /display:\s*inline-flex;/);
+    assert.match(itemRule, /align-items:\s*baseline;/);
+    assert.match(itemRule, /gap:\s*0\.375rem;/);
+    assert.doesNotMatch(itemRule, /padding:/);
+    assert.doesNotMatch(itemRule, /border-radius:/);
+    assert.doesNotMatch(itemRule, /background:/);
+    assert.doesNotMatch(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.daily-range-item\s*\{[^}]*border:/s
+    );
+});
+
+test('the retired daily-range-surface token has no definition and no consumer', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const harness = fs.readFileSync(
+        path.join(__dirname, '../../test_components.html'),
+        'utf8'
+    );
+
+    assert.doesNotMatch(styles, /--daily-range-surface/);
+    assert.doesNotMatch(template, /--daily-range-surface/);
+    assert.doesNotMatch(harness, /--daily-range-surface/);
+});
+
+test('the daily range label gap comes only from the item container', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const labelRule = styles.match(/\.daily-range-label\s*\{[^}]*\}/s)?.[0] || '';
+
+    assert.doesNotMatch(labelRule, /margin-right:/);
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.daily-range-item\s*\{[^}]*gap:\s*0\.3125rem;/s
+    );
 });
 
 test('help content uses theme tokens instead of hard-coded contrast colors', () => {
@@ -268,7 +311,7 @@ test('canonical themes define range and help contrast tokens', () => {
         const themeBlock = new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`, 's');
         const block = template.match(themeBlock)?.[0] || '';
 
-        ['--daily-range-surface', '--help-surface', '--help-param-color', '--help-example-color']
+        ['--help-surface', '--help-param-color', '--help-example-color']
             .forEach((token) => {
                 assert.match(block, new RegExp(`${token}:`), `${selector} is missing ${token}`);
             });
@@ -356,6 +399,26 @@ test('eInk page uses the full layout width with an 8px gutter', () => {
     );
 });
 
+test('the eInk panel resolves a viewport height and hides page chrome it does not use', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const containerRule = template.match(
+        /\[data-theme="eink"\] \.weather-container\s*\{[^}]*\}/s
+    )?.[0] || '';
+
+    assert.match(containerRule, /height:\s*100vh;/);
+    assert.match(
+        template,
+        /\[data-theme="eink"\] \.app-footer\s*\{[^}]*display:\s*none;[^}]*\}/s
+    );
+    assert.match(
+        template,
+        /\[data-theme="eink"\] \.pwa-install-button\s*\{[^}]*display:\s*none;[^}]*\}/s
+    );
+});
+
 test('the container owns vertical rhythm as a flex column', () => {
     const template = fs.readFileSync(
         path.join(__dirname, '../../templates/weather.html'),
@@ -391,6 +454,28 @@ test('the sky pair is a grid in every theme', () => {
     assert.doesNotMatch(template, /\.sky-pair\s*\{[^}]*display:\s*contents;/s);
 });
 
+test('the eInk text and sky columns fit inside the stat band with the bars', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.current-text\s*\{[^}]*min-width:\s*0;/s
+    );
+
+    const skyPairRule = template.match(
+        /\[data-theme="eink"\] \.sky-pair\s*\{[^}]*\}/s
+    )?.[0] || '';
+    assert.match(skyPairRule, /flex:\s*0 1 6\.3125rem;/);
+    assert.match(skyPairRule, /margin-left:\s*auto;/);
+});
+
 test('the page orders the phone sequence and the eInk sequence', () => {
     const template = fs.readFileSync(
         path.join(__dirname, '../../templates/weather.html'),
@@ -407,6 +492,16 @@ test('the page orders the phone sequence and the eInk sequence', () => {
         template,
         /\[data-theme="eink"\] weather-insights\s*\{[^}]*order:\s*4;/s
     );
+});
+
+test('the eInk stat band leads with temperature, then text, then the bars', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.temperature\s*\{[^}]*order:\s*1;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.current-text\s*\{[^}]*order:\s*2;/s);
 });
 
 test('every widget in the container has an explicit flex order', () => {
@@ -495,4 +590,54 @@ test('alerts stay out of the layout until their data arrives', () => {
         alertsSource,
         /if \(!this\.alertsData\) \{\s*this\.style\.display = 'none';\s*this\.shadowRoot\.innerHTML = '';\s*return;\s*\}/
     );
+});
+
+test('the eInk precipitation bar keeps its outline over the hatch', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.precip-bar\s*\{[^}]*border:\s*1px solid #000000;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.precip-bar\s*\{[^}]*border-bottom:\s*none;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.precip-bar\s*\{[^}]*box-sizing:\s*border-box;/s);
+});
+
+test('the eInk bar gap is half the mock\'s 6px on each cell', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.precip-cell\s*\{[^}]*padding:\s*0 3px;/s);
+});
+
+test('the eInk three-temp bars grid centers itself', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*align-items:\s*center;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*align-content:\s*center;/s);
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*grid-template-columns:\s*auto 7\.5rem auto;/s);
+});
+
+test('the eInk sky card carries no corner radius', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.sky-card\s*\{[^}]*border-radius:\s*0;/s);
+});
+
+test('the hourly chart legend matches the mock\'s 14px gap', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    assert.match(styles, /\.chart-legend\s*\{[^}]*gap:\s*0\.875rem;/s);
+    assert.doesNotMatch(styles, /\.chart-legend\s*\{[^}]*gap:\s*1rem;/s);
 });
