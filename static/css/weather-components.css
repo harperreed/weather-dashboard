@@ -375,63 +375,187 @@
 }
 
 /* Hourly Forecast Widget */
+.hourly-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+}
+
+.hourly-caption {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.8;
+}
+
 .chart-container {
     position: relative;
-    height: clamp(8rem, 25vw, 11rem);
-    margin-bottom: 0.75rem;
+    height: 9.375rem;
+}
+
+.precip-bars {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: end;
+    gap: 0;
+}
+
+.precip-cell {
+    display: flex;
+    align-items: flex-end;
+    height: 100%;
+    padding: 0 3px;
+    box-sizing: border-box;
+}
+
+.precip-bar {
+    width: 100%;
+    background: rgba(219, 234, 254, 0.35);
+    border-radius: 3px 3px 0 0;
 }
 
 .temperature-chart {
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
 }
 
 .chart-line {
-    stroke: #ef4444;
-    stroke-width: 2;
     fill: none;
+    stroke: var(--temp-high);
+    stroke-width: 3;
+    stroke-linejoin: round;
+    stroke-linecap: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.chart-marker {
+    position: absolute;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    background: #ffffff;
+    transform: translate(-50%, -50%);
+    box-sizing: border-box;
 }
 
 .hourly-temps {
     display: grid;
     grid-auto-flow: column;
     grid-auto-columns: minmax(0, 1fr);
-    align-items: stretch;
+    align-items: start;
     gap: 0;
-    margin-bottom: 0;
     overflow-x: visible;
 }
 
 .hour-temp {
     min-width: 0;
-    padding: 0.25rem 0.0625rem;
-    border-radius: 0.375rem;
     text-align: center;
 }
 
 .hour-temp-value,
-.hour-time {
+.hour-time,
+.hour-precip {
     overflow: hidden;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
 }
 
 .hour-temp-value {
-    font-size: clamp(0.625rem, 2.5vw, 0.875rem);
-    font-variant-numeric: tabular-nums;
-    opacity: 0.85;
-}
-
-.hour-icon {
-    height: 1.75rem;
-    margin-top: 0.125rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
 }
 
 .hour-time {
-    margin-top: 0.125rem;
-    font-size: clamp(0.5rem, 2.3vw, 0.75rem);
-    font-variant-numeric: tabular-nums;
-    opacity: 0.7;
+    font-size: 0.625rem;
+    opacity: 0.75;
 }
+
+.hour-precip {
+    font-size: 0.625rem;
+    font-weight: 600;
+    color: var(--temp-low);
+}
+
+.chart-legend {
+    display: flex;
+    gap: 1rem;
+    font-size: 0.6875rem;
+    opacity: 0.75;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.legend-swatch-line {
+    width: 0.875rem;
+    height: 3px;
+    background: var(--temp-high);
+}
+
+.legend-swatch-bar {
+    width: 0.5rem;
+    height: 0.625rem;
+    background: rgba(219, 234, 254, 0.35);
+}
+
+:host([data-theme="eink"]) .hourly-widget {
+    background: #ffffff;
+    border: 2px solid #000000;
+    box-sizing: border-box;
+    padding: 0.625rem 0.875rem 0.5rem;
+    height: 100%;
+    gap: 0.25rem;
+}
+
+:host([data-theme="eink"]) .hourly-caption {
+    font-size: 0.75rem;
+    font-weight: 800;
+    opacity: 1;
+}
+
+:host([data-theme="eink"]) .chart-container {
+    flex: 1;
+    height: auto;
+}
+
+:host([data-theme="eink"]) .precip-cell { padding: 0 6px; }
+
+:host([data-theme="eink"]) .precip-bar {
+    border-radius: 0;
+    background: repeating-linear-gradient(
+        45deg, #000 0 2px, transparent 2px 6px
+    );
+}
+
+:host([data-theme="eink"]) .chart-line {
+    stroke: #000000;
+    stroke-width: 5;
+}
+
+:host([data-theme="eink"]) .chart-marker {
+    width: 1rem;
+    height: 1rem;
+    border: 3px solid #000000;
+}
+
+:host([data-theme="eink"]) .hour-precip {
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: currentColor;
+}
+
+:host([data-theme="eink"]) .chart-legend { display: none; }
 
 /* Daily Forecast Widget */
 .daily-chart-container {
@@ -800,20 +924,6 @@
     border: 1px solid currentColor;
 }
 
-:host([data-theme="eink"]) .chart-line {
-    stroke: #000000 !important;
-    stroke-width: 6 !important;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-/* Make graph lines more pronounced for all themes */
-.chart-line {
-    stroke-width: 3;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
 :host([data-theme="eink"]) .timeline-dot.current {
     background-color: #000000;
     border: 2px solid #000000;
@@ -897,26 +1007,12 @@
     padding-inline: 0;
 }
 
-/* Bigger icons for hourly forecast in the eInk theme */
-:host([data-theme="eink"]) .hour-icon img {
-    width: 6rem !important;
-    height: 6rem !important;
-    min-width: 6rem;
-    min-height: 6rem;
-}
-
 /* Bigger icons for daily forecast in the eInk theme */
 :host([data-theme="eink"]) .day-icon img {
     width: 6rem !important;
     height: 6rem !important;
     min-width: 6rem;
     min-height: 6rem;
-}
-
-/* Adjust spacing for bigger hourly icons */
-:host([data-theme="eink"]) .hour-icon {
-    margin-top: 0.5rem;
-    margin-bottom: 0.5rem;
 }
 
 :host([data-theme="eink"]) .hour-time {

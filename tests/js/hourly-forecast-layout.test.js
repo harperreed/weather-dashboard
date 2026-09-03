@@ -11,6 +11,9 @@ global.HTMLElement = class {
         this.shadowRoot = { innerHTML: '' };
         return this.shadowRoot;
     }
+    getAttribute() {
+        return null;
+    }
 };
 global.customElements = { define() {} };
 global.document = { addEventListener() {} };
@@ -21,30 +24,171 @@ const {
 } = require('../../static/js/weather-components.js');
 
 test('centers chart points in the same equal-width cells as hourly entries', () => {
-    const points = calculateHourlyChartPoints([10, 20, 30], 300, 120);
+    const points = calculateHourlyChartPoints([10, 20, 30], 1000, 150, 14);
 
-    assert.equal(points.length, 3);
-    assert.deepEqual(points.map(({ x }) => x), [50, 150, 250]);
-    assert.ok(points.every(({ y }) => y >= 16 && y <= 112));
+    assert.deepEqual(points.map(({ x }) => x), [
+        1000 / 6, 1000 / 2, (1000 / 3) * 2.5
+    ]);
+    assert.ok(points.every(({ y }) => y >= 14 && y <= 136));
 });
 
 test('centers a flat temperature range vertically', () => {
-    const points = calculateHourlyChartPoints([20, 20], 200, 120);
+    const points = calculateHourlyChartPoints([20, 20], 1000, 150, 14);
 
-    assert.deepEqual(points, [{ x: 50, y: 64 }, { x: 150, y: 64 }]);
+    assert.deepEqual(points, [{ x: 250, y: 75 }, { x: 750, y: 75 }]);
 });
 
-test('aligns six real forecast hours to six equal auto columns', () => {
-    const points = calculateHourlyChartPoints([10, 20, 30, 40, 50, 60], 600, 120);
+test('symmetric padding puts the hottest hour at the top pad', () => {
+    const points = calculateHourlyChartPoints([10, 30], 1000, 180, 16);
+
+    assert.equal(points[1].y, 16);
+    assert.equal(points[0].y, 164);
+});
+
+test('the bar grid divides the chart into gapless columns', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
     );
 
-    assert.deepEqual(points.map(({ x }) => x), [50, 150, 250, 350, 450, 550]);
-    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-flow:\s*column;/s);
-    assert.match(styles, /\.hourly-temps\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
-    assert.doesNotMatch(styles, /\.hourly-temps\s*\{[^}]*grid-template-columns:/s);
+    assert.match(styles, /\.precip-bars\s*\{[^}]*display:\s*grid;/s);
+    assert.match(styles, /\.precip-bars\s*\{[^}]*grid-auto-flow:\s*column;/s);
+    assert.match(styles, /\.precip-bars\s*\{[^}]*grid-auto-columns:\s*minmax\(0, 1fr\);/s);
+    assert.match(styles, /\.precip-bars\s*\{[^}]*gap:\s*0;/s);
+    assert.match(styles, /\.precip-cell\s*\{[^}]*padding:\s*0 3px;/s);
+});
+
+const hourAt = (index, temp, rain) => ({
+    t: `${index + 1}pm`, temp, rain, icon: 'rain'
+});
+
+// renderHours builds cells with createElement and fills the labels with
+// textContent, so the hour grid is asserted against the constructed
+// elements rather than an innerHTML string.
+const makeElement = () => {
+    let markup = '';
+    const element = {
+        children: [],
+        textContent: '',
+        className: '',
+        style: {},
+        appendChild(child) { this.children.push(child); }
+    };
+    // Assigning innerHTML drops existing children, the way a real node does.
+    Object.defineProperty(element, 'innerHTML', {
+        get() { return markup; },
+        set(value) { markup = value; element.children = []; }
+    });
+    return element;
+};
+
+function hourlyWidget(hours, theme = 'blue') {
+    global.document.createElement = makeElement;
+
+    const holders = {};
+    const holder = () => ({ innerHTML: '', textContent: '', style: {}, hidden: true });
+    ['hourly-caption-hours', 'hourly-caption-precip', 'precip-bars', 'chart-line',
+        'chart-marker', 'legend-precip', 'hourly-chart']
+        .forEach((id) => { holders[id] = holder(); });
+    holders['hourly-temps'] = makeElement();
+    holders['chart-line'].setAttribute = (name, value) => {
+        holders['chart-line'][name] = value;
+    };
+    holders['hourly-chart'].setAttribute = (name, value) => {
+        holders['hourly-chart'][name] = value;
+    };
+
+    const widget = Object.create(HourlyForecastWidget.prototype);
+    widget.config = { hourly: true };
+    widget.data = { hourly: hours };
+    widget.getAttribute = () => theme;
+    widget.shadowRoot = { getElementById: (id) => holders[id] ?? null };
+    widget.hideError = () => {};
+    widget.hideLoading = () => {};
+    return { widget, holders };
+}
+
+const cellText = (cell, className) =>
+    cell.children.find((child) => child.className === className)?.textContent ?? '';
+
+test('the caption counts the hours actually rendered', () => {
+    const { widget, holders } = hourlyWidget([
+        hourAt(0, 50, 10), hourAt(1, 52, 20), hourAt(2, 54, 30)
+    ]);
+
+    widget.update();
+
+    assert.equal(holders['hourly-caption-hours'].textContent, 'Next 3 hours');
+    assert.equal((holders['precip-bars'].innerHTML.match(/precip-cell/g) || []).length, 3);
+    assert.equal(holders['hourly-temps'].children.length, 3);
+});
+
+test('twelve hours is the ceiling', () => {
+    const hours = Array.from({ length: 24 }, (_, index) => hourAt(index, 50, 10));
+    const { widget, holders } = hourlyWidget(hours);
+
+    widget.update();
+
+    assert.equal(holders['hourly-caption-hours'].textContent, 'Next 12 hours');
+    assert.equal((holders['precip-bars'].innerHTML.match(/precip-cell/g) || []).length, 12);
+});
+
+test('the line lands on the exact bar centers', () => {
+    const { widget, holders } = hourlyWidget([
+        hourAt(0, 40, 10), hourAt(1, 60, 20)
+    ]);
+
+    widget.update();
+
+    assert.equal(holders['chart-line'].points, '250,136 750,14');
+});
+
+test('the marker sits on the first point without an SVG circle', () => {
+    const { widget, holders } = hourlyWidget([
+        hourAt(0, 40, 10), hourAt(1, 60, 20)
+    ]);
+
+    widget.update();
+
+    assert.equal(holders['chart-marker'].style.left, '25%');
+    assert.equal(holders['chart-marker'].hidden, false);
+    assert.doesNotMatch(holders['precip-bars'].innerHTML, /<circle/);
+});
+
+test('precipitation labels appear at forty percent and above', () => {
+    const { widget, holders } = hourlyWidget([
+        hourAt(0, 50, 39), hourAt(1, 52, 40), hourAt(2, 54, 80)
+    ]);
+
+    widget.update();
+
+    const labels = holders['hourly-temps'].children
+        .map((cell) => cellText(cell, 'hour-precip'));
+    assert.deepEqual(labels, ['', '40%', '80%']);
+});
+
+test('the caption names the precipitation window and drops it when there is none', () => {
+    const wet = hourlyWidget([hourAt(0, 50, 70), hourAt(1, 52, 80), hourAt(2, 54, 10)]);
+    wet.widget.update();
+    assert.equal(wet.holders['hourly-caption-precip'].textContent, 'Rain 1pm–2pm');
+    assert.equal(wet.holders['legend-precip'].textContent, 'rain chance');
+
+    const dry = hourlyWidget([hourAt(0, 50, 10), hourAt(1, 52, 20)]);
+    dry.widget.update();
+    assert.equal(dry.holders['hourly-caption-precip'].textContent, '');
+    assert.equal(dry.holders['legend-precip'].textContent, 'precipitation chance');
+});
+
+test('the eInk chart uses its own height and padding', () => {
+    const { widget, holders } = hourlyWidget(
+        [hourAt(0, 40, 10), hourAt(1, 60, 20)],
+        'eink'
+    );
+
+    widget.update();
+
+    assert.equal(holders['hourly-chart'].viewBox, '0 0 1000 180');
+    assert.equal(holders['chart-line'].points, '250,164 750,16');
 });
 
 test('renders time inside each hourly cell without a second time row', () => {
@@ -52,7 +196,6 @@ test('renders time inside each hourly cell without a second time row', () => {
     widget.render();
 
     assert.match(widget.shadowRoot.innerHTML, /id="hourly-temps"/);
-    assert.match(widget.shadowRoot.innerHTML, /class="hour-time"/);
     assert.doesNotMatch(widget.shadowRoot.innerHTML, /id="hourly-times"/);
 });
 
@@ -99,7 +242,9 @@ test('inserts an hourly time as literal text instead of hourly cell markup', (t)
     const widget = Object.create(HourlyForecastWidget.prototype);
     widget.config = { hourly: true };
     widget.data = { hourly: [{ t: unsafeTime, temp: 72, icon: 'clear-day' }] };
-    widget.shadowRoot = { getElementById: (id) => id === 'hourly-temps' ? hourlyContainer : null };
+    widget.shadowRoot = {
+        getElementById: (id) => id === 'hourly-temps' ? hourlyContainer : { textContent: '', innerHTML: '' }
+    };
     widget.drawTemperatureChart = () => {};
     widget.hideError = () => {};
     widget.hideLoading = () => {};
@@ -112,72 +257,7 @@ test('inserts an hourly time as literal text instead of hourly cell markup', (t)
     assert.equal(timeSpan.textContent, unsafeTime);
     assert.doesNotMatch(hourDiv.innerHTMLAssignments[0], /<img src=x on/);
     assert.match(hourDiv.innerHTMLAssignments[0], /hour-temp-value">72°/);
-    assert.match(hourDiv.innerHTMLAssignments[0], /<weather-icon icon="clear-day"/);
-});
-
-test('redraws current forecast hours when the rendered chart box changes size', (t) => {
-    const originalResizeObserver = global.ResizeObserver;
-    const observers = [];
-    const firstChart = {};
-    const replacementChart = {};
-    const hourly = Array.from({ length: 13 }, (_, index) => ({ temp: index }));
-
-    global.ResizeObserver = class {
-        constructor(callback) {
-            this.callback = callback;
-            this.disconnected = false;
-            observers.push(this);
-        }
-
-        observe(target) {
-            this.target = target;
-        }
-
-        disconnect() {
-            this.disconnected = true;
-        }
-    };
-    t.after(() => {
-        global.ResizeObserver = originalResizeObserver;
-    });
-
-    const widget = Object.create(HourlyForecastWidget.prototype);
-    widget.config = { hourly: true };
-    widget.data = { hourly };
-    let renderCount = 0;
-    const shadowRoot = {
-        getElementById(id) {
-            if (id !== 'hourly-chart') return null;
-            return renderCount === 1 ? firstChart : replacementChart;
-        }
-    };
-    Object.defineProperty(shadowRoot, 'innerHTML', {
-        get() {
-            return '';
-        },
-        set() {
-            renderCount += 1;
-        }
-    });
-    widget.shadowRoot = shadowRoot;
-    const redraws = [];
-    widget.drawTemperatureChart = (hours) => redraws.push(hours);
-
-    widget.render();
-
-    assert.equal(observers.length, 1);
-    assert.equal(observers[0].target, firstChart);
-    observers[0].callback();
-    assert.deepEqual(redraws, [hourly.slice(0, 12)]);
-
-    widget.render();
-
-    assert.equal(observers[0].disconnected, true);
-    assert.equal(observers.length, 2);
-    assert.equal(observers[1].target, replacementChart);
-
-    widget.disconnectedCallback();
-    assert.equal(observers[1].disconnected, true);
+    assert.doesNotMatch(hourDiv.innerHTMLAssignments[0], /<weather-icon/);
 });
 
 test('uses an eInk time label that fits full hour strings without an inline override', () => {
@@ -248,5 +328,5 @@ test('uses one gapless auto-column grid with no hourly scrolling', () => {
     assert.match(styles, /\.hourly-temps\s*\{[^}]*gap:\s*0;/s);
     assert.match(styles, /\.hourly-temps\s*\{[^}]*overflow-x:\s*visible;/s);
     assert.doesNotMatch(styles, /\.hourly-times\s*\{/);
-    assert.match(styles, /\.chart-container\s*\{[^}]*height:\s*clamp\(8rem, 25vw, 11rem\);/s);
+    assert.match(styles, /\.chart-container\s*\{[^}]*height:\s*9\.375rem;/s);
 });

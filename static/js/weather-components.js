@@ -97,12 +97,10 @@ function formatDailyTemperatureRange(daily) {
     };
 }
 
-function calculateHourlyChartPoints(temperatures, width, height) {
+function calculateHourlyChartPoints(temperatures, width, height, padding) {
     if (!temperatures.length || width <= 0 || height <= 0) return [];
 
-    const topPadding = 16;
-    const bottomPadding = 8;
-    const plotHeight = Math.max(height - topPadding - bottomPadding, 0);
+    const plotHeight = Math.max(height - padding * 2, 0);
     const maxTemp = Math.max(...temperatures);
     const minTemp = Math.min(...temperatures);
     const tempRange = maxTemp - minTemp;
@@ -112,7 +110,7 @@ function calculateHourlyChartPoints(temperatures, width, height) {
         const ratio = tempRange === 0 ? 0.5 : (maxTemp - temperature) / tempRange;
         return {
             x: columnWidth * (index + 0.5),
-            y: topPadding + ratio * plotHeight
+            y: padding + ratio * plotHeight
         };
     });
 }
@@ -306,19 +304,9 @@ class WeatherWidget extends HTMLElement {
                     filter: contrast(2) brightness(0.8) !important;
                 }
 
-                :host([data-theme="eink"]) .hour-icon img {
-                    width: 6rem !important;
-                    height: 6rem !important;
-                }
-
                 :host([data-theme="eink"]) .day-icon img {
                     width: 6rem !important;
                     height: 6rem !important;
-                }
-
-                :host([data-theme="eink"]) .chart-line {
-                    stroke: #000000 !important;
-                    stroke-width: 6 !important;
                 }
             </style>
         `;
@@ -512,143 +500,140 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // Hourly Forecast Component
+const CHART_GEOMETRY = {
+    blue: { height: 150, padding: 14 },
+    eink: { height: 180, padding: 16 }
+};
+const CHART_WIDTH = 1000;
+const PRECIPITATION_LABEL_FLOOR = 40;
+const PRECIPITATION_BAR_SCALE = 0.9;
+
 class HourlyForecastWidget extends WeatherWidget {
+    geometry() {
+        return this.getAttribute('data-theme') === 'eink'
+            ? CHART_GEOMETRY.eink
+            : CHART_GEOMETRY.blue;
+    }
+
     render() {
         if (this.config.hourly === false) return;
+        const { height } = this.geometry();
         this.shadowRoot.innerHTML = `
             ${this.getSharedStyles()}
 
             <div class="hourly-widget widget-content">
-                <div class="chart-container">
-                    <svg class="temperature-chart" id="hourly-chart"></svg>
+                <div class="hourly-caption">
+                    <span id="hourly-caption-hours">Next 12 hours</span>
+                    <span id="hourly-caption-precip"></span>
                 </div>
 
-                <div class="hourly-temps" id="hourly-temps">
-                    <div class="hour-temp">
-                        <div class="hour-temp-value">--°</div>
-                        <div class="hour-icon">--</div>
-                        <div class="hour-time">--</div>
-                    </div>
+                <div class="chart-container">
+                    <div class="precip-bars" id="precip-bars"></div>
+                    <svg class="temperature-chart" id="hourly-chart"
+                         viewBox="0 0 ${CHART_WIDTH} ${height}"
+                         preserveAspectRatio="none">
+                        <polyline class="chart-line" id="chart-line" points=""></polyline>
+                    </svg>
+                    <div class="chart-marker" id="chart-marker" hidden></div>
+                </div>
+
+                <div class="hourly-temps" id="hourly-temps"></div>
+
+                <div class="chart-legend">
+                    <span class="legend-item">
+                        <span class="legend-swatch legend-swatch-line"></span>temperature
+                    </span>
+                    <span class="legend-item">
+                        <span class="legend-swatch legend-swatch-bar"></span>
+                        <span id="legend-precip">precipitation chance</span>
+                    </span>
                 </div>
 
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
-        this.setupChartResizeObserver();
-    }
-
-    setupChartResizeObserver() {
-        this.chartResizeObserver?.disconnect();
-        this.chartResizeObserver = null;
-
-        const svg = this.shadowRoot?.getElementById?.('hourly-chart');
-        if (typeof ResizeObserver === 'undefined' || !svg) return;
-
-        this.chartResizeObserver = new ResizeObserver(() => {
-            if (!this.data || this.config.hourly === false) return;
-            this.drawTemperatureChart(this.data.hourly.slice(0, 12));
-        });
-        this.chartResizeObserver.observe(svg);
-    }
-
-    disconnectedCallback() {
-        this.chartResizeObserver?.disconnect();
-        this.chartResizeObserver = null;
     }
 
     update() {
         if (!this.data || this.config.hourly === false) return;
 
-        const hourlyData = this.data.hourly;
+        const hours = (this.data.hourly || []).slice(0, HOURLY_CHART_HOURS);
+        const precipWindow = precipitationWindow(hours);
 
-        // Update hourly temperatures
-        const hourlyContainer = this.shadowRoot.getElementById('hourly-temps');
+        this.shadowRoot.getElementById('hourly-caption-hours').textContent =
+            `Next ${hours.length} hours`;
+        this.shadowRoot.getElementById('hourly-caption-precip').textContent =
+            precipWindow ? `${precipWindow.noun} ${precipWindow.start}–${precipWindow.end}` : '';
+        this.shadowRoot.getElementById('legend-precip').textContent =
+            `${(precipWindow?.noun || 'Precipitation').toLowerCase()} chance`;
 
-        hourlyContainer.innerHTML = '';
-
-        // Show only next 12 hours for better readability
-        const displayHours = hourlyData.slice(0, 12);
-
-        displayHours.forEach((hour) => {
-            const hourDiv = document.createElement('div');
-            hourDiv.className = 'hour-temp';
-
-            // Add time-of-day color coding
-            const timeOfDay = getTimeOfDay(hour.t, this.data.sun);
-            const backgroundColor = getTimeOfDayColor(timeOfDay);
-
-            hourDiv.innerHTML = `
-                <div class="hour-temp-value">${hour.temp}°</div>
-                <div class="hour-icon">${getWeatherIcon(
-                    hour.icon,
-                    'clamp(1.125rem, 4vw, 1.75rem)'
-                )}</div>
-            `;
-
-            const timeSpan = document.createElement('div');
-            timeSpan.className = 'hour-time';
-            timeSpan.textContent = hour.t;
-            hourDiv.appendChild(timeSpan);
-
-            // Apply background color based on time of day
-            hourDiv.style.backgroundColor = backgroundColor;
-
-            hourlyContainer.appendChild(hourDiv);
-        });
-
-        // Draw temperature chart with 12-hour data
-        this.drawTemperatureChart(displayHours);
+        this.renderBars(hours);
+        this.renderHours(hours);
+        this.drawTemperatureChart(hours);
 
         this.hideError();
         this.hideLoading();
     }
 
-    drawTemperatureChart(hourlyData) {
-        const svg = this.shadowRoot.getElementById('hourly-chart');
-        const rect = svg.getBoundingClientRect();
-        const width = rect.width;
-        const height = rect.height;
+    renderBars(hours) {
+        this.shadowRoot.getElementById('precip-bars').innerHTML = hours.map((hour) => {
+            const chance = Number.isFinite(hour.rain) ? hour.rain : 0;
+            return `
+                <div class="precip-cell">
+                    <div class="precip-bar"
+                         style="height: ${chance * PRECIPITATION_BAR_SCALE}%"></div>
+                </div>
+            `;
+        }).join('');
+    }
 
-        svg.innerHTML = '';
+    renderHours(hours) {
+        const container = this.shadowRoot.getElementById('hourly-temps');
+        container.innerHTML = '';
 
-        const temps = hourlyData.map(h => h.temp);
-        const points = calculateHourlyChartPoints(temps, width, height);
-        if (!points.length) return;
+        hours.forEach((hour) => {
+            const cell = document.createElement('div');
+            cell.className = 'hour-temp';
+            const chance = Number.isFinite(hour.rain) ? hour.rain : 0;
+            cell.innerHTML = `
+                <div class="hour-temp-value">${hour.temp}°</div>
+            `;
 
-        const pathData = points.map(({ x, y }, index) => (
-            `${index === 0 ? 'M' : 'L'}${x},${y}`
-        )).join('');
+            const timeSpan = document.createElement('div');
+            timeSpan.className = 'hour-time';
+            timeSpan.textContent = hour.t;
+            cell.appendChild(timeSpan);
 
-        // Draw temperature line
-        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-        path.setAttribute('d', pathData);
-        path.setAttribute('class', 'chart-line');
-        svg.appendChild(path);
+            const precipSpan = document.createElement('div');
+            precipSpan.className = 'hour-precip';
+            precipSpan.textContent =
+                chance >= PRECIPITATION_LABEL_FLOOR ? `${chance}%` : '';
+            cell.appendChild(precipSpan);
 
-        // Add vertical line to show current time position
-        // Current time is at the first data point (index 0)
-        const currentTimeX = points[0].x;
-        const currentTimeLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
-        currentTimeLine.setAttribute('x1', currentTimeX);
-        currentTimeLine.setAttribute('y1', 0);
-        currentTimeLine.setAttribute('x2', currentTimeX);
-        currentTimeLine.setAttribute('y2', height);
-        currentTimeLine.setAttribute('stroke', '#f59e0b');
-        currentTimeLine.setAttribute('stroke-width', '2');
-        currentTimeLine.setAttribute('stroke-dasharray', '4,4');
-        currentTimeLine.setAttribute('opacity', '0.8');
-        svg.appendChild(currentTimeLine);
+            container.appendChild(cell);
+        });
+    }
 
-        // Add "NOW" label at the top of the current time line
-        const nowLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        nowLabel.setAttribute('x', currentTimeX);
-        nowLabel.setAttribute('y', 15);
-        nowLabel.setAttribute('text-anchor', 'middle');
-        nowLabel.setAttribute('font-size', '10px');
-        nowLabel.setAttribute('font-weight', 'bold');
-        nowLabel.setAttribute('fill', '#f59e0b');
-        nowLabel.textContent = 'NOW';
-        svg.appendChild(nowLabel);
+    drawTemperatureChart(hours) {
+        const { height, padding } = this.geometry();
+        const points = calculateHourlyChartPoints(
+            hours.map(({ temp }) => temp), CHART_WIDTH, height, padding
+        );
+        const chart = this.shadowRoot.getElementById('hourly-chart');
+        const line = this.shadowRoot.getElementById('chart-line');
+        const marker = this.shadowRoot.getElementById('chart-marker');
+
+        chart.setAttribute('viewBox', `0 0 ${CHART_WIDTH} ${height}`);
+        line.setAttribute('points', points.map(({ x, y }) => `${x},${y}`).join(' '));
+
+        if (!points.length) {
+            marker.hidden = true;
+            return;
+        }
+
+        marker.style.left = `${(points[0].x / CHART_WIDTH) * 100}%`;
+        marker.style.top = `${(points[0].y / height) * 100}%`;
+        marker.hidden = false;
     }
 }
 
