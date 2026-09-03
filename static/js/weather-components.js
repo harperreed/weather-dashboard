@@ -3464,6 +3464,11 @@ class SolarProgressWidget extends HTMLElement {
         )) return;
         this.render();
         this.fetchSolarData();
+        this.sunMap = {};
+        document.addEventListener('weather-data-updated', (event) => {
+            this.sunMap = event.detail?.sun || {};
+            if (this.solarData) this.renderSolarData(this.solarData);
+        });
     }
 
     render() {
@@ -3498,94 +3503,6 @@ class SolarProgressWidget extends HTMLElement {
                     font-size: 1.1rem;
                     font-weight: 600;
                     margin: 0;
-                }
-
-                .progress-arc-container {
-                    position: relative;
-                    display: flex;
-                    justify-content: center;
-                    margin: 1.5rem 0;
-                }
-
-                .progress-arc {
-                    width: 200px;
-                    height: 100px;
-                }
-
-                .arc-background {
-                    fill: none;
-                    stroke: rgba(255, 255, 255, 0.2);
-                    stroke-width: 8;
-                    stroke-linecap: round;
-                }
-
-                .arc-progress {
-                    fill: none;
-                    stroke: url(#solarGradient);
-                    stroke-width: 8;
-                    stroke-linecap: round;
-                    transition: stroke-dasharray 0.8s ease;
-                }
-
-                .sun-position {
-                    fill: #fbbf24;
-                    stroke: #f59e0b;
-                    stroke-width: 2;
-                    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.5));
-                }
-
-                .solar-times {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1rem;
-                    margin-top: 1rem;
-                }
-
-                .time-item {
-                    background: rgba(255, 255, 255, 0.05);
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                    border-radius: 8px;
-                    padding: 0.75rem;
-                }
-
-                .time-label {
-                    font-size: 0.8rem;
-                    opacity: 0.8;
-                    margin-bottom: 0.25rem;
-                }
-
-                .time-value {
-                    font-size: 0.9rem;
-                    font-weight: 500;
-                }
-
-                .solar-status {
-                    text-align: center;
-                    margin-top: 1rem;
-                    padding: 0.75rem;
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 8px;
-                    border: 1px solid rgba(255, 255, 255, 0.1);
-                }
-
-                .status-text {
-                    font-size: 0.9rem;
-                    margin-bottom: 0.5rem;
-                }
-
-                .elevation-text {
-                    font-size: 0.8rem;
-                    opacity: 0.8;
-                }
-
-                .golden-hour {
-                    background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.1));
-                    border-color: rgba(251, 191, 36, 0.3);
-                }
-
-                .blue-hour {
-                    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(37, 99, 235, 0.1));
-                    border-color: rgba(59, 130, 246, 0.3);
                 }
 
                 .loading-state {
@@ -3643,111 +3560,20 @@ class SolarProgressWidget extends HTMLElement {
     }
 
     renderSolarData(solarData) {
+        this.solarData = solarData;
         const content = this.shadowRoot.getElementById('solar-content');
         content.classList.remove('loading-state');
-        const times = solarData.times || {};
-        const daylight = solarData.daylight || {};
-        const solarElevation = solarData.solar_elevation || {};
-        const location = solarData.location || {};
-        const goldenHour = solarData.golden_hour || {};
-        const blueHour = solarData.blue_hour || {};
-
-        // Calculate progress percentage for arc (convert 0-1 to 0-100)
-        const daylightProgress = (daylight.progress || 0) * 100;
-        const arcLength = 157; // Half circle path length approximately
-        const progressLength = (daylightProgress / 100) * arcLength;
-
-        // Determine current solar period
-        let currentPeriod = 'Night';
-        let periodClass = '';
-
-        if (daylight.is_daylight) {
-            currentPeriod = 'Daytime';
-
-            // Check for special periods
-            const now = new Date();
-            const currentTime = now.getTime();
-
-            if (goldenHour.morning_start && goldenHour.evening_start) {
-                const morningGolden = new Date(goldenHour.morning_start).getTime();
-                const eveningGolden = new Date(goldenHour.evening_start).getTime();
-
-                if (currentTime >= morningGolden && currentTime <= morningGolden + 60*60*1000) {
-                    currentPeriod = 'Golden Hour (Morning)';
-                    periodClass = 'golden-hour';
-                } else if (currentTime >= eveningGolden && currentTime <= eveningGolden + 60*60*1000) {
-                    currentPeriod = 'Golden Hour (Evening)';
-                    periodClass = 'golden-hour';
-                }
-            }
-        } else {
-            // Check for blue hour
-            if (blueHour.morning_start && blueHour.evening_start) {
-                const now = new Date();
-                const currentTime = now.getTime();
-                const morningBlue = new Date(blueHour.morning_start).getTime();
-                const eveningBlue = new Date(blueHour.evening_start).getTime();
-
-                if (currentTime >= morningBlue && currentTime <= morningBlue + 30*60*1000) {
-                    currentPeriod = 'Blue Hour (Morning)';
-                    periodClass = 'blue-hour';
-                } else if (currentTime >= eveningBlue && currentTime <= eveningBlue + 30*60*1000) {
-                    currentPeriod = 'Blue Hour (Evening)';
-                    periodClass = 'blue-hour';
-                }
-            }
-        }
+        const state = this.sunHeading(solarData, this.sunMap, new Date());
 
         content.innerHTML = `
-            <div class="progress-arc-container">
-                <svg class="progress-arc" viewBox="0 0 200 100">
-                    <defs>
-                        <linearGradient id="solarGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" style="stop-color:#fbbf24"/>
-                            <stop offset="50%" style="stop-color:#f59e0b"/>
-                            <stop offset="100%" style="stop-color:#d97706"/>
-                        </linearGradient>
-                    </defs>
-
-                    <!-- Background arc -->
-                    <path class="arc-background" d="M 20 80 A 60 60 0 0 1 180 80"/>
-
-                    <!-- Progress arc -->
-                    <path class="arc-progress"
-                          d="M 20 80 A 60 60 0 0 1 180 80"
-                          stroke-dasharray="${progressLength} 157"
-                          stroke-dashoffset="0"/>
-
-                    <!-- Sun position indicator -->
-                    <circle class="sun-position"
-                            cx="${20 + (160 * daylightProgress / 100)}"
-                            cy="${80 - 60 * Math.sin(Math.PI * daylightProgress / 100)}"
-                            r="6"/>
-                </svg>
-            </div>
-
-            <div class="solar-times">
-                <div class="time-item">
-                    <div class="time-label">Sunrise</div>
-                    <div class="time-value">${this.formatTime(times.sunrise)}</div>
+            <div class="sky-card sky-card-sun">
+                <div class="sky-caption">Sun</div>
+                <div class="sky-heading">${state.heading}</div>
+                <div class="sky-track">
+                    <div class="sky-track-fill"
+                         style="width: ${Math.round(state.progress * 100)}%"></div>
                 </div>
-                <div class="time-item">
-                    <div class="time-label">Sunset</div>
-                    <div class="time-value">${this.formatTime(times.sunset)}</div>
-                </div>
-                <div class="time-item">
-                    <div class="time-label">Solar Noon</div>
-                    <div class="time-value">${this.formatTime(times.solar_noon)}</div>
-                </div>
-                <div class="time-item">
-                    <div class="time-label">Daylight</div>
-                    <div class="time-value">${this.calculateDaylightDuration(times.sunrise, times.sunset)}</div>
-                </div>
-            </div>
-
-            <div class="solar-status ${periodClass}">
-                <div class="status-text">${currentPeriod}</div>
-                <div class="elevation-text">Solar elevation: ${Math.round(solarElevation.current_degrees || 0)}°</div>
+                <div class="sky-detail">${state.detail}</div>
             </div>
         `;
     }
@@ -3776,21 +3602,50 @@ class SolarProgressWidget extends HTMLElement {
         }
     }
 
-    calculateDaylightDuration(sunrise, sunset) {
-        if (!sunrise || !sunset) return '--h --m';
+    formatCardTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date
+            .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            .replace(' ', '')
+            .toLowerCase();
+    }
 
-        try {
-            const sunriseTime = new Date(sunrise);
-            const sunsetTime = new Date(sunset);
-            const duration = sunsetTime - sunriseTime;
+    formatSpan(milliseconds) {
+        if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '';
+        const totalMinutes = Math.round(milliseconds / 60000);
+        return `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`;
+    }
 
-            const hours = Math.floor(duration / (1000 * 60 * 60));
-            const minutes = Math.floor((duration % (1000 * 60 * 60)) / (1000 * 60));
+    sunHeading(solarData, sunMap, now) {
+        const sunset = new Date(solarData?.times?.sunset);
+        const beforeSunset = !Number.isNaN(sunset.getTime()) && now < sunset;
 
-            return `${hours}h ${minutes}m`;
-        } catch (error) {
-            return '--h --m';
+        if (beforeSunset) {
+            return {
+                heading: `Sets ${this.formatCardTime(solarData.times.sunset)}`,
+                detail: `${this.formatSpan(sunset - now)} of daylight left`,
+                progress: solarData?.daylight?.progress ?? 0
+            };
         }
+
+        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+        const key = `${tomorrow.getFullYear()}-`
+            + `${String(tomorrow.getMonth() + 1).padStart(2, '0')}-`
+            + `${String(tomorrow.getDate()).padStart(2, '0')}`;
+        const sunrise = new Date((sunMap || {})[key]?.sunrise);
+
+        if (Number.isNaN(sunrise.getTime())) {
+            return { heading: 'Sunrise', detail: '', progress: 1 };
+        }
+
+        const span = this.formatSpan(sunrise - now);
+        return {
+            heading: `Sunrise ${this.formatCardTime(sunrise.toISOString())}`,
+            detail: span ? `${span} until sunrise` : '',
+            progress: 1
+        };
     }
 }
 
@@ -4382,6 +4237,7 @@ class MoonPhaseWidget extends HTMLElement {
 
     render() {
         this.shadowRoot.innerHTML = `
+            <link rel="stylesheet" href="/static/css/weather-components.css">
             <style>
                 .moon-phase-widget {
                     background: var(--card-bg);
@@ -4404,88 +4260,6 @@ class MoonPhaseWidget extends HTMLElement {
 
                 .moon-icon {
                     font-size: 1.2rem;
-                }
-
-                .moon-display {
-                    display: flex;
-                    align-items: center;
-                    gap: 1.5rem;
-                    margin-bottom: 1.5rem;
-                }
-
-                .moon-visual {
-                    flex-shrink: 0;
-                }
-
-                .phase-info {
-                    flex: 1;
-                    min-width: 0;
-                }
-
-                .phase-name {
-                    font-size: 1.3rem;
-                    font-weight: 600;
-                    margin-bottom: 0.5rem;
-                }
-
-                .phase-details {
-                    display: grid;
-                    grid-template-columns: auto 1fr;
-                    gap: 0.25rem 0.75rem;
-                    font-size: 0.9rem;
-                    opacity: 0.9;
-                }
-
-                .phase-label {
-                    font-weight: 500;
-                }
-
-                .lunar-calendar {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1rem;
-                    margin-bottom: 1.5rem;
-                }
-
-                .next-phase {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 0.5rem;
-                    padding: 0.75rem;
-                    text-align: center;
-                }
-
-                .next-phase-name {
-                    font-size: 0.9rem;
-                    font-weight: 600;
-                    margin-bottom: 0.25rem;
-                }
-
-                .next-phase-time {
-                    font-size: 0.8rem;
-                    opacity: 0.8;
-                }
-
-                .viewing-recommendations {
-                    background: rgba(255, 255, 255, 0.05);
-                    border-radius: 0.5rem;
-                    padding: 1rem;
-                }
-
-                .viewing-title {
-                    font-weight: 600;
-                    margin-bottom: 0.75rem;
-                    font-size: 0.95rem;
-                }
-
-                .recommendation-grid {
-                    display: grid;
-                    grid-template-columns: auto 1fr;
-                    gap: 0.25rem 0.75rem;
-                    font-size: 0.85rem;
-                }
-
-                .rec-icon {
-                    opacity: 0.7;
                 }
 
                 .loading-state {
@@ -4516,44 +4290,6 @@ class MoonPhaseWidget extends HTMLElement {
                     text-align: center;
                     padding: 1rem;
                     font-size: 0.9rem;
-                }
-
-                /* Moon SVG styles */
-                .moon-svg {
-                    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.2));
-                }
-
-                .moon-disk {
-                    fill: #f8f9fa;
-                    stroke: #e9ecef;
-                    stroke-width: 1;
-                }
-
-                .moon-shadow {
-                    fill: #6c757d;
-                }
-
-                .moon-crater {
-                    fill: #adb5bd;
-                    opacity: 0.6;
-                }
-
-                @media (max-width: 640px) {
-                    .moon-display {
-                        flex-direction: column;
-                        text-align: center;
-                        gap: 1rem;
-                    }
-
-                    .lunar-calendar {
-                        grid-template-columns: 1fr;
-                        gap: 0.75rem;
-                    }
-
-                    .recommendation-grid {
-                        grid-template-columns: 1fr;
-                        gap: 0.5rem;
-                    }
                 }
             </style>
 
@@ -4589,94 +4325,36 @@ class MoonPhaseWidget extends HTMLElement {
             `;
         }
 
-        const { current_phase, next_phases, astronomical_data } = this.lunarData;
-        const viewing = astronomical_data.best_viewing;
+        return `${this.moonCard()}`;
+    }
+
+    moonCard() {
+        const phase = this.lunarData?.current_phase || {};
+        const illumination = Math.round(phase.illumination_percent ?? 0);
+        const rise = phase.moonrise
+            ? ` · rises ${this.formatCardTime(phase.moonrise)}`
+            : '';
 
         return `
-            <div class="moon-display">
-                <div class="moon-visual">
-                    ${this.renderMoonSVG()}
-                </div>
-                <div class="phase-info">
-                    <div class="phase-name">${current_phase.name}</div>
-                    <div class="phase-details">
-                        <span class="phase-label">Illumination:</span>
-                        <span>${current_phase.illumination_percent}%</span>
-                        <span class="phase-label">Lunar Age:</span>
-                        <span>${current_phase.lunar_age_days} days</span>
-                        <span class="phase-label">Visibility:</span>
-                        <span>${viewing.visibility}</span>
-                    </div>
-                </div>
-            </div>
-
-            <div class="lunar-calendar">
-                <div class="next-phase">
-                    <div class="next-phase-name">🌑 Next New Moon</div>
-                    <div class="next-phase-time">${next_phases.new_moon.countdown_text}</div>
-                </div>
-                <div class="next-phase">
-                    <div class="next-phase-name">🌕 Next Full Moon</div>
-                    <div class="next-phase-time">${next_phases.full_moon.countdown_text}</div>
-                </div>
-            </div>
-
-            <div class="viewing-recommendations">
-                <div class="viewing-title">📷 Viewing & Photography</div>
-                <div class="recommendation-grid">
-                    <span class="rec-icon">📸</span>
-                    <span>${viewing.photography}</span>
-                    <span class="rec-icon">⏰</span>
-                    <span>${viewing.best_time}</span>
-                    <span class="rec-icon">⭐</span>
-                    <span>Stargazing: ${viewing.stargazing}</span>
-                </div>
+            <div class="sky-card sky-card-moon">
+                <div class="sky-caption">Moon</div>
+                <div class="sky-heading">${phase.name || ''}</div>
+                <div class="moon-disc" style="background: linear-gradient(90deg,
+                    #fff 0 ${illumination}%,
+                    rgba(255, 255, 255, 0.2) ${illumination}%)"></div>
+                <div class="sky-detail">${illumination}% lit${rise}</div>
             </div>
         `;
     }
 
-    renderMoonSVG() {
-        if (!this.lunarData) return '';
-
-        const { current_phase } = this.lunarData;
-        const illumination = current_phase.illumination_percent / 100;
-        const phaseName = current_phase.name;
-
-        // Determine shadow based on phase
-        let shadowPath = '';
-        const radius = 40;
-
-        if (phaseName === 'New Moon') {
-            // Full shadow
-            shadowPath = `<circle cx="50" cy="50" r="${radius}" class="moon-shadow"/>`;
-        } else if (phaseName === 'Full Moon') {
-            // No shadow
-            shadowPath = '';
-        } else if (phaseName.includes('Waxing')) {
-            // Shadow on the left side
-            const shadowWidth = radius * 2 * (1 - illumination);
-            shadowPath = `<ellipse cx="${50 - shadowWidth/2}" cy="50" rx="${shadowWidth/2}" ry="${radius}" class="moon-shadow"/>`;
-        } else if (phaseName.includes('Waning')) {
-            // Shadow on the right side
-            const shadowWidth = radius * 2 * (1 - illumination);
-            shadowPath = `<ellipse cx="${50 + shadowWidth/2}" cy="50" rx="${shadowWidth/2}" ry="${radius}" class="moon-shadow"/>`;
-        }
-
-        return `
-            <svg width="100" height="100" class="moon-svg" viewBox="0 0 100 100">
-                <!-- Moon disk -->
-                <circle cx="50" cy="50" r="${radius}" class="moon-disk"/>
-
-                <!-- Lunar craters (simplified) -->
-                <circle cx="45" cy="35" r="3" class="moon-crater"/>
-                <circle cx="60" cy="40" r="2" class="moon-crater"/>
-                <circle cx="40" cy="60" r="2.5" class="moon-crater"/>
-                <circle cx="65" cy="65" r="1.5" class="moon-crater"/>
-
-                <!-- Shadow based on phase -->
-                ${shadowPath}
-            </svg>
-        `;
+    formatCardTime(isoString) {
+        if (!isoString) return '';
+        const date = new Date(isoString);
+        if (Number.isNaN(date.getTime())) return '';
+        return date
+            .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+            .replace(' ', '')
+            .toLowerCase();
     }
 
     async loadLunarData() {
@@ -4717,3 +4395,7 @@ class MoonPhaseWidget extends HTMLElement {
 
 // Register the moon phase component
 customElements.define('moon-phase', MoonPhaseWidget);
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.MoonPhaseWidget = MoonPhaseWidget;
+}

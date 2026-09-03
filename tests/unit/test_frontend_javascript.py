@@ -15,6 +15,7 @@ import pytest
         'help-section.test.js',
         'hourly-forecast-layout.test.js',
         'page-script-scope.test.js',
+        'sky-pair.test.js',
         'weather-insights.test.js',
     ],
 )

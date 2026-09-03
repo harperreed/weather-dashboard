@@ -301,11 +301,12 @@ test('solar data replaces the loading layout before rendering its content', () =
     widget.shadowRoot.getElementById = (id) => (
         id === 'solar-content' ? solarContent : null
     );
+    widget.sunMap = {};
 
     widget.renderSolarData({});
 
     assert.equal(solarContent.classList.contains('loading-state'), false);
-    assert.match(solarContent.innerHTML, /progress-arc-container/);
+    assert.match(solarContent.innerHTML, /sky-card/);
 });
 
 test('manual harness starts with ABOUTME documentation', () => {
