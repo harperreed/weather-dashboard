@@ -14,3 +14,4 @@
 - Bump both service-worker cache names whenever a cached UI asset changes, or cache-first clients can keep the prior release.
 - Size full-width pages against the layout viewport with `width: 100%`; `100vw` includes the desktop scrollbar and can create horizontal overflow.
 - Give vertical space between adjacent eInk blocks one owner; stacked margins hid usable screen area in current conditions.
+- `templates/weather.html` loads its scripts as classic scripts, which share one global scope. A top-level `function`, `const`, or `let` in one file collides with the same name in another, and the second file dies at parse time before a single statement runs — taking every `customElements.define` in it with it. Keep library files wrapped in an IIFE and export through one namespace object. `tests/js/page-script-scope.test.js` guards this; suites that `require()` these files cannot, because CommonJS gives each module its own scope.
