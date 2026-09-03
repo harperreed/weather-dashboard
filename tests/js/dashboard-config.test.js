@@ -138,6 +138,14 @@ test('every public widget name and alias selects its catalog widget', () => {
     });
 });
 
+test('empty widget selection behaves like an omitted parameter', () => {
+    for (const search of ['', '?widgets=', '?widgets=  ']) {
+        const config = parseDashboardConfig(search);
+        assert.equal(config.hasWidgetSelection, false);
+        assert.equal(isWidgetEnabled(config, 'daily'), true);
+    }
+});
+
 test('the seven-day strip is on for phone and desktop and off for eInk', () => {
     assert.equal(isWidgetEnabled(parseDashboardConfig(''), 'daily'), true);
     assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=light'), 'daily'), true);
