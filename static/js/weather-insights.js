@@ -20,6 +20,7 @@ const PRECIPITATION_NOUNS = new Map([
 ]);
 
 function calculateWetbulbTemp(tempF, humidity) {
+    // Convert Fahrenheit to Celsius
     const tempC = (tempF - 32) * 5 / 9;
     const rh = humidity;
 
@@ -30,6 +31,7 @@ function calculateWetbulbTemp(tempF, humidity) {
         + 0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh)
         - 4.686035;
 
+    // Convert back to Fahrenheit
     return Math.round(wetbulbC * 9 / 5 + 32);
 }
 
