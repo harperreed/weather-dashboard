@@ -910,9 +910,9 @@ def lunar_data_api() -> Response:
         if lat == 0 and lon == 0:
             return jsonify({'error': 'Valid latitude and longitude required'}), 400
 
-        # Create cache key (location-independent for lunar calculations)
+        # Create cache key (per-location so one city's rise doesn't leak to another)
         current_hour = int(time.time() // 3600)  # Round to nearest hour for caching
-        cache_key = f'lunar_{current_hour}'
+        cache_key = f'lunar_{lat}_{lon}_{current_hour}'
 
         # Check cache first
         if cache_key in lunar_cache:
@@ -922,7 +922,7 @@ def lunar_data_api() -> Response:
             response.headers['Cache-Control'] = 'public, max-age=14400'
 
             # Add ETag for client-side caching
-            etag_value = hash(str(current_hour))
+            etag_value = hash(f'{lat}{lon}{current_hour}')
             response.headers['ETag'] = f'"{etag_value}"'
             return response
 
@@ -933,7 +933,9 @@ def lunar_data_api() -> Response:
             tz_name = weather_data.get('timezone', 'UTC')
 
         # Get lunar data
-        lunar_data = lunar_provider.process_weather_data({}, location_name, tz_name)
+        lunar_data = lunar_provider.process_weather_data(
+            {'lat': lat, 'lon': lon}, location_name, tz_name
+        )
 
         if lunar_data:
             # Cache the result
@@ -944,7 +946,7 @@ def lunar_data_api() -> Response:
             response.headers['Cache-Control'] = 'public, max-age=14400'
 
             # Add ETag for client-side caching
-            etag_value = hash(str(current_hour))
+            etag_value = hash(f'{lat}{lon}{current_hour}')
             response.headers['ETag'] = f'"{etag_value}"'
             return response
 
@@ -962,6 +964,8 @@ def lunar_data_api() -> Response:
                     'illumination_percent': 0,
                     'lunar_age_days': 0,
                     'description': 'Unable to calculate moon phase',
+                    'moonrise': None,
+                    'moonset': None,
                 },
                 'next_phases': {
                     'new_moon': {

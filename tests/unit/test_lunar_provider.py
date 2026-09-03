@@ -1,7 +1,7 @@
 # ABOUTME: Unit tests for LunarDataProvider functionality
 # ABOUTME: Tests moon phase calculations, illumination, and astronomical data
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from weather_providers import LunarDataProvider
 
@@ -12,6 +12,36 @@ MAX_LUNAR_AGE_DAYS = 30
 JULIAN_DAY_TOLERANCE = 0.01
 ILLUMINATION_NEW_MOON_THRESHOLD = 0.05
 ILLUMINATION_FULL_MOON_THRESHOLD = 0.95
+
+# Times published by the US Naval Observatory for Chicago (41.85, -87.65)
+# and Tromso (69.6492, 18.9553): aa.usno.navy.mil/api/rstt/oneday.
+TOLERANCE = 5  # minutes; the low-precision series is good to a few tenths of a degree
+ALMANAC_CHICAGO_MOONRISE = '2026-09-02T21:52:00-05:00'
+ALMANAC_CHICAGO_MOONSET = '2026-09-02T12:31:00-05:00'
+# Chicago sets at 15:59 this day and never rises: the rise slipped past midnight.
+NO_MOONRISE_DATE = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
+# Tromso holds the moon above the horizon all day: no rise and no set.
+HIGH_LATITUDE_DATE = datetime(2026, 9, 2, 12, tzinfo=timezone.utc)
+
+# A synodic month is ~29.53 days, so the next new or full moon is always
+# less than 30 days out.
+MAX_DAYS_UNTIL_NEXT_PHASE = 30
+MIN_PHASE_DESCRIPTION_LENGTH = 10
+MIN_DETAILED_DESCRIPTION_LENGTH = 20
+MAX_CYCLE_PROGRESS_PERCENT = 100
+SYNODIC_MONTH_TOLERANCE_DAYS = 0.1
+MIN_REASONABLE_JULIAN_DAY = 2450000  # 1995
+MAX_REASONABLE_JULIAN_DAY = 2500000  # 2132
+MIN_SYNODIC_MONTH_DAYS = 29.5
+MAX_SYNODIC_MONTH_DAYS = 29.6
+MIN_VIEWING_TEXT_LENGTH = 5
+YOUNG_MOON_AGE_DAYS = 2
+OLD_MOON_AGE_DAYS = 27
+NEAR_NEW_MOON_ILLUMINATION_PERCENT = 20
+FULL_MOON_AGE_LOWER_DAYS = 13
+FULL_MOON_AGE_UPPER_DAYS = 16
+NEAR_FULL_MOON_ILLUMINATION_PERCENT = 80
+MAX_AVERAGE_CALCULATION_SECONDS = 0.1
 
 
 class TestLunarDataProvider:
@@ -159,8 +189,8 @@ class TestLunarDataProvider:
         new_moon_days = (next_new_moon - test_date).total_seconds() / (24 * 3600)
         full_moon_days = (next_full_moon - test_date).total_seconds() / (24 * 3600)
 
-        assert 0 < new_moon_days <= 30
-        assert 0 < full_moon_days <= 30
+        assert 0 < new_moon_days <= MAX_DAYS_UNTIL_NEXT_PHASE
+        assert 0 < full_moon_days <= MAX_DAYS_UNTIL_NEXT_PHASE
 
     def test_countdown_formatting(self) -> None:
         """Test countdown text formatting"""
@@ -194,7 +224,9 @@ class TestLunarDataProvider:
         for phase_name in test_phases:
             description = self.provider._get_phase_description(phase_name, 0.5)
             assert isinstance(description, str)
-            assert len(description) > 10  # Should be descriptive
+            assert (
+                len(description) > MIN_PHASE_DESCRIPTION_LENGTH
+            )  # Should be descriptive
 
     def test_viewing_recommendations_structure(self) -> None:
         """Test viewing recommendations structure"""
@@ -209,7 +241,7 @@ class TestLunarDataProvider:
             assert 'stargazing' in recommendations
 
             # All should be strings
-            for key, value in recommendations.items():
+            for value in recommendations.values():
                 assert isinstance(value, str)
 
     def test_lunar_cycle_progress(self) -> None:
@@ -223,10 +255,13 @@ class TestLunarDataProvider:
 
         # Progress should be 0-100%
         progress = lunar_cycle['current_cycle_progress']
-        assert 0 <= progress <= 100
+        assert 0 <= progress <= MAX_CYCLE_PROGRESS_PERCENT
 
         # Synodic month should be close to known value
-        assert abs(lunar_cycle['synodic_month_days'] - 29.53) < 0.1
+        assert (
+            abs(lunar_cycle['synodic_month_days'] - 29.53)
+            < SYNODIC_MONTH_TOLERANCE_DAYS
+        )
 
     def test_astronomical_data_structure(self) -> None:
         """Test astronomical data structure"""
@@ -240,7 +275,9 @@ class TestLunarDataProvider:
 
         # Julian day should be reasonable for current era
         jd = astro_data['julian_day']
-        assert 2450000 < jd < 2500000  # Between 1995 and 2132
+        assert (
+            MIN_REASONABLE_JULIAN_DAY < jd < MAX_REASONABLE_JULIAN_DAY
+        )  # Between 1995 and 2132
 
     def test_specific_date_calculation(self) -> None:
         """Test lunar calculation validation with current date"""
@@ -252,13 +289,17 @@ class TestLunarDataProvider:
         lunar_data = result['lunar_data']
         assert lunar_data is not None
         assert isinstance(lunar_data['current_phase']['name'], str)
-        assert 0 <= lunar_data['current_phase']['illumination_percent'] <= 100
+        assert (
+            0
+            <= lunar_data['current_phase']['illumination_percent']
+            <= MAX_ILLUMINATION_PERCENT
+        )
 
         # Verify Julian Day calculation is reasonable for current era
         astro_data = lunar_data['astronomical_data']
         jd = astro_data['julian_day']
         # Current Julian Day should be between 2450000 (1995) and 2500000 (2132)
-        assert 2450000 < jd < 2500000
+        assert MIN_REASONABLE_JULIAN_DAY < jd < MAX_REASONABLE_JULIAN_DAY
 
     def test_exception_handling(self) -> None:
         """Test exception handling in lunar calculations"""
@@ -290,10 +331,98 @@ class TestLunarDataProvider:
     def test_constants_validity(self) -> None:
         """Test that lunar constants are reasonable"""
         # Synodic month should be close to known astronomical value
-        assert 29.5 < self.provider.SYNODIC_MONTH < 29.6
+        assert (
+            MIN_SYNODIC_MONTH_DAYS
+            < self.provider.SYNODIC_MONTH
+            < MAX_SYNODIC_MONTH_DAYS
+        )
 
         # New moon reference should be reasonable Julian day
-        assert 2450000 < self.provider.NEW_MOON_REFERENCE < 2500000
+        assert (
+            MIN_REASONABLE_JULIAN_DAY
+            < self.provider.NEW_MOON_REFERENCE
+            < MAX_REASONABLE_JULIAN_DAY
+        )
+
+    def test_moon_times_are_none_without_coordinates(self) -> None:
+        """Without coordinates the provider reports no rise or set"""
+        result = self.provider.process_weather_data({}, 'Test Location')
+
+        assert result is not None
+        current_phase = result['lunar_data']['current_phase']
+        assert current_phase['moonrise'] is None
+        assert current_phase['moonset'] is None
+
+    def test_moonrise_matches_the_almanac_for_chicago(self) -> None:
+        """Moonrise for Chicago on 2026-09-02 matches the published time"""
+        moonrise, _ = self.provider.calculate_moon_times(
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
+            41.8781,
+            -87.6298,
+            'America/Chicago',
+        )
+
+        assert moonrise is not None
+        assert self._minutes_from(moonrise, ALMANAC_CHICAGO_MOONRISE) <= TOLERANCE
+
+    def test_moonset_matches_the_almanac_for_chicago(self) -> None:
+        """Moonset for Chicago on 2026-09-02 matches the published time"""
+        _, moonset = self.provider.calculate_moon_times(
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
+            41.8781,
+            -87.6298,
+            'America/Chicago',
+        )
+
+        assert moonset is not None
+        assert self._minutes_from(moonset, ALMANAC_CHICAGO_MOONSET) <= TOLERANCE
+
+    def test_a_day_without_a_moonrise_reports_none(self) -> None:
+        """Roughly once a month a calendar day has no moonrise"""
+        moonrise, moonset = self.provider.calculate_moon_times(
+            NO_MOONRISE_DATE, 41.8781, -87.6298, 'America/Chicago'
+        )
+
+        assert moonrise is None
+        assert moonset is not None
+
+    def test_high_latitude_day_without_a_crossing(self) -> None:
+        """Tromso can go days with the moon always up or always down"""
+        moonrise, moonset = self.provider.calculate_moon_times(
+            HIGH_LATITUDE_DATE, 69.6492, 18.9553, 'Europe/Oslo'
+        )
+
+        assert moonrise is None or moonset is None
+
+    def test_moon_times_carry_the_location_timezone(self) -> None:
+        """Times come back in the location's own zone, not UTC"""
+        moonrise, _ = self.provider.calculate_moon_times(
+            datetime(2026, 9, 2, 12, tzinfo=timezone.utc),
+            41.8781,
+            -87.6298,
+            'America/Chicago',
+        )
+
+        assert moonrise is not None
+        assert datetime.fromisoformat(moonrise).utcoffset() is not None
+        assert datetime.fromisoformat(moonrise).utcoffset() != timedelta(0)
+
+    def test_moon_times_reach_the_payload_with_coordinates(self) -> None:
+        """Coordinates in raw_data put the times in current_phase"""
+        result = self.provider.process_weather_data(
+            {'lat': 41.8781, 'lon': -87.6298}, 'Chicago', 'America/Chicago'
+        )
+
+        assert result is not None
+        current_phase = result['lunar_data']['current_phase']
+        assert 'moonrise' in current_phase
+        assert 'moonset' in current_phase
+
+    @staticmethod
+    def _minutes_from(iso_time: str, expected: str) -> float:
+        actual = datetime.fromisoformat(iso_time)
+        target = datetime.fromisoformat(expected)
+        return abs((actual - target).total_seconds()) / 60
 
 
 class TestLunarDataProviderIntegration:
@@ -323,20 +452,20 @@ class TestLunarDataProviderIntegration:
             'Third Quarter',
             'Waning Crescent',
         ]
-        assert len(current['description']) > 20
+        assert len(current['description']) > MIN_DETAILED_DESCRIPTION_LENGTH
 
         # Next phases should be reasonable
         next_new = lunar_data['next_phases']['new_moon']
         next_full = lunar_data['next_phases']['full_moon']
-        assert 0 < next_new['days_until'] <= 30
-        assert 0 < next_full['days_until'] <= 30
+        assert 0 < next_new['days_until'] <= MAX_DAYS_UNTIL_NEXT_PHASE
+        assert 0 < next_full['days_until'] <= MAX_DAYS_UNTIL_NEXT_PHASE
 
         # Viewing recommendations should be complete
         viewing = lunar_data['astronomical_data']['best_viewing']
         required_keys = ['visibility', 'photography', 'best_time', 'stargazing']
         for key in required_keys:
             assert key in viewing
-            assert len(viewing[key]) > 5
+            assert len(viewing[key]) > MIN_VIEWING_TEXT_LENGTH
 
     def test_lunar_accuracy_verification(self) -> None:
         """Test lunar calculation accuracy against known values"""
@@ -351,12 +480,12 @@ class TestLunarDataProviderIntegration:
         lunar_age = lunar_data['current_phase']['lunar_age_days']
 
         # Illumination and age should be correlated
-        if lunar_age < 2 or lunar_age > 27:
+        if lunar_age < YOUNG_MOON_AGE_DAYS or lunar_age > OLD_MOON_AGE_DAYS:
             # Near new moon
-            assert illumination < 20
-        elif 13 < lunar_age < 16:
+            assert illumination < NEAR_NEW_MOON_ILLUMINATION_PERCENT
+        elif FULL_MOON_AGE_LOWER_DAYS < lunar_age < FULL_MOON_AGE_UPPER_DAYS:
             # Near full moon
-            assert illumination > 80
+            assert illumination > NEAR_FULL_MOON_ILLUMINATION_PERCENT
 
     def test_multiple_location_consistency(self) -> None:
         """Test that lunar data is consistent across locations"""
@@ -403,5 +532,5 @@ class TestLunarDataProviderIntegration:
 
         # Should complete in reasonable time (less than 100ms per calculation)
         assert (
-            average_time < 0.1
+            average_time < MAX_AVERAGE_CALCULATION_SECONDS
         ), f'Lunar calculation took {average_time:.3f}s on average'

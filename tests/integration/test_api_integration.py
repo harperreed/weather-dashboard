@@ -1387,3 +1387,26 @@ class TestClothingAPIIntegration:
         # Should include severe weather warnings
         assert any('Strong winds' in warning for warning in recommendations['warnings'])
         assert any('Rain likely' in warning for warning in recommendations['warnings'])
+
+
+def test_lunar_endpoint_carries_moon_times(client) -> None:
+    """The lunar endpoint reports moonrise and moonset for the requested point"""
+    response = client.get('/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago')
+
+    assert response.status_code == HTTP_OK
+    current_phase = response.get_json()['lunar_data']['current_phase']
+    assert 'moonrise' in current_phase
+    assert 'moonset' in current_phase
+
+
+def test_lunar_cache_separates_locations(client) -> None:
+    """Two points do not share one cached moonrise"""
+    chicago = client.get('/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago')
+    tromso = client.get('/api/lunar?lat=69.6492&lon=18.9553&location=Tromso')
+
+    assert chicago.status_code == HTTP_OK
+    assert tromso.status_code == HTTP_OK
+    assert (
+        chicago.get_json()['lunar_data']['current_phase']['moonrise']
+        != tromso.get_json()['lunar_data']['current_phase']['moonrise']
+    )

@@ -2659,6 +2659,10 @@ class LunarDataProvider(WeatherProvider):
     GREGORIAN_CALENDAR_START_JULIAN_DAY = 2_299_161
     JULIAN_MONTH_PIVOT = 13
     SINGLE_DAY_COUNTDOWN_LIMIT = 2
+    MOON_HORIZON_DEGREES = 0.125  # accounts for parallax, refraction, semidiameter
+    OBLIQUITY_DEGREES = 23.4397
+    J2000 = 2451545.0
+    CROSSING_BISECTIONS = 12
 
     def __init__(self) -> None:
         super().__init__('LunarDataProvider')
@@ -2675,7 +2679,7 @@ class LunarDataProvider(WeatherProvider):
 
     def process_weather_data(
         self,
-        raw_data: dict[str, Any],  # noqa: ARG002
+        raw_data: dict[str, Any],
         location_name: str | None = None,
         tz_name: str | None = None,
     ) -> dict[str, Any] | None:
@@ -2685,7 +2689,12 @@ class LunarDataProvider(WeatherProvider):
             now_utc = datetime.now(timezone.utc)
 
             # Calculate lunar data
-            lunar_data = self._calculate_lunar_data(now_utc)
+            lunar_data = self._calculate_lunar_data(
+                now_utc,
+                raw_data.get('lat'),
+                raw_data.get('lon'),
+                tz_name,
+            )
 
             return {
                 'provider': self.name,
@@ -2699,7 +2708,13 @@ class LunarDataProvider(WeatherProvider):
             print(f'❌ Error calculating lunar data: {e}')
             return None
 
-    def _calculate_lunar_data(self, now_utc: datetime) -> dict:
+    def _calculate_lunar_data(
+        self,
+        now_utc: datetime,
+        lat: float | None = None,
+        lon: float | None = None,
+        tz_name: str | None = None,
+    ) -> dict:
         """Calculate comprehensive lunar information"""
         # Convert to Julian Day Number for astronomical calculations
         julian_day = self._to_julian_day(now_utc)
@@ -2721,12 +2736,18 @@ class LunarDataProvider(WeatherProvider):
         days_to_new = (next_new_moon - now_utc).total_seconds() / (24 * 3600)
         days_to_full = (next_full_moon - now_utc).total_seconds() / (24 * 3600)
 
+        moonrise, moonset = (None, None)
+        if lat is not None and lon is not None:
+            moonrise, moonset = self.calculate_moon_times(now_utc, lat, lon, tz_name)
+
         return {
             'current_phase': {
                 'name': phase_name,
                 'illumination_percent': round(illumination * 100, 1),
                 'lunar_age_days': round(lunar_age, 1),
                 'description': self._get_phase_description(phase_name, illumination),
+                'moonrise': moonrise,
+                'moonset': moonset,
             },
             'next_phases': {
                 'new_moon': {
@@ -2754,6 +2775,120 @@ class LunarDataProvider(WeatherProvider):
                 ),
             },
         }
+
+    def _moon_equatorial_position(self, julian_day: float) -> tuple[float, float]:
+        """Return the moon's right ascension and declination in degrees.
+
+        Low-precision series: the leading term of each of the moon's longitude
+        and latitude expansions. Good to a few tenths of a degree, which is a
+        few minutes of rise time — enough for a card that reads "rises 3:12pm".
+        """
+        days = julian_day - self.J2000
+
+        mean_longitude = 218.316 + 13.176396 * days
+        mean_anomaly = math.radians(134.963 + 13.064993 * days)
+        argument_of_latitude = math.radians(93.272 + 13.229350 * days)
+
+        longitude = math.radians(mean_longitude + 6.289 * math.sin(mean_anomaly))
+        latitude = math.radians(5.128 * math.sin(argument_of_latitude))
+        obliquity = math.radians(self.OBLIQUITY_DEGREES)
+
+        right_ascension = math.atan2(
+            math.sin(longitude) * math.cos(obliquity)
+            - math.tan(latitude) * math.sin(obliquity),
+            math.cos(longitude),
+        )
+        declination = math.asin(
+            math.sin(latitude) * math.cos(obliquity)
+            + math.cos(latitude) * math.sin(obliquity) * math.sin(longitude)
+        )
+        return math.degrees(right_ascension), math.degrees(declination)
+
+    def _moon_altitude(self, moment: datetime, lat: float, lon: float) -> float:
+        """Return the moon's geocentric altitude in degrees at a moment"""
+        julian_day = self._to_julian_day(moment.astimezone(timezone.utc))
+        right_ascension, declination = self._moon_equatorial_position(julian_day)
+
+        sidereal_time = 280.46061837 + 360.98564736629 * (julian_day - self.J2000)
+        hour_angle = math.radians((sidereal_time + lon - right_ascension) % 360)
+
+        lat_rad = math.radians(lat)
+        dec_rad = math.radians(declination)
+        return math.degrees(
+            math.asin(
+                math.sin(lat_rad) * math.sin(dec_rad)
+                + math.cos(lat_rad) * math.cos(dec_rad) * math.cos(hour_angle)
+            )
+        )
+
+    def _refine_crossing(
+        self,
+        local_midnight: datetime,
+        hour: int,
+        lat: float,
+        lon: float,
+        rising: bool,
+    ) -> str:
+        """Bisect one straddling hour down to the crossing minute"""
+        low = float(hour)
+        high = hour + 1.0
+
+        for _ in range(self.CROSSING_BISECTIONS):
+            middle = (low + high) / 2
+            altitude = (
+                self._moon_altitude(local_midnight + timedelta(hours=middle), lat, lon)
+                - self.MOON_HORIZON_DEGREES
+            )
+            if (altitude >= 0) == rising:
+                high = middle
+            else:
+                low = middle
+
+        crossing = local_midnight + timedelta(hours=(low + high) / 2)
+        return crossing.replace(second=0, microsecond=0).isoformat()
+
+    def calculate_moon_times(
+        self,
+        moment_utc: datetime,
+        lat: float,
+        lon: float,
+        tz_name: str | None = None,
+    ) -> tuple[str | None, str | None]:
+        """Return the local day's moonrise and moonset as ISO strings or None.
+
+        A calendar day with no crossing is ordinary: the moon rises about fifty
+        minutes later each day, so roughly once a month a day has no moonrise.
+        """
+        try:
+            import zoneinfo
+
+            local_zone = zoneinfo.ZoneInfo(tz_name) if tz_name else timezone.utc
+        except Exception:
+            local_zone = timezone.utc
+
+        local_midnight = moment_utc.astimezone(local_zone).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        )
+        altitudes = [
+            self._moon_altitude(local_midnight + timedelta(hours=hour), lat, lon)
+            - self.MOON_HORIZON_DEGREES
+            for hour in range(25)
+        ]
+
+        moonrise = None
+        moonset = None
+        for hour in range(24):
+            below, above = altitudes[hour], altitudes[hour + 1]
+            if below < 0 <= above and moonrise is None:
+                moonrise = self._refine_crossing(
+                    local_midnight, hour, lat, lon, rising=True
+                )
+            elif below >= 0 > above and moonset is None:
+                moonset = self._refine_crossing(
+                    local_midnight, hour, lat, lon, rising=False
+                )
+
+        return moonrise, moonset
 
     def _to_julian_day(self, dt: datetime) -> float:
         """Convert datetime to Julian Day Number for astronomical calculations"""
