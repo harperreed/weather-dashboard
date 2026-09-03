@@ -270,28 +270,6 @@ class WeatherWidget extends HTMLElement {
                 }
 
                 /* eInk theme overrides for Shadow DOM */
-                :host([data-theme="eink"]) .temperature {
-                    font-size: 6rem !important;
-                    font-weight: 900 !important;
-                    line-height: 1 !important;
-                }
-
-                :host([data-theme="eink"]) .feels-like {
-                    font-size: 1.5rem !important;
-                    font-weight: 900 !important;
-                    margin-bottom: 0.5rem !important;
-                }
-
-                :host([data-theme="eink"]) .detail-value {
-                    font-weight: 900 !important;
-                    font-size: 1.25rem !important;
-                }
-
-                :host([data-theme="eink"]) .detail-label {
-                    font-size: 1.125rem !important;
-                    font-weight: 800 !important;
-                }
-
                 :host([data-theme="eink"]) .day-high {
                     font-weight: 900 !important;
                     font-size: 1.25rem !important;
@@ -342,16 +320,6 @@ class WeatherWidget extends HTMLElement {
                     stroke: #000000 !important;
                     stroke-width: 6 !important;
                 }
-
-                @media (max-width: 640px) {
-                    :host([data-theme="eink"]) .detail-label {
-                        font-size: 0.875rem !important;
-                    }
-
-                    :host([data-theme="eink"]) .detail-value {
-                        font-size: 1rem !important;
-                    }
-                }
             </style>
         `;
     }
@@ -396,11 +364,14 @@ class CurrentWeatherWidget extends WeatherWidget {
             ${this.getSharedStyles()}
 
             <div class="current-widget widget-content">
-                <div class="current-temperature">
-                    <div class="temp-display">
-                        <div class="temperature" id="temp">--°</div>
-                        <div class="weather-icon" id="icon">⏳</div>
+                <div class="temperature" id="temp">--°</div>
+
+                <div class="current-text">
+                    <div class="header-row">
+                        <span class="location" id="location">--</span>
+                        <span class="local-time" id="local-time">--</span>
                     </div>
+                    <div class="summary" id="summary">Loading weather data...</div>
                     <div class="daily-range" id="daily-range" hidden>
                         <span class="daily-range-item daily-range-high">
                             <span class="daily-range-label">High</span>
@@ -413,40 +384,81 @@ class CurrentWeatherWidget extends WeatherWidget {
                     </div>
                 </div>
 
-                <div class="feels-like" id="feels-like">LOADING...</div>
-                <div class="summary" id="summary">Loading weather data...</div>
-
-                <div class="weather-details">
-                    <div class="detail-card theme-card">
-                        <span class="detail-label">Humidity</span>
-                        <span class="detail-value" id="humidity">--%</span>
+                <div class="three-temps">
+                    <div class="three-temps-grid">
+                        <div class="three-temp three-temp-feels">
+                            <span class="three-temp-label">Feels</span>
+                            <span class="three-temp-bar" id="bar-feels"></span>
+                            <span class="three-temp-value" id="feels-value">--°</span>
+                        </div>
+                        <div class="three-temp three-temp-wet">
+                            <span class="three-temp-label">Wet bulb</span>
+                            <span class="three-temp-bar" id="bar-wet"></span>
+                            <span class="three-temp-value" id="wet-value">--°</span>
+                        </div>
+                        <div class="three-temp three-temp-air">
+                            <span class="three-temp-label">Air</span>
+                            <span class="three-temp-bar" id="bar-air"></span>
+                            <span class="three-temp-value" id="air-value">--°</span>
+                        </div>
                     </div>
-                    <div class="detail-card theme-card">
-                        <span class="detail-label">Wind</span>
-                        <span class="detail-value" id="wind">-- mph</span>
+                    <div class="three-temps-scale">
+                        <div class="scale-track"></div>
+                        <div class="scale-fill" id="scale-fill"></div>
+                        <div class="scale-dot scale-dot-feels"></div>
+                        <div class="scale-dot scale-dot-wet" id="scale-dot-wet"></div>
+                        <div class="scale-dot scale-dot-air"></div>
                     </div>
-                    <div class="detail-card theme-card">
-                        <span class="detail-label">Rain</span>
-                        <span class="detail-value" id="rain">--%</span>
-                    </div>
-                    <div class="detail-card theme-card">
-                        <span class="detail-label">UV Index</span>
-                        <span class="detail-value" id="uv">--</span>
-                    </div>
+                    <div class="three-temps-note" id="three-temps-note"></div>
                 </div>
 
                 <div class="error-message error hidden" id="error"></div>
             </div>
         `;
+        this.startClock();
+    }
+
+    startClock() {
+        clearInterval(this.clockTimer);
+        this.clockTimer = setInterval(() => this.updateClock(), 60000);
+        this.updateClock();
+    }
+
+    disconnectedCallback() {
+        clearInterval(this.clockTimer);
+    }
+
+    updateClock() {
+        const label = this.shadowRoot.getElementById('local-time');
+        if (!label) return;
+        label.textContent = new Date().toLocaleString('en-US', {
+            weekday: 'short',
+            hour: 'numeric',
+            minute: '2-digit'
+        });
     }
 
     update() {
         if (!this.data || this.config.current === false) return;
 
         const current = this.data.current;
+        const air = current.temperature;
+        const feels = current.feels_like;
+        const wetBulb = calculateWetbulbTemp(air, current.humidity);
 
-        this.shadowRoot.getElementById('temp').textContent = `${current.temperature}°F`;
-        this.shadowRoot.getElementById('icon').innerHTML = getWeatherIcon(current.icon, '6rem');
+        this.shadowRoot.getElementById('temp').textContent = `${air}°`;
+        this.shadowRoot.getElementById('location').textContent =
+            this.data.location || '';
+        this.updateClock();
+
+        let summary = current.summary;
+        if (current.precipitation_rate > 0) {
+            const precipType = current.precipitation_type === 'snow'
+                ? 'snowing'
+                : 'raining';
+            summary = `Currently ${precipType} - ${summary}`;
+        }
+        this.shadowRoot.getElementById('summary').textContent = summary;
 
         const dailyRangeEl = this.shadowRoot.getElementById('daily-range');
         const dailyHighEl = this.shadowRoot.getElementById('daily-high');
@@ -463,36 +475,35 @@ class CurrentWeatherWidget extends WeatherWidget {
             dailyRangeEl.hidden = false;
         }
 
-        const wetbulbTemp = calculateWetbulbTemp(current.temperature, current.humidity);
-        this.shadowRoot.getElementById('feels-like').textContent = `FEELS LIKE ${current.feels_like}° • WETBULB ${wetbulbTemp}°`;
+        this.shadowRoot.getElementById('feels-value').textContent = `${feels}°`;
+        this.shadowRoot.getElementById('wet-value').textContent = `${wetBulb}°`;
+        this.shadowRoot.getElementById('air-value').textContent = `${air}°`;
 
-        // Enhance summary with precipitation info
-        let summary = current.summary;
-        if (current.precipitation_rate > 0) {
-            const precipType = current.precipitation_type === 'snow' ? 'snowing' : 'raining';
-            summary = `Currently ${precipType} - ${summary}`;
-        }
-        this.shadowRoot.getElementById('summary').textContent = summary;
+        const wetPercent = wetBulbPosition(feels, wetBulb, air) ?? 100;
+        this.shadowRoot.getElementById('scale-fill').style.width = `${wetPercent}%`;
+        this.shadowRoot.getElementById('scale-dot-wet').style.left = `${wetPercent}%`;
 
-        this.shadowRoot.getElementById('humidity').textContent = `${current.humidity}%`;
-        this.shadowRoot.getElementById('wind').textContent = `${current.wind_speed} mph`;
-        this.shadowRoot.getElementById('uv').textContent = current.uv_index;
+        this.updateBars(air, feels, wetBulb);
 
-        // Update precipitation display
-        const rainEl = this.shadowRoot.getElementById('rain');
-        if (current.precipitation_rate > 0) {
-            rainEl.textContent = `${current.precipitation_rate}" now`;
-            rainEl.style.color = '#60a5fa';
-        } else if (current.precipitation_prob > 0) {
-            rainEl.textContent = `${current.precipitation_prob}%`;
-            rainEl.style.color = 'inherit';
-        } else {
-            rainEl.textContent = '0%';
-            rainEl.style.color = 'inherit';
-        }
+        const clause = wetBulbClause(wetBulb);
+        this.shadowRoot.getElementById('three-temps-note').textContent =
+            `Wet bulb ${wetBulb}°${clause ? ` — ${clause}` : ''}`;
 
         this.hideError();
         this.hideLoading();
+    }
+
+    updateBars(air, feels, wetBulb) {
+        const scale = (value) => {
+            if (!Number.isFinite(value) || !Number.isFinite(air) || air === 0) {
+                return '0%';
+            }
+            return `${Math.min(100, Math.max(0, (value / air) * 100))}%`;
+        };
+
+        this.shadowRoot.getElementById('bar-air').style.width = '100%';
+        this.shadowRoot.getElementById('bar-wet').style.width = scale(wetBulb);
+        this.shadowRoot.getElementById('bar-feels').style.width = scale(feels);
     }
 }
 

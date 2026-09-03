@@ -71,22 +71,51 @@
 }
 
 /* Current Weather Widget */
-.current-temperature {
-    margin-bottom: 1rem;
+.current-widget {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
 }
 
-.temp-display {
+.current-text {
+    display: contents;
+}
+
+.header-row {
     display: flex;
-    align-items: center;
-    gap: 0.5rem;
+    justify-content: space-between;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.85;
+    order: 1;
+}
+
+.temperature {
+    font-size: clamp(4.5rem, 43vw, 10.5rem);
+    font-weight: 200;
+    line-height: 0.9;
+    letter-spacing: -0.06em;
+    margin-left: -0.5rem;
+    font-variant-numeric: tabular-nums;
+    order: 2;
+}
+
+.summary {
+    font-size: 1.375rem;
+    font-weight: 500;
+    line-height: 1.3;
+    order: 3;
 }
 
 .daily-range {
     display: flex;
-    gap: 1rem;
-    margin-top: 0.625rem;
+    gap: 1.25rem;
+    margin-top: 0.375rem;
     opacity: 1;
     font-variant-numeric: tabular-nums;
+    order: 4;
 }
 
 .daily-range-item {
@@ -99,66 +128,220 @@
 }
 
 .daily-range-label {
-    font-size: 0.875rem;
+    font-size: 0.6875rem;
     font-weight: 600;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.1em;
     text-transform: uppercase;
+    opacity: 0.75;
+    margin-right: 0.375rem;
 }
 
 .daily-range-value {
-    font-size: 1.125rem;
+    font-size: 1.0625rem;
     font-weight: 600;
 }
 
-.daily-range-high .daily-range-value {
-    color: var(--temp-high);
+.daily-range-high .daily-range-value { color: var(--temp-high); }
+.daily-range-low .daily-range-value { color: var(--temp-low); }
+
+.three-temps {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-top: 1.125rem;
+    order: 5;
 }
 
-.daily-range-low .daily-range-value {
-    color: var(--temp-low);
+.three-temps-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
 }
 
-.temperature {
-    font-size: 2.5rem;
-    font-weight: 100;
+.three-temp {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+}
+
+.three-temp-feels { text-align: left; }
+.three-temp-wet { text-align: center; }
+.three-temp-air { text-align: right; }
+
+.three-temp-label {
+    font-size: 0.6875rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    opacity: 0.75;
+}
+
+.three-temp-value {
+    font-size: 1.625rem;
+    font-weight: 600;
     line-height: 1;
+    font-variant-numeric: tabular-nums;
 }
 
-.feels-like {
-    font-size: 0.875rem;
-    opacity: 0.8;
-    margin-bottom: 0.5rem;
+.three-temp-bar { display: none; }
+
+.three-temps-scale {
+    position: relative;
+    height: 0.875rem;
 }
 
-.summary {
-    font-size: 1.125rem;
-    font-weight: 300;
-    margin-bottom: 1rem;
+.scale-track,
+.scale-fill {
+    position: absolute;
+    top: 0.375rem;
+    height: 2px;
+}
+
+.scale-track {
+    left: 0;
+    right: 0;
+    background: rgba(255, 255, 255, 0.3);
+}
+
+.scale-fill {
+    left: 0;
+    background: var(--temp-low);
+}
+
+.scale-dot {
+    position: absolute;
+    top: 0.125rem;
+    width: 0.625rem;
+    height: 0.625rem;
+    border-radius: 50%;
+    box-sizing: border-box;
+}
+
+.scale-dot-feels {
+    left: 0;
+    background: var(--temp-low);
+}
+
+.scale-dot-wet {
+    background: #ffffff;
+    transform: translateX(-50%);
+}
+
+.scale-dot-air {
+    right: 0;
+    border: 2px solid #ffffff;
+    background: transparent;
+}
+
+.three-temps-note {
+    font-size: 0.75rem;
+    opacity: 0.75;
     line-height: 1.4;
 }
 
-.weather-details {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.75rem;
-}
-
-.detail-card {
+:host([data-theme="eink"]) .current-widget {
     display: flex;
-    justify-content: space-between;
+    flex-direction: row;
     align-items: center;
-    padding: 0.5rem 0.75rem;
-    border-radius: 0.5rem;
-    font-size: 0.75rem;
+    gap: 1.375rem;
 }
 
-.detail-label {
-    opacity: 0.8;
+:host([data-theme="eink"]) .current-text {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-self: stretch;
+    gap: 0.25rem;
+    border-left: 2px solid #000000;
+    padding-left: 1.125rem;
 }
 
-.detail-value {
-    font-weight: 500;
+:host([data-theme="eink"]) .temperature {
+    font-size: clamp(3rem, 14vw, 7rem);
+    font-weight: 900;
+    line-height: 0.85;
+    margin-left: -0.375rem;
 }
+
+:host([data-theme="eink"]) .header-row {
+    font-size: 0.8125rem;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    opacity: 1;
+    gap: 0.5rem;
+    justify-content: flex-start;
+}
+
+:host([data-theme="eink"]) .summary {
+    font-size: 1.375rem;
+    font-weight: 800;
+}
+
+:host([data-theme="eink"]) .daily-range { gap: 1rem; margin-top: 0; }
+:host([data-theme="eink"]) .daily-range-label { font-weight: 800; opacity: 1; }
+:host([data-theme="eink"]) .daily-range-value { font-size: 1.25rem; font-weight: 900; }
+
+:host([data-theme="eink"]) .three-temps {
+    align-self: stretch;
+    justify-content: center;
+    margin-top: 0;
+    border-left: 2px solid #000000;
+    padding-left: 1.125rem;
+}
+
+:host([data-theme="eink"]) .three-temps-grid {
+    grid-template-columns: auto 7.5rem auto;
+    gap: 0.25rem 0.625rem;
+}
+
+:host([data-theme="eink"]) .three-temp {
+    display: contents;
+}
+
+:host([data-theme="eink"]) .three-temp-label {
+    font-weight: 800;
+    opacity: 1;
+    align-self: center;
+    text-align: left;
+}
+
+:host([data-theme="eink"]) .three-temp-bar {
+    display: block;
+    height: 0.75rem;
+    align-self: center;
+    box-sizing: border-box;
+}
+
+:host([data-theme="eink"]) .three-temp-air .three-temp-bar {
+    background: #000000;
+}
+
+:host([data-theme="eink"]) .three-temp-wet .three-temp-bar {
+    border: 1px solid #000000;
+    background: repeating-linear-gradient(
+        45deg, #000 0 2px, transparent 2px 5px
+    );
+}
+
+:host([data-theme="eink"]) .three-temp-feels .three-temp-bar {
+    border: 1px solid #000000;
+}
+
+:host([data-theme="eink"]) .three-temp-value {
+    font-size: 1.125rem;
+    font-weight: 900;
+    text-align: right;
+    align-self: center;
+}
+
+:host([data-theme="eink"]) .three-temps-scale,
+:host([data-theme="eink"]) .three-temps-note {
+    display: none;
+}
+
+:host([data-theme="eink"]) .three-temp-air > * { order: 1; }
+:host([data-theme="eink"]) .three-temp-wet > * { order: 2; }
+:host([data-theme="eink"]) .three-temp-feels > * { order: 3; }
 
 /* Weather Insights Widget */
 .insight-card {
@@ -671,14 +854,6 @@
     min-height: 20rem;
 }
 
-/* Adjust layout for larger main icon */
-:host([data-theme="eink"]) .temp-display {
-    gap: 1.5rem;
-    margin-bottom: 1.25rem;
-    align-items: center;
-    flex-wrap: wrap;
-}
-
 /* Make temperature bigger to match large icon */
 :host([data-theme="eink"]) .temperature {
     font-size: 6rem;
@@ -692,12 +867,6 @@
     margin-bottom: 1rem;
 }
 
-:host([data-theme="eink"]) .summary {
-    font-size: 2rem;
-    font-weight: 900;
-    margin-bottom: 0.5rem;
-}
-
 :host([data-theme="eink"]) .detail-value {
     font-weight: 900;
     font-size: 1.25rem;
@@ -706,29 +875,6 @@
 :host([data-theme="eink"]) .detail-label {
     font-size: 1.125rem;
     font-weight: 800;
-}
-
-:host([data-theme="eink"]) .detail-card {
-    padding: 0.75rem 1rem;
-    font-size: 1.125rem;
-}
-
-:host([data-theme="eink"]) .weather-details {
-    gap: 0.75rem;
-    margin-top: 0;
-}
-
-@media (max-width: 640px) {
-    :host([data-theme="eink"]) .weather-details {
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
-
-    :host([data-theme="eink"]) .detail-card {
-        min-width: 0;
-        padding: 0.75rem;
-        font-size: 1rem;
-        gap: 0.5rem;
-    }
 }
 
 :host([data-theme="eink"]) .timeline-time {

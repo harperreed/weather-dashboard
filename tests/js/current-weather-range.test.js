@@ -4,11 +4,11 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const test = require('node:test');
+const { test, after } = require('node:test');
 
 global.HTMLElement = class {
     attachShadow() {
-        this.shadowRoot = { innerHTML: '' };
+        this.shadowRoot = { innerHTML: '', getElementById: () => null };
         return this.shadowRoot;
     }
 };
@@ -21,51 +21,93 @@ const {
     SolarProgressWidget
 } = require('../../static/js/weather-components.js');
 
-test('renders a hidden daily range beneath the current temperature', () => {
+// Every CurrentWeatherWidget starts a 60s clock interval in render(). Track
+// each instance this file constructs so a single after() hook can clear all
+// of them — otherwise a live interval pins the process and node --test never
+// exits, no matter how the tests themselves score.
+const createdCurrentWidgets = [];
+function createCurrentWidget() {
     const widget = new CurrentWeatherWidget();
+    createdCurrentWidgets.push(widget);
+    return widget;
+}
+
+after(() => {
+    createdCurrentWidgets.forEach((widget) => clearInterval(widget.clockTimer));
+});
+
+function currentWidgetWithData(current, theme = 'blue') {
+    const styleHolder = () => ({ textContent: '', style: {}, innerHTML: '' });
+    const ids = ['temp', 'location', 'local-time', 'summary', 'feels-value',
+        'wet-value', 'air-value', 'scale-fill', 'scale-dot-wet', 'three-temps-note',
+        'bar-air', 'bar-wet', 'bar-feels', 'daily-high', 'daily-low'];
+    const elements = Object.fromEntries(ids.map((id) => [id, styleHolder()]));
+    elements['daily-range'] = {
+        hidden: true,
+        setAttribute() {},
+        removeAttribute() {}
+    };
+
+    const widget = createCurrentWidget();
+    widget.shadowRoot.getElementById = (id) => elements[id];
+    widget.getAttribute = () => theme;
+    widget.hideError = () => {};
+    widget.hideLoading = () => {};
+    widget.data = { current, daily: [{ h: 50, l: 30 }], location: 'Chicago' };
+    return { widget, elements };
+}
+
+test('renders the header, temperature block, and three-temperature module', () => {
+    const widget = createCurrentWidget();
     widget.style = {};
 
     widget.render();
 
-    assert.match(widget.shadowRoot.innerHTML, /<div class="current-temperature">\s*<div class="temp-display">[\s\S]*?<\/div>\s*<div class="daily-range" id="daily-range" hidden>\s*<span class="daily-range-item daily-range-high">\s*<span class="daily-range-label">High<\/span>\s*<span class="daily-range-value" id="daily-high">--°<\/span>\s*<\/span>\s*<span class="daily-range-item daily-range-low">\s*<span class="daily-range-label">Low<\/span>\s*<span class="daily-range-value" id="daily-low">--°<\/span>\s*<\/span>\s*<\/div>\s*<\/div>\s*<div class="feels-like"/);
+    const html = widget.shadowRoot.innerHTML;
+    assert.match(html, /<div class="header-row">[\s\S]*?id="location"[\s\S]*?id="local-time"/);
+    assert.match(html, /<div class="temperature" id="temp">/);
+    assert.match(html, /<div class="current-text">/);
+    assert.match(html, /id="daily-range" hidden/);
+    assert.match(html, /id="feels-value"[\s\S]*?id="wet-value"[\s\S]*?id="air-value"/);
+    assert.match(html, /id="scale-fill"[\s\S]*?id="scale-dot-wet"/);
+    assert.match(html, /id="three-temps-note"/);
 });
 
 test('shows a complete daily range and clears it when later data is missing', () => {
     const attributes = new Map();
+    const styleHolder = () => ({ textContent: '', style: {}, innerHTML: '' });
     const elements = {
-        temp: { textContent: '' },
-        icon: { innerHTML: '' },
-        'feels-like': { textContent: '' },
-        summary: { textContent: '' },
-        humidity: { textContent: '' },
-        wind: { textContent: '' },
-        uv: { textContent: '' },
-        rain: { textContent: '', style: {} },
+        temp: styleHolder(),
+        location: styleHolder(),
+        'local-time': styleHolder(),
+        summary: styleHolder(),
+        'feels-value': styleHolder(),
+        'wet-value': styleHolder(),
+        'air-value': styleHolder(),
+        'scale-fill': styleHolder(),
+        'scale-dot-wet': styleHolder(),
+        'three-temps-note': styleHolder(),
+        'bar-air': styleHolder(),
+        'bar-wet': styleHolder(),
+        'bar-feels': styleHolder(),
         'daily-range': {
             hidden: true,
-            setAttribute(name, value) {
-                attributes.set(name, value);
-            },
-            removeAttribute(name) {
-                attributes.delete(name);
-            }
+            setAttribute(name, value) { attributes.set(name, value); },
+            removeAttribute(name) { attributes.delete(name); }
         },
         'daily-high': { textContent: '' },
         'daily-low': { textContent: '' }
     };
-    const widget = new CurrentWeatherWidget();
+    const widget = createCurrentWidget();
     widget.shadowRoot.getElementById = (id) => elements[id];
+    widget.getAttribute = () => 'blue';
     widget.hideError = () => {};
     widget.hideLoading = () => {};
     widget.data = {
         current: {
             temperature: 70,
-            icon: 'clear-day',
             feels_like: 69,
             summary: 'Clear',
-            humidity: 45,
-            wind_speed: 8,
-            uv_index: 4,
             precipitation_rate: 0,
             precipitation_prob: 0
         },
@@ -86,6 +128,69 @@ test('shows a complete daily range and clears it when later data is missing', ()
     assert.equal(elements['daily-low'].textContent, '');
     assert.equal(attributes.has('aria-label'), false);
     assert.equal(elements['daily-range'].hidden, true);
+});
+
+test('the three temperatures read feels-like, wet bulb, and air', () => {
+    const { widget, elements } = currentWidgetWithData({
+        temperature: 88, feels_like: 94, humidity: 60, summary: 'Hazy'
+    });
+
+    widget.update();
+
+    assert.equal(elements['air-value'].textContent, '88°');
+    assert.equal(elements['feels-value'].textContent, '94°');
+    assert.equal(elements['wet-value'].textContent, '77°');
+});
+
+test('the scale places the wet bulb between feels-like and air', () => {
+    const { widget, elements } = currentWidgetWithData({
+        temperature: 88, feels_like: 94, humidity: 60, summary: 'Hazy'
+    });
+
+    widget.update();
+
+    // The track runs from feels-like (94) at 0% to air (88) at 100%. Wet
+    // bulb 77 sits past the air end of that track, so it clamps to 100%.
+    assert.equal(elements['scale-fill'].style.width, '100%');
+    assert.equal(elements['scale-dot-wet'].style.left, '100%');
+});
+
+test('every dot sits at the end when air equals feels-like', () => {
+    const { widget, elements } = currentWidgetWithData({
+        temperature: 70, feels_like: 70, humidity: 50, summary: 'Clear'
+    });
+
+    widget.update();
+
+    assert.equal(elements['scale-fill'].style.width, '100%');
+    assert.equal(elements['scale-dot-wet'].style.left, '100%');
+});
+
+test('the explainer names the exertion band and drops it when comfortable', () => {
+    const hot = currentWidgetWithData({
+        temperature: 95, feels_like: 105, humidity: 70, summary: 'Hot'
+    });
+    hot.widget.update();
+    assert.match(hot.elements['three-temps-note'].textContent, /dangerous for exertion$/);
+
+    const mild = currentWidgetWithData({
+        temperature: 68, feels_like: 68, humidity: 55, summary: 'Mild'
+    });
+    mild.widget.update();
+    assert.doesNotMatch(mild.elements['three-temps-note'].textContent, /exertion/);
+});
+
+test('the eInk bars scale against air temperature and keep a negative value', () => {
+    const { widget, elements } = currentWidgetWithData(
+        { temperature: 40, feels_like: -5, humidity: 60, summary: 'Bitter' },
+        'eink'
+    );
+
+    widget.update();
+
+    assert.equal(elements['bar-air'].style.width, '100%');
+    assert.equal(elements['bar-feels'].style.width, '0%');
+    assert.equal(elements['feels-value'].textContent, '-5°');
 });
 
 test('formats today\'s high and low', () => {
@@ -167,18 +272,6 @@ test('canonical themes define range and help contrast tokens', () => {
     });
 });
 
-test('eInk current weather keeps detail cards inside a mobile grid', () => {
-    const styles = fs.readFileSync(
-        path.join(__dirname, '../../static/css/weather-components.css'),
-        'utf8'
-    );
-
-    assert.match(
-        styles,
-        /@media \(max-width: 640px\)\s*\{[\s\S]*?:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)(?: !important)?;/s
-    );
-});
-
 test('solar widget uses a block host so its card cannot widen the page', () => {
     const components = fs.readFileSync(
         path.join(__dirname, '../../static/js/weather-components.js'),
@@ -256,30 +349,6 @@ test('eInk page uses the full layout width with an 8px gutter', () => {
     assert.doesNotMatch(
         template,
         /@media \(max-width: 390px\)[\s\S]*?\[data-theme="eink"\] \.weather-container/
-    );
-});
-
-test('eInk summary owns one compact gap before the detail cards', () => {
-    const styles = fs.readFileSync(
-        path.join(__dirname, '../../static/css/weather-components.css'),
-        'utf8'
-    );
-    const components = fs.readFileSync(
-        path.join(__dirname, '../../static/js/weather-components.js'),
-        'utf8'
-    );
-
-    assert.match(
-        styles,
-        /:host\(\[data-theme="eink"\]\) \.summary\s*\{[^}]*margin-bottom:\s*0\.5rem;/s
-    );
-    assert.match(
-        styles,
-        /:host\(\[data-theme="eink"\]\) \.weather-details\s*\{[^}]*margin-top:\s*0;/s
-    );
-    assert.doesNotMatch(
-        components,
-        /:host\(\[data-theme="eink"\]\) \.summary\s*\{/
     );
 });
 
