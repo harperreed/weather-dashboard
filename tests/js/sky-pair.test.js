@@ -87,6 +87,38 @@ test('a missing tomorrow drops the heading time and the duration', () => {
     assert.equal(state.progress, 1);
 });
 
+test('the next sunrise is found whatever date it is filed under', () => {
+    // The map is keyed by the location's dates. Composing tomorrow's key from
+    // the viewer's own calendar misses whenever the two disagree, and the card
+    // silently loses its time.
+    const widget = sunWidget();
+    const state = widget.sunHeading(
+        SOLAR,
+        { '2026-09-04': { sunrise: '2026-09-04T06:24:00-05:00' } },
+        new Date('2026-09-02T21:00:00-05:00')
+    );
+
+    assert.equal(state.heading, 'Sunrise 6:24am');
+    assert.match(state.detail, /until sunrise$/);
+});
+
+test('the sun and moon cards share one time formatter', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+
+    const definitions = [...components.matchAll(/formatCardTime\(isoString\)/g)];
+    assert.equal(
+        definitions.length,
+        1,
+        `expected one definition, found ${definitions.length}`
+    );
+    assert.doesNotMatch(components, /this\.formatCardTime\(/);
+});
+
 test('before sunrise the card counts up to sunrise', () => {
     const widget = sunWidget();
     const state = widget.sunHeading(

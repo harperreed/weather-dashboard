@@ -28,9 +28,7 @@ class TestFrontendIntegration:
         )
         assert 'const theme = urlParams.get' not in html
 
-    def test_service_worker_uses_v4_cache_names_for_spacing_release(
-        self, client
-    ) -> None:
+    def test_service_worker_cache_names_advance_together(self, client) -> None:
         source = client.get('/sw.js').get_data(as_text=True)
         static_files = source.split('const STATIC_FILES = [', 1)[1].split('];', 1)[0]
 

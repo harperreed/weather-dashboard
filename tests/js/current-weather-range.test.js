@@ -450,8 +450,14 @@ test('the stat band collapses in blue and becomes a card in eInk', () => {
     assert.match(template, /\.stat-band\s*\{[^}]*display:\s*contents;/s);
     assert.match(
         template,
-        /\[data-theme="eink"\] \.stat-band\s*\{[^}]*display:\s*flex;[^}]*border:\s*2px solid #000;/s
+        /\[data-theme="eink"\] \.stat-band\s*\{[^}]*display:\s*flex;[^}]*background:\s*var\(--card-bg\);[^}]*border:\s*2px solid var\(--card-border\);/s
     );
+
+    // The band reads its card surface from the theme, so the white-on-black
+    // contrast the mock asks for is only guaranteed with the definitions too.
+    const einkTheme = template.match(/\[data-theme="eink"\]\s*\{[^}]*\}/s)?.[0] || '';
+    assert.match(einkTheme, /--card-bg:\s*#ffffff;/);
+    assert.match(einkTheme, /--card-border:\s*#000000;/);
 });
 
 test('the sky pair is a grid in every theme', () => {

@@ -160,10 +160,12 @@ test('the hourly chart never measures itself', () => {
         path.join(__dirname, '../../static/js/weather-components.js'),
         'utf8'
     );
-    const hourly = components.slice(
-        components.indexOf('class HourlyForecastWidget'),
-        components.indexOf('class WeatherInsightsWidget')
-    );
+    const start = components.indexOf('class HourlyForecastWidget');
+    const end = components.indexOf('class WeatherInsightsWidget');
+    // A renamed marker gives indexOf -1 and a slice that matches nothing, so
+    // the assertions below would pass without reading the widget at all.
+    assert.ok(start > 0 && end > start, `bad slice markers: ${start}, ${end}`);
+    const hourly = components.slice(start, end);
 
     // The chart is a fixed viewBox with preserveAspectRatio="none". A
     // measurement pass reintroduces the resize loop the fixed viewBox exists

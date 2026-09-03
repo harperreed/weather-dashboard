@@ -97,6 +97,16 @@ function formatDailyTemperatureRange(daily) {
     };
 }
 
+function formatCardTime(isoString) {
+    if (!isoString) return '';
+    const date = new Date(isoString);
+    if (Number.isNaN(date.getTime())) return '';
+    return date
+        .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        .replace(' ', '')
+        .toLowerCase();
+}
+
 function calculateHourlyChartPoints(temperatures, width, height, padding) {
     if (!temperatures.length || width <= 0 || height <= 0) return [];
 
@@ -508,6 +518,7 @@ const CHART_GEOMETRY = {
 const CHART_WIDTH = 1000;
 const PRECIPITATION_LABEL_FLOOR = 40;
 const PRECIPITATION_BAR_SCALE = 0.9;
+const HOURLY_CHART_HOURS = 12;
 
 class HourlyForecastWidget extends WeatherWidget {
     geometry() {
@@ -643,7 +654,6 @@ if (typeof module !== 'undefined' && module.exports) {
 }
 
 // Weather Insights Component
-const HOURLY_CHART_HOURS = 12;
 
 function escapeText(value) {
     return String(value)
@@ -673,6 +683,9 @@ class WeatherInsightsWidget extends WeatherWidget {
         const facts = insightFacts(this.data, hours);
         const isEink = this.getAttribute('data-theme') === 'eink';
 
+        // Second writer of this flag: applyDashboardConfig sets it from the
+        // widget catalog before data arrives. After first paint the widget
+        // owns it, so reapplying the config would show a disabled widget.
         this.hidden = facts.length === 0;
         card.hidden = true;
         factStrip.hidden = true;
@@ -3555,16 +3568,6 @@ class SolarProgressWidget extends HTMLElement {
         `;
     }
 
-    formatCardTime(isoString) {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        if (Number.isNaN(date.getTime())) return '';
-        return date
-            .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-            .replace(' ', '')
-            .toLowerCase();
-    }
-
     formatSpan(milliseconds) {
         if (!Number.isFinite(milliseconds) || milliseconds <= 0) return '';
         const totalMinutes = Math.round(milliseconds / 60000);
@@ -3577,7 +3580,7 @@ class SolarProgressWidget extends HTMLElement {
 
         if (beforeSunrise) {
             return {
-                heading: `Sunrise ${this.formatCardTime(solarData.times.sunrise)}`,
+                heading: `Sunrise ${formatCardTime(solarData.times.sunrise)}`,
                 detail: `${this.formatSpan(sunriseToday - now)} until sunrise`,
                 progress: 0
             };
@@ -3588,17 +3591,17 @@ class SolarProgressWidget extends HTMLElement {
 
         if (beforeSunset) {
             return {
-                heading: `Sets ${this.formatCardTime(solarData.times.sunset)}`,
+                heading: `Sets ${formatCardTime(solarData.times.sunset)}`,
                 detail: `${this.formatSpan(sunset - now)} of daylight left`,
                 progress: solarData?.daylight?.progress ?? 0
             };
         }
 
-        const tomorrow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-        const key = `${tomorrow.getFullYear()}-`
-            + `${String(tomorrow.getMonth() + 1).padStart(2, '0')}-`
-            + `${String(tomorrow.getDate()).padStart(2, '0')}`;
-        const sunrise = new Date((sunMap || {})[key]?.sunrise);
+        const upcoming = Object.values(sunMap || {})
+            .map((day) => new Date(day?.sunrise))
+            .filter((time) => !Number.isNaN(time.getTime()) && time > now)
+            .sort((first, second) => first - second);
+        const sunrise = upcoming[0] ?? new Date(NaN);
 
         if (Number.isNaN(sunrise.getTime())) {
             return { heading: 'Sunrise', detail: '', progress: 1 };
@@ -3606,7 +3609,7 @@ class SolarProgressWidget extends HTMLElement {
 
         const span = this.formatSpan(sunrise - now);
         return {
-            heading: `Sunrise ${this.formatCardTime(sunrise.toISOString())}`,
+            heading: `Sunrise ${formatCardTime(sunrise.toISOString())}`,
             detail: span ? `${span} until sunrise` : '',
             progress: 1
         };
@@ -4272,7 +4275,7 @@ class MoonPhaseWidget extends HTMLElement {
         const phase = this.lunarData?.current_phase || {};
         const illumination = Math.round(phase.illumination_percent ?? 0);
         const rise = phase.moonrise
-            ? ` · rises ${this.formatCardTime(phase.moonrise)}`
+            ? ` · rises ${formatCardTime(phase.moonrise)}`
             : '';
 
         return `
@@ -4285,16 +4288,6 @@ class MoonPhaseWidget extends HTMLElement {
                 <div class="sky-detail">${illumination}% lit${rise}</div>
             </div>
         `;
-    }
-
-    formatCardTime(isoString) {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        if (Number.isNaN(date.getTime())) return '';
-        return date
-            .toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-            .replace(' ', '')
-            .toLowerCase();
     }
 
     async loadLunarData() {

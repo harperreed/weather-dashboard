@@ -182,6 +182,14 @@ clause comes from the wet-bulb rule below.
 `--insight-surface` token carries the background; the existing
 `--daily-range-surface` keeps its current value and its current use.
 
+> **Errata, 2026-09-03.** The last clause is stale. Implementation deleted the
+> `.daily-range-item` pill — both mock screens show bare high and low text —
+> which left `--daily-range-surface` with no consumer, so the token was retired
+> in all three theme blocks and a test now forbids its return. Ruling R45 in
+> `.superpowers/sdd/2026-09-02-dashboard-redesign/progress.md`. The
+> implementation plan repeats the same stale sentence and shows the deleted
+> rule; the shipped code and its tests are the authority on this token.
+
 ### Next 12 hours
 
 Column, gap 10px.
