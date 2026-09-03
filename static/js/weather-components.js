@@ -645,6 +645,63 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.HourlyForecastWidget = HourlyForecastWidget;
 }
 
+// Weather Insights Component
+const HOURLY_CHART_HOURS = 12;
+
+function escapeText(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+class WeatherInsightsWidget extends WeatherWidget {
+    render() {
+        if (this.config.insights === false) return;
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+
+            <div class="insight-card" id="insight-card" hidden></div>
+            <div class="insight-facts" id="insight-facts" hidden></div>
+        `;
+    }
+
+    update() {
+        if (!this.data || this.config.insights === false) return;
+
+        const hours = (this.data.hourly || []).slice(0, HOURLY_CHART_HOURS);
+        const card = this.shadowRoot.getElementById('insight-card');
+        const factStrip = this.shadowRoot.getElementById('insight-facts');
+        const facts = insightFacts(this.data, hours);
+        const isEink = this.getAttribute('data-theme') === 'eink';
+
+        this.hidden = facts.length === 0;
+        card.hidden = true;
+        factStrip.hidden = true;
+        if (this.hidden) return;
+
+        if (isEink) {
+            factStrip.innerHTML = facts.map((fact, index) => `
+                <div class="insight-fact${index === 0 ? ' insight-fact-lead' : ''}">
+                    ${escapeText(fact)}
+                </div>
+            `).join('');
+            factStrip.hidden = false;
+            return;
+        }
+
+        card.textContent = insightSentence(this.data, hours);
+        card.hidden = false;
+    }
+}
+
+customElements.define('weather-insights', WeatherInsightsWidget);
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.WeatherInsightsWidget = WeatherInsightsWidget;
+}
+
 // Daily Forecast Component
 class DailyForecastWidget extends WeatherWidget {
     render() {

@@ -1,6 +1,16 @@
 // ABOUTME: Unit tests for the dashboard's rule-based insight sentence and facts.
 // ABOUTME: Runs the production module with Node's dependency-free test runner.
 
+global.HTMLElement = class {
+    attachShadow() {
+        this.shadowRoot = { innerHTML: '' };
+        return this.shadowRoot;
+    }
+};
+global.customElements = { define() {} };
+global.document = { addEventListener() {} };
+global.window = { WeatherInsights: require('../../static/js/weather-insights.js') };
+
 const assert = require('node:assert/strict');
 const test = require('node:test');
 
@@ -145,4 +155,90 @@ test('a missing low drops the overnight rule', () => {
 test('dry air drops the wet bulb far below the air temperature', () => {
     assert.equal(calculateWetbulbTemp(90, 20), 63);
     assert.equal(calculateWetbulbTemp(70, 100), 70);
+});
+
+const { WeatherInsightsWidget } = require('../../static/js/weather-components.js');
+
+const insightsWidget = (theme) => {
+    const card = { textContent: '', hidden: true };
+    const facts = { innerHTML: '', hidden: true };
+    const widget = Object.create(WeatherInsightsWidget.prototype);
+    widget.config = { insights: true };
+    widget.attributes = new Map([['data-theme', theme]]);
+    widget.getAttribute = (name) => widget.attributes.get(name) ?? null;
+    widget.shadowRoot = {
+        getElementById: (id) => (id === 'insight-card' ? card : facts)
+    };
+    widget.hidden = false;
+    return { widget, card, facts };
+};
+
+const insightData = {
+    current: { temperature: 30, feels_like: 18 },
+    daily: [{ l: 12 }],
+    hourly: hoursAt([70, 90, 60, 10])
+};
+
+test('blue renders one sentence and no fact strip', () => {
+    const { widget, card, facts } = insightsWidget('blue');
+    widget.data = insightData;
+
+    widget.update();
+
+    assert.equal(
+        card.textContent,
+        'Wind makes 30° feel like 18°. Rain likely 1pm–3pm, heaviest around 2pm. '
+        + 'Falling to 12° overnight — layers and a hat.'
+    );
+    assert.equal(card.hidden, false);
+    assert.equal(facts.hidden, true);
+    assert.equal(widget.hidden, false);
+});
+
+test('eInk renders a fact per cell with the first inverted', () => {
+    const { widget, card, facts } = insightsWidget('eink');
+    widget.data = insightData;
+
+    widget.update();
+
+    assert.equal(card.hidden, true);
+    assert.equal(facts.hidden, false);
+    assert.equal((facts.innerHTML.match(/class="insight-fact/g) || []).length, 3);
+    assert.match(facts.innerHTML, /class="insight-fact insight-fact-lead"/);
+    assert.match(facts.innerHTML, /Feels like 18° in the wind/);
+});
+
+test('the fact strip sizes to the facts present', () => {
+    const { widget, facts } = insightsWidget('eink');
+    widget.data = { current: {}, daily: [{ l: 30 }], hourly: [] };
+
+    widget.update();
+
+    assert.equal((facts.innerHTML.match(/class="insight-fact/g) || []).length, 1);
+    assert.match(facts.innerHTML, /30° overnight/);
+});
+
+test('the host hides when no rule applies', () => {
+    const { widget, card, facts } = insightsWidget('blue');
+    widget.data = { current: { temperature: 60, feels_like: 59 }, daily: [], hourly: [] };
+
+    widget.update();
+
+    assert.equal(widget.hidden, true);
+    assert.equal(card.hidden, true);
+    assert.equal(facts.hidden, true);
+});
+
+test('a fact with markup in it is inserted as text', () => {
+    const { widget, facts } = insightsWidget('eink');
+    widget.data = {
+        current: {},
+        daily: [],
+        hourly: [{ rain: 80, icon: 'rain', t: '<img src=x onerror=alert(1)>' }]
+    };
+
+    widget.update();
+
+    assert.doesNotMatch(facts.innerHTML, /<img src=x on/);
+    assert.match(facts.innerHTML, /&lt;img src=x onerror=alert\(1\)&gt;/);
 });

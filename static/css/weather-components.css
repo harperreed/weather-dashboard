@@ -160,6 +160,37 @@
     font-weight: 500;
 }
 
+/* Weather Insights Widget */
+.insight-card {
+    font-size: 1rem;
+    line-height: 1.45;
+    padding: 0.875rem 1rem;
+    border-radius: 0.875rem;
+    background: var(--insight-surface);
+    border: 1px solid var(--card-border);
+}
+
+.insight-facts {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 0.5rem;
+}
+
+.insight-fact {
+    font-size: 1rem;
+    font-weight: 800;
+    padding: 0.625rem 0.875rem;
+    background: var(--insight-surface);
+    border: 2px solid var(--card-border);
+    box-sizing: border-box;
+}
+
+:host([data-theme="eink"]) .insight-fact-lead {
+    background: #000000;
+    color: #ffffff;
+}
+
 /* Hourly Forecast Widget */
 .chart-container {
     position: relative;
