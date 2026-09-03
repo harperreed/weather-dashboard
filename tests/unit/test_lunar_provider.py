@@ -18,7 +18,7 @@ ILLUMINATION_FULL_MOON_THRESHOLD = 0.95
 TOLERANCE = 5  # minutes; the low-precision series is good to a few tenths of a degree
 ALMANAC_CHICAGO_MOONRISE = '2026-09-02T21:52:00-05:00'
 ALMANAC_CHICAGO_MOONSET = '2026-09-02T12:31:00-05:00'
-# Chicago sets at 15:59 this day and never rises: the rise slipped past midnight.
+# Chicago sets at 16:00 this day and never rises: the rise slipped past midnight.
 NO_MOONRISE_DATE = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
 # Tromso holds the moon above the horizon all day: no rise and no set.
 HIGH_LATITUDE_DATE = datetime(2026, 9, 2, 12, tzinfo=timezone.utc)
@@ -392,7 +392,8 @@ class TestLunarDataProvider:
             HIGH_LATITUDE_DATE, 69.6492, 18.9553, 'Europe/Oslo'
         )
 
-        assert moonrise is None or moonset is None
+        assert moonrise is None
+        assert moonset is None
 
     def test_moon_times_carry_the_location_timezone(self) -> None:
         """Times come back in the location's own zone, not UTC"""

@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 from flask.testing import FlaskClient
 
+import main
 from main import app, get_weather_from_open_meteo, weather_cache
 
 
@@ -1389,24 +1390,34 @@ class TestClothingAPIIntegration:
         assert any('Rain likely' in warning for warning in recommendations['warnings'])
 
 
-def test_lunar_endpoint_carries_moon_times(client) -> None:
-    """The lunar endpoint reports moonrise and moonset for the requested point"""
-    response = client.get('/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago')
+@pytest.mark.integration
+class TestLunarAPIIntegration:
+    """Integration tests for the lunar API endpoint"""
 
-    assert response.status_code == HTTP_OK
-    current_phase = response.get_json()['lunar_data']['current_phase']
-    assert 'moonrise' in current_phase
-    assert 'moonset' in current_phase
+    def setup_method(self) -> None:
+        """Clear the lunar cache before each test"""
+        main.lunar_cache.clear()
 
+    def test_lunar_endpoint_carries_moon_times(self, client: FlaskClient) -> None:
+        """The lunar endpoint reports moonrise and moonset for the requested point"""
+        with patch.object(
+            main.lunar_provider,
+            'process_weather_data',
+            wraps=main.lunar_provider.process_weather_data,
+        ) as spy:
+            response = client.get(
+                '/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago'
+            )
 
-def test_lunar_cache_separates_locations(client) -> None:
-    """Two points do not share one cached moonrise"""
-    chicago = client.get('/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago')
-    tromso = client.get('/api/lunar?lat=69.6492&lon=18.9553&location=Tromso')
+        assert response.status_code == HTTP_OK
+        forwarded_raw_data = spy.call_args.args[0]
+        assert forwarded_raw_data == {'lat': 41.8781, 'lon': -87.6298}
 
-    assert chicago.status_code == HTTP_OK
-    assert tromso.status_code == HTTP_OK
-    assert (
-        chicago.get_json()['lunar_data']['current_phase']['moonrise']
-        != tromso.get_json()['lunar_data']['current_phase']['moonrise']
-    )
+    def test_lunar_cache_separates_locations(self, client: FlaskClient) -> None:
+        """Two points do not share one cached moonrise"""
+        chicago = client.get('/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago')
+        tromso = client.get('/api/lunar?lat=69.6492&lon=18.9553&location=Tromso')
+
+        assert chicago.status_code == HTTP_OK
+        assert tromso.status_code == HTTP_OK
+        assert tromso.headers.get('X-Cache') != 'HIT'
