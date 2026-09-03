@@ -365,7 +365,7 @@ test('every widget in the container has an explicit flex order', () => {
         });
     }
 
-    assert.ok(tags.length >= 11, `found only ${tags.length} container tags`);
+    assert.ok(tags.length >= 13, `found only ${tags.length} container tags`);
     tags.forEach((tag) => {
         assert.ok(ordered.has(tag), `${tag} has no explicit flex order`);
     });
