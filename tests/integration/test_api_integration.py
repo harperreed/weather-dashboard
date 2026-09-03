@@ -1421,3 +1421,38 @@ class TestLunarAPIIntegration:
         assert chicago.status_code == HTTP_OK
         assert tromso.status_code == HTTP_OK
         assert tromso.headers.get('X-Cache') != 'HIT'
+
+    def test_lunar_cache_hit_etag_location_specific(self, client: FlaskClient) -> None:
+        """Cache-HIT branch sets ETag based on location coordinates, not just hour"""
+        # First request to Chicago (cache MISS)
+        response1_chicago = client.get(
+            '/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago'
+        )
+        assert response1_chicago.status_code == HTTP_OK
+        assert response1_chicago.headers.get('X-Cache') == 'MISS'
+        etag1_chicago = response1_chicago.headers.get('ETag')
+        assert etag1_chicago is not None
+
+        # Second request to Chicago (cache HIT)
+        response2_chicago = client.get(
+            '/api/lunar?lat=41.8781&lon=-87.6298&location=Chicago'
+        )
+        assert response2_chicago.status_code == HTTP_OK
+        assert response2_chicago.headers.get('X-Cache') == 'HIT'
+        etag2_chicago = response2_chicago.headers.get('ETag')
+        assert etag2_chicago is not None
+
+        # Both Chicago responses should have same ETag
+        assert etag1_chicago == etag2_chicago
+
+        # Request to Tromso (different location, cache MISS)
+        response1_tromso = client.get(
+            '/api/lunar?lat=69.6492&lon=18.9553&location=Tromso'
+        )
+        assert response1_tromso.status_code == HTTP_OK
+        assert response1_tromso.headers.get('X-Cache') == 'MISS'
+        etag_tromso = response1_tromso.headers.get('ETag')
+        assert etag_tromso is not None
+
+        # Tromso and Chicago should have different ETags
+        assert etag_tromso != etag1_chicago
