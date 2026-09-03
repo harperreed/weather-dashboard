@@ -87,6 +87,39 @@ test('a missing tomorrow drops the heading time and the duration', () => {
     assert.equal(state.progress, 1);
 });
 
+test('before sunrise the card counts up to sunrise', () => {
+    const widget = sunWidget();
+    const state = widget.sunHeading(
+        SOLAR, SUN_MAP, new Date('2026-09-02T02:00:00-05:00')
+    );
+
+    assert.equal(state.heading, 'Sunrise 6:22am');
+    assert.match(state.detail, /until sunrise$/);
+    assert.doesNotMatch(state.heading, /Sets/);
+    assert.equal(state.progress, 0);
+});
+
+test('the pre-dawn duration never reads like a claim of daylight', () => {
+    const widget = sunWidget();
+    const state = widget.sunHeading(
+        SOLAR, SUN_MAP, new Date('2026-09-02T00:05:00-05:00')
+    );
+
+    assert.match(state.detail, /until sunrise$/);
+    const hours = Number(state.detail.match(/^(\d+)h/)[1]);
+    assert.ok(hours < 24, `expected under 24h, got "${state.detail}"`);
+});
+
+test('midday still returns the sets-tonight state', () => {
+    const widget = sunWidget();
+    const state = widget.sunHeading(
+        SOLAR, SUN_MAP, new Date('2026-09-02T13:40:00-05:00')
+    );
+
+    assert.match(state.heading, /^Sets /);
+    assert.match(state.detail, /of daylight left$/);
+});
+
 test('the sun card renders its heading, track, and detail', () => {
     const content = {
         classList: { contains: () => false, remove() {} },

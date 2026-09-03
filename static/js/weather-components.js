@@ -3479,32 +3479,6 @@ class SolarProgressWidget extends HTMLElement {
                     display: block;
                 }
 
-                .solar-widget {
-                    background: var(--card-bg);
-                    border: 1px solid var(--card-border);
-                    border-radius: 12px;
-                    padding: 1.5rem;
-                    margin: 1rem 0;
-                    backdrop-filter: blur(10px);
-                }
-
-                .solar-header {
-                    display: flex;
-                    align-items: center;
-                    margin-bottom: 1.5rem;
-                    gap: 0.75rem;
-                }
-
-                .solar-icon {
-                    font-size: 1.5rem;
-                }
-
-                .solar-title {
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    margin: 0;
-                }
-
                 .loading-state {
                     display: flex;
                     align-items: center;
@@ -3526,11 +3500,6 @@ class SolarProgressWidget extends HTMLElement {
             </style>
 
             <div class="solar-widget">
-                <div class="solar-header">
-                    <div class="solar-icon">🌅</div>
-                    <h3 class="solar-title">Solar Progress</h3>
-                </div>
-
                 <div id="solar-content" class="loading-state">
                     Loading solar data...
                 </div>
@@ -3587,21 +3556,6 @@ class SolarProgressWidget extends HTMLElement {
         `;
     }
 
-    formatTime(timeString) {
-        if (!timeString) return '--:--';
-
-        try {
-            const date = new Date(timeString);
-            return date.toLocaleTimeString([], {
-                hour: '2-digit',
-                minute: '2-digit',
-                hour12: true
-            });
-        } catch (error) {
-            return '--:--';
-        }
-    }
-
     formatCardTime(isoString) {
         if (!isoString) return '';
         const date = new Date(isoString);
@@ -3619,6 +3573,17 @@ class SolarProgressWidget extends HTMLElement {
     }
 
     sunHeading(solarData, sunMap, now) {
+        const sunriseToday = new Date(solarData?.times?.sunrise);
+        const beforeSunrise = !Number.isNaN(sunriseToday.getTime()) && now < sunriseToday;
+
+        if (beforeSunrise) {
+            return {
+                heading: `Sunrise ${this.formatCardTime(solarData.times.sunrise)}`,
+                detail: `${this.formatSpan(sunriseToday - now)} until sunrise`,
+                progress: 0
+            };
+        }
+
         const sunset = new Date(solarData?.times?.sunset);
         const beforeSunset = !Number.isNaN(sunset.getTime()) && now < sunset;
 
@@ -4240,26 +4205,7 @@ class MoonPhaseWidget extends HTMLElement {
             <link rel="stylesheet" href="/static/css/weather-components.css">
             <style>
                 .moon-phase-widget {
-                    background: var(--card-bg);
-                    border: 1px solid var(--card-border);
-                    border-radius: 0.75rem;
-                    padding: 1.25rem;
-                    margin-bottom: 1rem;
-                    backdrop-filter: blur(10px);
                     transition: all 0.3s ease;
-                }
-
-                .widget-title {
-                    font-size: 1.1rem;
-                    font-weight: 600;
-                    margin-bottom: 1rem;
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                }
-
-                .moon-icon {
-                    font-size: 1.2rem;
                 }
 
                 .loading-state {
@@ -4294,11 +4240,6 @@ class MoonPhaseWidget extends HTMLElement {
             </style>
 
             <div class="moon-phase-widget">
-                <div class="widget-title">
-                    <span class="moon-icon">🌙</span>
-                    <span>Moon Phase & Astronomy</span>
-                </div>
-
                 ${this.isLoading ? this.renderLoading() : ''}
                 <div class="content" style="display: ${this.isLoading ? 'none' : 'block'}">
                     ${this.renderContent()}

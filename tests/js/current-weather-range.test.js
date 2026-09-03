@@ -460,17 +460,24 @@ test('canonical themes define the insight surface token', () => {
 });
 
 test('widget wrappers no longer carry their own bottom margin', () => {
+    // .solar-widget and .moon-phase-widget live in weather-components.js's
+    // inline <style> blocks, not the shared stylesheet, so both sources are
+    // searched. margin(-bottom)? also catches .solar-widget's shorthand
+    // `margin: 1rem 0`, which sets a top AND bottom margin.
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
         'utf8'
+    ) + fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
     );
 
-    ['.current-widget', '.hourly-widget', '.daily-widget', '.timeline-widget']
+    ['.current-widget', '.hourly-widget', '.daily-widget', '.timeline-widget', '.solar-widget', '.moon-phase-widget']
         .forEach((selector) => {
             const rule = styles.match(
                 new RegExp(`\\${selector}\\s*\\{[^}]*\\}`, 's')
             )?.[0] || '';
-            assert.doesNotMatch(rule, /margin-bottom:/, selector);
+            assert.doesNotMatch(rule, /margin(-bottom)?:/, selector);
         });
 });
 
