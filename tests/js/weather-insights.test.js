@@ -1,0 +1,148 @@
+// ABOUTME: Unit tests for the dashboard's rule-based insight sentence and facts.
+// ABOUTME: Runs the production module with Node's dependency-free test runner.
+
+const assert = require('node:assert/strict');
+const test = require('node:test');
+
+const {
+    calculateWetbulbTemp,
+    insightFacts,
+    insightFragments,
+    insightSentence,
+    precipitationNoun,
+    precipitationWindow,
+    wetBulbClause,
+    wetBulbPosition
+} = require('../../static/js/weather-insights.js');
+
+const hoursAt = (chances, icon = 'rain') => chances.map((rain, index) => ({
+    rain,
+    icon,
+    t: `${index + 1}pm`,
+    temp: 50
+}));
+
+test('wet bulb sits between feels-like and air temperature', () => {
+    assert.equal(wetBulbPosition(60, 70, 80), 50);
+    assert.equal(wetBulbPosition(60, 60, 80), 0);
+    assert.equal(wetBulbPosition(60, 80, 80), 100);
+});
+
+test('every dot sits at the end when air equals feels-like', () => {
+    assert.equal(wetBulbPosition(70, 65, 70), 100);
+});
+
+test('a wet bulb outside the pair clamps to the track', () => {
+    assert.equal(wetBulbPosition(60, 40, 80), 0);
+    assert.equal(wetBulbPosition(60, 100, 80), 100);
+});
+
+test('a non-finite temperature has no position', () => {
+    assert.equal(wetBulbPosition(60, Number.NaN, 80), null);
+    assert.equal(wetBulbPosition(undefined, 70, 80), null);
+});
+
+test('the wet bulb clause names the exertion band', () => {
+    assert.equal(wetBulbClause(85), 'dangerous for exertion');
+    assert.equal(wetBulbClause(80), 'dangerous for exertion');
+    assert.equal(wetBulbClause(79), 'limit hard exertion');
+    assert.equal(wetBulbClause(70), 'limit hard exertion');
+    assert.equal(wetBulbClause(69), '');
+    assert.equal(wetBulbClause(50), '');
+    assert.equal(wetBulbClause(49), 'safe for exertion above 50°, this is well under');
+});
+
+test('the window is the first contiguous run at sixty percent or above', () => {
+    const window = precipitationWindow(hoursAt([10, 70, 80, 65, 20, 90, 95]));
+
+    assert.equal(window.start, '2pm');
+    assert.equal(window.end, '4pm');
+    assert.equal(window.peak, '3pm');
+});
+
+test('the earliest hour wins a tie for the heaviest', () => {
+    assert.equal(precipitationWindow(hoursAt([80, 80, 70])).peak, '1pm');
+});
+
+test('no qualifying hour means no window', () => {
+    assert.equal(precipitationWindow(hoursAt([10, 20, 59])), null);
+    assert.equal(precipitationWindow([]), null);
+    assert.equal(precipitationWindow(undefined), null);
+});
+
+test('the noun follows a single precipitation type inside the window', () => {
+    assert.equal(precipitationNoun(['rain', 'heavy-rain', 'light-rain']), 'Rain');
+    assert.equal(precipitationNoun(['snow', 'light-snow']), 'Snow');
+    assert.equal(precipitationNoun(['sleet']), 'Sleet');
+});
+
+test('a mixed or unrecognized window is precipitation', () => {
+    assert.equal(precipitationNoun(['rain', 'snow']), 'Precipitation');
+    assert.equal(precipitationNoun(['cloudy']), 'Precipitation');
+    assert.equal(precipitationNoun([]), 'Precipitation');
+});
+
+test('an unrecognized icon beside one type does not change the noun', () => {
+    assert.equal(precipitationNoun(['cloudy', 'rain']), 'Rain');
+});
+
+test('wind chill applies only at a ten degree gap', () => {
+    const data = { current: { temperature: 30, feels_like: 20 }, daily: [] };
+    assert.equal(insightSentence(data, []), 'Wind makes 30° feel like 20°.');
+
+    const mild = { current: { temperature: 30, feels_like: 21 }, daily: [] };
+    assert.equal(insightSentence(mild, []), '');
+});
+
+test('the overnight clause follows the low', () => {
+    const at = (low) => insightSentence({ current: {}, daily: [{ l: low }] }, []);
+
+    assert.equal(at(15), 'Falling to 15° overnight — layers and a hat.');
+    assert.equal(at(20), 'Falling to 20° overnight — bring a jacket.');
+    assert.equal(at(45), 'Falling to 45° overnight — bring a jacket.');
+    assert.equal(at(46), 'Falling to 46° overnight.');
+});
+
+test('every rule joins into one sentence in order', () => {
+    const data = {
+        current: { temperature: 30, feels_like: 18 },
+        daily: [{ l: 12 }]
+    };
+
+    assert.equal(
+        insightSentence(data, hoursAt([70, 90, 60, 10])),
+        'Wind makes 30° feel like 18°. Rain likely 1pm–3pm, heaviest around 2pm. '
+        + 'Falling to 12° overnight — layers and a hat.'
+    );
+});
+
+test('the facts are the short form of the same fragments', () => {
+    const data = {
+        current: { temperature: 30, feels_like: 18 },
+        daily: [{ l: 12 }]
+    };
+
+    assert.deepEqual(insightFacts(data, hoursAt([70, 90, 60, 10])), [
+        'Feels like 18° in the wind',
+        'Rain 1pm–3pm',
+        '12° overnight'
+    ]);
+});
+
+test('inapplicable rules are omitted, not blanked', () => {
+    const data = { current: { temperature: 60, feels_like: 59 }, daily: [] };
+
+    assert.deepEqual(insightFragments(data, hoursAt([10, 20])), []);
+    assert.equal(insightSentence(data, hoursAt([10, 20])), '');
+    assert.deepEqual(insightFacts(data, hoursAt([10, 20])), []);
+});
+
+test('a missing low drops the overnight rule', () => {
+    const data = { current: {}, daily: [{ h: 70 }] };
+    assert.deepEqual(insightFacts(data, []), []);
+});
+
+test('dry air drops the wet bulb far below the air temperature', () => {
+    assert.equal(calculateWetbulbTemp(90, 20), 63);
+    assert.equal(calculateWetbulbTemp(70, 100), 70);
+});

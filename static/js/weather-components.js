@@ -175,24 +175,16 @@ function getTimeOfDayColor(timeOfDay) {
     return colors[timeOfDay] || colors.day;
 }
 
-// Helper function to calculate wetbulb temperature
-function calculateWetbulbTemp(tempF, humidity) {
-    // Convert Fahrenheit to Celsius
-    const tempC = (tempF - 32) * 5/9;
-    const rh = humidity;
-
-    // Stull approximation for wetbulb temperature
-    const wetbulbC = tempC * Math.atan(0.152 * Math.sqrt(rh + 8.3136)) +
-                     Math.atan(tempC + rh) -
-                     Math.atan(rh - 1.6763) +
-                     0.00391838 * Math.pow(rh, 1.5) * Math.atan(0.023101 * rh) -
-                     4.686035;
-
-    // Convert back to Fahrenheit
-    const wetbulbF = wetbulbC * 9/5 + 32;
-
-    return Math.round(wetbulbF);
-}
+// Insight rules and wet-bulb math live in weather-insights.js.
+const {
+    calculateWetbulbTemp,
+    insightFacts,
+    insightSentence,
+    precipitationWindow,
+    wetBulbClause,
+    wetBulbPosition
+} = (typeof window !== 'undefined' && window.WeatherInsights)
+    || require('./weather-insights.js');
 
 // Base WeatherWidget class with shared functionality
 class WeatherWidget extends HTMLElement {

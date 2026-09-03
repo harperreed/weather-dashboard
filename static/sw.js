@@ -8,6 +8,7 @@ const STATIC_FILES = [
   '/',
   '/static/css/weather-components.css',
   '/static/js/dashboard-config.js',
+  '/static/js/weather-insights.js',
   '/static/js/weather-components.js',
   '/static/js/realtime-weather.js',
   '/static/manifest.json',

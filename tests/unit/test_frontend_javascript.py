@@ -14,6 +14,7 @@ import pytest
         'dashboard-config.test.js',
         'help-section.test.js',
         'hourly-forecast-layout.test.js',
+        'weather-insights.test.js',
     ],
 )
 def test_frontend_javascript(test_name: str) -> None:
