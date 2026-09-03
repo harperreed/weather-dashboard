@@ -220,6 +220,25 @@
             text-align: right;
             order: 0;
         }
+
+        /*
+         * The mock's band is an 800px row. Below 640 that row needs about
+         * 391px of content in 268px, so the high and low line overflows its
+         * own column. Stacking gives the current widget the full width and
+         * turns the sky rail into two cards side by side.
+         */
+        @media (max-width: 640px) {
+            [data-theme="eink"] .stat-band {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            [data-theme="eink"] .sky-pair {
+                grid-template-columns: 1fr 1fr;
+                flex: 0 0 auto;
+                text-align: left;
+            }
+        }
     </style>
 </head>
 <body id="app-body">

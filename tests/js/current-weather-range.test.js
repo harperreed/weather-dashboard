@@ -40,10 +40,16 @@ after(() => {
 });
 
 function currentWidgetWithData(current, theme = 'blue') {
-    const styleHolder = () => ({ textContent: '', style: {}, innerHTML: '' });
+    const styleHolder = () => {
+        const style = {
+            setProperty(name, value) { style[name] = String(value); }
+        };
+        return { textContent: '', style, innerHTML: '' };
+    };
     const ids = ['temp', 'location', 'local-time', 'summary', 'feels-value',
-        'wet-value', 'air-value', 'scale-fill', 'scale-dot-wet', 'three-temps-note',
-        'bar-air', 'bar-wet', 'bar-feels', 'daily-high', 'daily-low'];
+        'wet-value', 'air-value', 'temp-scale', 'scale-fill', 'scale-dot-wet',
+        'three-temps-note', 'bar-air', 'bar-wet', 'bar-feels', 'daily-high',
+        'daily-low'];
     const elements = Object.fromEntries(ids.map((id) => [id, styleHolder()]));
     elements['daily-range'] = {
         hidden: true,
@@ -78,7 +84,12 @@ test('renders the header, temperature block, and three-temperature module', () =
 
 test('shows a complete daily range and clears it when later data is missing', () => {
     const attributes = new Map();
-    const styleHolder = () => ({ textContent: '', style: {}, innerHTML: '' });
+    const styleHolder = () => {
+        const style = {
+            setProperty(name, value) { style[name] = String(value); }
+        };
+        return { textContent: '', style, innerHTML: '' };
+    };
     const elements = {
         temp: styleHolder(),
         location: styleHolder(),
@@ -87,6 +98,7 @@ test('shows a complete daily range and clears it when later data is missing', ()
         'feels-value': styleHolder(),
         'wet-value': styleHolder(),
         'air-value': styleHolder(),
+        'temp-scale': styleHolder(),
         'scale-fill': styleHolder(),
         'scale-dot-wet': styleHolder(),
         'three-temps-note': styleHolder(),
@@ -154,8 +166,9 @@ test('the scale places the wet bulb between feels-like and air', () => {
 
     // The track runs from feels-like (94) at 0% to air (88) at 100%. Wet
     // bulb 77 sits past the air end of that track, so it clamps to 100%.
-    assert.equal(elements['scale-fill'].style.width, '100%');
-    assert.equal(elements['scale-dot-wet'].style.left, '100%');
+    // One property drives both the fill and the dot; the CSS insets them by
+    // half a dot so neither leaves the track.
+    assert.equal(elements['temp-scale'].style['--wet-position'], '1');
 });
 
 test('every dot sits at the end when air equals feels-like', () => {
@@ -165,8 +178,7 @@ test('every dot sits at the end when air equals feels-like', () => {
 
     widget.update();
 
-    assert.equal(elements['scale-fill'].style.width, '100%');
-    assert.equal(elements['scale-dot-wet'].style.left, '100%');
+    assert.equal(elements['temp-scale'].style['--wet-position'], '1');
 });
 
 test('the explainer names the exertion band and drops it when comfortable', () => {
@@ -640,4 +652,142 @@ test('the hourly chart legend matches the mock\'s 14px gap', () => {
 
     assert.match(styles, /\.chart-legend\s*\{[^}]*gap:\s*0\.875rem;/s);
     assert.doesNotMatch(styles, /\.chart-legend\s*\{[^}]*gap:\s*1rem;/s);
+});
+
+test('the eInk header wraps its two spans as whole units', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    // The mock's header is one text node that wraps to two lines. Ours is two
+    // spans; without wrap they are squeezed to equal widths and each wraps
+    // internally, which orphans "AM" onto a third line.
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.header-row\s*\{[^}]*flex-wrap:\s*wrap;/s
+    );
+});
+
+test('narrow eInk panels drop the three-temperature bars', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const narrow = styles.slice(styles.indexOf('@media (max-width: 640px)'));
+    const block = narrow.slice(0, narrow.indexOf('@media', 1));
+
+    // `.three-temps` has a ~233px min-content floor from its
+    // `auto 7.5rem auto` grid. At 320 the eInk row has 149px to give it, so
+    // the band overflows the frame by 78px. It is the only element in the
+    // band that cannot be legible at any width that fits.
+    assert.match(
+        block,
+        /:host\(\[data-theme="eink"\]\) \.three-temps\s*\{[^}]*display:\s*none;/s
+    );
+});
+
+test('no widget host carries a bottom margin', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+
+    // `.weather-container` is a flex column and its gap owns the space
+    // between blocks. Flex items do not collapse margins, so a host margin
+    // adds to the gap instead of replacing it.
+    const offenders = [...components.matchAll(/:host[^{]*\{[^}]*\}/gs)]
+        .filter(([block]) => /margin-bottom:/.test(block))
+        .map(({ index }) => components.slice(0, index).split('\n').length);
+
+    assert.deepEqual(offenders, [], `:host margin-bottom at lines ${offenders}`);
+});
+
+test('narrow eInk panels stack the stat band', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const narrow = template.slice(template.indexOf('@media (max-width: 640px)'));
+    const block = narrow.slice(0, narrow.indexOf('</style>'));
+
+    // A row of temperature, text and sky needs about 391px; a 320px panel
+    // leaves the band 268. Stacked, the current widget gets the full width
+    // and its high and low row stops overflowing its own column.
+    assert.match(
+        block,
+        /\[data-theme="eink"\] \.stat-band\s*\{[^}]*flex-direction:\s*column;/s
+    );
+    assert.match(
+        block,
+        /\[data-theme="eink"\] \.stat-band\s*\{[^}]*align-items:\s*stretch;/s
+    );
+
+    // The 101px basis is a height in a column, and the sun and moon cards
+    // read better side by side once they have the full width.
+    assert.match(
+        block,
+        /\[data-theme="eink"\] \.sky-pair\s*\{[^}]*flex:\s*0 0 auto;/s
+    );
+    assert.match(
+        block,
+        /\[data-theme="eink"\] \.sky-pair\s*\{[^}]*grid-template-columns:\s*1fr 1fr;/s
+    );
+    assert.match(
+        block,
+        /\[data-theme="eink"\] \.sky-pair\s*\{[^}]*text-align:\s*left;/s
+    );
+});
+
+test('the eInk high and low row wraps instead of overflowing its column', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    // Every other width in the band is pinned to the mock: temperature 185,
+    // text column 169, bars 233, gaps 22, sky 101. The row's own width is
+    // data-bearing — the mock's "HIGH 23° LOW 9°" fits 149px with 4px spare,
+    // while "HIGH 88° LOW 73°" needs 162. Wrapping is the only slack left,
+    // and it costs a second line only on the days that need one.
+    assert.match(
+        styles,
+        /:host\(\[data-theme="eink"\]\) \.daily-range\s*\{[^}]*flex-wrap:\s*wrap;/s
+    );
+});
+
+test('the wet bulb dot travels between the dot centers, not the track edges', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const scale = styles.slice(
+        styles.indexOf('.three-temps-scale {'),
+        styles.indexOf('.three-temps-note')
+    );
+
+    // The wet dot is centered on its position, and the fixed feels and air
+    // dots each sit half a dot inside their end of the track. A bare
+    // percentage puts the wet dot's center on the track edge instead, so at
+    // 100% — where a wet bulb below the air temperature always lands — half
+    // the dot hangs outside the track.
+    assert.match(
+        scale,
+        /--wet-offset:\s*calc\(0\.3125rem \+ \(100% - 0\.625rem\) \* var\(--wet-position, 1\)\);/
+    );
+    assert.match(scale, /\.scale-fill\s*\{[^}]*width:\s*var\(--wet-offset\);/s);
+    assert.match(scale, /\.scale-dot-wet\s*\{[^}]*left:\s*var\(--wet-offset\);/s);
+
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const bare = [...components.matchAll(/style\.(?:left|width) = `\$\{wetPercent\}%`/g)]
+        .map(({ index }) => components.slice(0, index).split('\n').length);
+    assert.deepEqual(bare, [], `bare wetPercent position at lines ${bare}`);
+
+    const wired = [
+        ...components.matchAll(/setProperty\('--wet-position', wetPercent \/ 100\)/g)
+    ].length;
+    assert.equal(wired, 1, 'the widget sets --wet-position once from wetPercent');
 });

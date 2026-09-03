@@ -184,6 +184,15 @@
 .three-temps-scale {
     position: relative;
     height: 0.875rem;
+
+    /*
+     * A dot is centered on its position, and the fixed feels and air dots
+     * each sit half a dot inside their own end of the track. The wet dot
+     * travels between those two centers, not between the track edges: at
+     * 100% a centered dot on the edge hangs half its width past the track,
+     * and a wet bulb below the air temperature always lands at 100%.
+     */
+    --wet-offset: calc(0.3125rem + (100% - 0.625rem) * var(--wet-position, 1));
 }
 
 .scale-track,
@@ -201,6 +210,7 @@
 
 .scale-fill {
     left: 0;
+    width: var(--wet-offset);
     background: var(--temp-low);
 }
 
@@ -219,6 +229,7 @@
 }
 
 .scale-dot-wet {
+    left: var(--wet-offset);
     background: #ffffff;
     transform: translateX(-50%);
 }
@@ -269,6 +280,7 @@
     opacity: 1;
     gap: 0.5rem;
     justify-content: flex-start;
+    flex-wrap: wrap;
 }
 
 :host([data-theme="eink"]) .summary {
@@ -276,7 +288,7 @@
     font-weight: 800;
 }
 
-:host([data-theme="eink"]) .daily-range { gap: 1rem; margin-top: 0; }
+:host([data-theme="eink"]) .daily-range { gap: 1rem; margin-top: 0; flex-wrap: wrap; }
 :host([data-theme="eink"]) .daily-range-item { gap: 0.3125rem; }
 :host([data-theme="eink"]) .daily-range-label { font-weight: 800; opacity: 1; }
 :host([data-theme="eink"]) .daily-range-value { font-size: 1.25rem; font-weight: 900; }
@@ -344,6 +356,19 @@
 :host([data-theme="eink"]) .three-temp-air > * { order: 1; }
 :host([data-theme="eink"]) .three-temp-wet > * { order: 2; }
 :host([data-theme="eink"]) .three-temp-feels > * { order: 3; }
+
+/*
+ * The eInk band lays temperature, text and bars in one row. The bars grid has
+ * a ~233px min-content floor from its `auto 7.5rem auto` columns, and a 320px
+ * panel leaves the row 149px, so the band overflows the frame. Temperature,
+ * summary, high and low, the hours chart and the fact strip all stay legible
+ * at that width; the bars cannot, at any width that fits.
+ */
+@media (max-width: 640px) {
+    :host([data-theme="eink"]) .three-temps {
+        display: none;
+    }
+}
 
 /* Weather Insights Widget */
 .insight-card {

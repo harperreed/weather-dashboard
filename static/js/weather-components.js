@@ -390,7 +390,7 @@ class CurrentWeatherWidget extends WeatherWidget {
                             <span class="three-temp-value" id="air-value">--°</span>
                         </div>
                     </div>
-                    <div class="three-temps-scale">
+                    <div class="three-temps-scale" id="temp-scale">
                         <div class="scale-track"></div>
                         <div class="scale-fill" id="scale-fill"></div>
                         <div class="scale-dot scale-dot-feels"></div>
@@ -468,8 +468,9 @@ class CurrentWeatherWidget extends WeatherWidget {
         this.shadowRoot.getElementById('air-value').textContent = `${air}°`;
 
         const wetPercent = wetBulbPosition(feels, wetBulb, air) ?? 100;
-        this.shadowRoot.getElementById('scale-fill').style.width = `${wetPercent}%`;
-        this.shadowRoot.getElementById('scale-dot-wet').style.left = `${wetPercent}%`;
+        this.shadowRoot
+            .getElementById('temp-scale')
+            .style.setProperty('--wet-position', wetPercent / 100);
 
         this.updateBars(air, feels, wetBulb);
 
@@ -2160,7 +2161,6 @@ class PressureTrendsWidget extends WeatherWidget {
                 <style>
                     :host {
                         display: block;
-                        margin-bottom: 1rem;
                     }
                     .loading {
                         padding: 1rem;
@@ -2186,7 +2186,6 @@ class PressureTrendsWidget extends WeatherWidget {
             <style>
                 :host {
                     display: block;
-                    margin-bottom: 1rem;
                 }
 
                 .pressure-card {
