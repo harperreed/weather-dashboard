@@ -2827,6 +2827,7 @@ class LunarDataProvider(WeatherProvider):
         high_utc: datetime,
         lat: float,
         lon: float,
+        *,
         rising: bool,
         local_zone: tzinfo,
         day_end_utc: datetime,
@@ -2866,8 +2867,6 @@ class LunarDataProvider(WeatherProvider):
         minutes later each day, so roughly once a month a day has no moonrise.
         """
         try:
-            import zoneinfo
-
             local_zone = zoneinfo.ZoneInfo(tz_name) if tz_name else timezone.utc
         except Exception:
             local_zone = timezone.utc
