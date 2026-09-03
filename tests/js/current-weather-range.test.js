@@ -336,6 +336,34 @@ test('the page orders the phone sequence and the eInk sequence', () => {
     );
 });
 
+test('every widget in the container has an explicit flex order', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const container = template.match(
+        /<div class="weather-container">([\s\S]*?)\n    <\/div>/
+    )?.[1] ?? '';
+    const tags = [...new Set(
+        [...container.matchAll(/<([a-z]+(?:-[a-z]+)+)>/g)].map(([, tag]) => tag)
+    )];
+
+    // A child with no order falls to the flex default of 0 and jumps the hero.
+    const ordered = new Set();
+    for (const [, selectors] of template.matchAll(
+        /([^{}]+)\{[^}]*(?:^|[\s;{])order:[^}]*\}/g
+    )) {
+        selectors.split(',').forEach((selector) => {
+            ordered.add(selector.trim().replace(/^\[data-theme="\w+"\]\s*/, ''));
+        });
+    }
+
+    assert.ok(tags.length >= 13, `found only ${tags.length} container tags`);
+    tags.forEach((tag) => {
+        assert.ok(ordered.has(tag), `${tag} has no explicit flex order`);
+    });
+});
+
 test('canonical themes define the insight surface token', () => {
     const template = fs.readFileSync(
         path.join(__dirname, '../../templates/weather.html'),

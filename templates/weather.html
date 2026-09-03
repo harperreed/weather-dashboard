@@ -136,6 +136,19 @@
         weather-insights { order: 3; }
         hourly-forecast { order: 4; }
         daily-forecast { order: 6; }
+        enhanced-temperature-trends,
+        precipitation-radar,
+        clothing-recommendations,
+        air-quality,
+        wind-direction,
+        pressure-trends,
+        hourly-timeline,
+        help-section {
+            /* Opt-in widgets sit after the hero sequence, in source order. */
+            order: 7;
+        }
+        solar-progress,
+        moon-phase { order: 5; }
 
         @media (min-width: 640px) {
             .weather-container {
