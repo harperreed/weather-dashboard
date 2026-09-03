@@ -6,79 +6,106 @@ const WIDGET_CATALOG = Object.freeze([
         id: 'current',
         host: 'current-weather',
         aliases: Object.freeze(['now']),
-        parameters: Object.freeze(['current'])
+        parameters: Object.freeze(['current']),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
         id: 'alerts',
         host: 'weather-alerts',
         aliases: Object.freeze(['warnings']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
+    }),
+    Object.freeze({
+        id: 'insights',
+        host: 'weather-insights',
+        aliases: Object.freeze(['insight']),
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
         id: 'hourly',
         host: 'hourly-forecast',
         aliases: Object.freeze(['hours']),
-        parameters: Object.freeze(['hourly'])
+        parameters: Object.freeze(['hourly']),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
         id: 'daily',
         host: 'daily-forecast',
         aliases: Object.freeze(['week', 'days']),
-        parameters: Object.freeze(['daily'])
+        parameters: Object.freeze(['daily']),
+        defaultThemes: Object.freeze(['blue', 'light'])
     }),
     Object.freeze({
         id: 'temperature-trends',
         host: 'enhanced-temperature-trends',
         aliases: Object.freeze(['temperature', 'temp-trends']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'radar',
         host: 'precipitation-radar',
         aliases: Object.freeze(['precipitation']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'clothing',
         host: 'clothing-recommendations',
         aliases: Object.freeze(['clothes']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'air-quality',
         host: 'air-quality',
         aliases: Object.freeze(['airquality', 'air', 'aqi']),
-        parameters: Object.freeze(['air-quality', 'airquality'])
+        parameters: Object.freeze(['air-quality', 'airquality']),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'wind',
         host: 'wind-direction',
         aliases: Object.freeze(['wind-direction', 'compass']),
-        parameters: Object.freeze(['wind-direction', 'wind'])
+        parameters: Object.freeze(['wind-direction', 'wind']),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'pressure',
         host: 'pressure-trends',
         aliases: Object.freeze(['pressure-trends', 'trends']),
-        parameters: Object.freeze(['pressure-trends', 'pressure'])
+        parameters: Object.freeze(['pressure-trends', 'pressure']),
+        defaultThemes: Object.freeze([])
     }),
     Object.freeze({
         id: 'solar',
         host: 'solar-progress',
         aliases: Object.freeze(['sun']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
         id: 'moon',
         host: 'moon-phase',
         aliases: Object.freeze(['lunar']),
-        parameters: Object.freeze([])
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
         id: 'timeline',
         host: 'hourly-timeline',
         aliases: Object.freeze(['list']),
-        parameters: Object.freeze(['timeline'])
+        parameters: Object.freeze(['timeline']),
+        defaultThemes: Object.freeze([])
+    }),
+    Object.freeze({
+        id: 'help',
+        host: 'help-section',
+        aliases: Object.freeze([]),
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze([])
     })
 ]);
 
@@ -97,10 +124,20 @@ const WIDGET_NAMES = new Map(
     ])
 );
 
+const DEFAULT_THEME = 'blue';
+
 function parseDashboardConfig(search) {
     const urlParams = new URLSearchParams(search || '');
+
+    const requestedTheme = (urlParams.get('theme') || urlParams.get('background') || '')
+        .trim()
+        .toLowerCase();
+    const theme = Object.prototype.hasOwnProperty.call(THEME_NAMES, requestedTheme)
+        ? THEME_NAMES[requestedTheme]
+        : DEFAULT_THEME;
+
     const enabledWidgets = Object.fromEntries(
-        WIDGET_CATALOG.map(({ id }) => [id, true])
+        WIDGET_CATALOG.map(({ id, defaultThemes }) => [id, defaultThemes.includes(theme)])
     );
 
     const widgetNames = new Set();
@@ -128,17 +165,7 @@ function parseDashboardConfig(search) {
         }
     });
 
-    const requestedTheme = (urlParams.get('theme') || urlParams.get('background') || '')
-        .trim()
-        .toLowerCase();
-
-    return {
-        theme: Object.prototype.hasOwnProperty.call(THEME_NAMES, requestedTheme)
-            ? THEME_NAMES[requestedTheme]
-            : 'blue',
-        hasWidgetSelection,
-        enabledWidgets
-    };
+    return { theme, hasWidgetSelection, enabledWidgets };
 }
 
 function isWidgetEnabled(config, widgetId) {
@@ -159,12 +186,6 @@ function applyDashboardConfig(documentRoot, config) {
         element.hidden = !isWidgetEnabled(config, id);
         element.setAttribute('data-theme', config.theme);
     });
-
-    const helpSection = documentRoot.querySelector('help-section');
-    if (helpSection) {
-        helpSection.hidden = config.hasWidgetSelection;
-        helpSection.setAttribute('data-theme', config.theme);
-    }
 }
 
 const DashboardConfig = {

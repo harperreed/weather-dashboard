@@ -16,79 +16,106 @@ const EXPECTED_WIDGET_CATALOG = [
         id: 'current',
         host: 'current-weather',
         aliases: ['now'],
-        parameters: ['current']
+        parameters: ['current'],
+        defaultThemes: ['blue', 'light', 'eink']
     },
     {
         id: 'alerts',
         host: 'weather-alerts',
         aliases: ['warnings'],
-        parameters: []
+        parameters: [],
+        defaultThemes: ['blue', 'light', 'eink']
+    },
+    {
+        id: 'insights',
+        host: 'weather-insights',
+        aliases: ['insight'],
+        parameters: [],
+        defaultThemes: ['blue', 'light', 'eink']
     },
     {
         id: 'hourly',
         host: 'hourly-forecast',
         aliases: ['hours'],
-        parameters: ['hourly']
+        parameters: ['hourly'],
+        defaultThemes: ['blue', 'light', 'eink']
     },
     {
         id: 'daily',
         host: 'daily-forecast',
         aliases: ['week', 'days'],
-        parameters: ['daily']
+        parameters: ['daily'],
+        defaultThemes: ['blue', 'light']
     },
     {
         id: 'temperature-trends',
         host: 'enhanced-temperature-trends',
         aliases: ['temperature', 'temp-trends'],
-        parameters: []
+        parameters: [],
+        defaultThemes: []
     },
     {
         id: 'radar',
         host: 'precipitation-radar',
         aliases: ['precipitation'],
-        parameters: []
+        parameters: [],
+        defaultThemes: []
     },
     {
         id: 'clothing',
         host: 'clothing-recommendations',
         aliases: ['clothes'],
-        parameters: []
+        parameters: [],
+        defaultThemes: []
     },
     {
         id: 'air-quality',
         host: 'air-quality',
         aliases: ['airquality', 'air', 'aqi'],
-        parameters: ['air-quality', 'airquality']
+        parameters: ['air-quality', 'airquality'],
+        defaultThemes: []
     },
     {
         id: 'wind',
         host: 'wind-direction',
         aliases: ['wind-direction', 'compass'],
-        parameters: ['wind-direction', 'wind']
+        parameters: ['wind-direction', 'wind'],
+        defaultThemes: []
     },
     {
         id: 'pressure',
         host: 'pressure-trends',
         aliases: ['pressure-trends', 'trends'],
-        parameters: ['pressure-trends', 'pressure']
+        parameters: ['pressure-trends', 'pressure'],
+        defaultThemes: []
     },
     {
         id: 'solar',
         host: 'solar-progress',
         aliases: ['sun'],
-        parameters: []
+        parameters: [],
+        defaultThemes: ['blue', 'light', 'eink']
     },
     {
         id: 'moon',
         host: 'moon-phase',
         aliases: ['lunar'],
-        parameters: []
+        parameters: [],
+        defaultThemes: ['blue', 'light', 'eink']
     },
     {
         id: 'timeline',
         host: 'hourly-timeline',
         aliases: ['list'],
-        parameters: ['timeline']
+        parameters: ['timeline'],
+        defaultThemes: []
+    },
+    {
+        id: 'help',
+        host: 'help-section',
+        aliases: [],
+        parameters: [],
+        defaultThemes: []
     }
 ];
 
@@ -111,15 +138,34 @@ test('every public widget name and alias selects its catalog widget', () => {
     });
 });
 
-test('empty widget selection behaves like an omitted parameter', () => {
-    for (const search of ['', '?widgets=', '?widgets=  ']) {
-        const config = parseDashboardConfig(search);
-        assert.equal(config.hasWidgetSelection, false);
-        assert.equal(Object.values(config.enabledWidgets).every(Boolean), true);
-    }
+test('the seven-day strip is on for phone and desktop and off for eInk', () => {
+    assert.equal(isWidgetEnabled(parseDashboardConfig(''), 'daily'), true);
+    assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=light'), 'daily'), true);
+    assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=eink'), 'daily'), false);
 });
 
-test('unknown-only widget selection disables every widget and help', () => {
+test('an explicit selection brings the seven-day strip back on eInk', () => {
+    const config = parseDashboardConfig('?theme=eink&widgets=daily');
+    assert.equal(isWidgetEnabled(config, 'daily'), true);
+});
+
+test('opt-in widgets stay off in every theme until they are named', () => {
+    const optIn = ['temperature-trends', 'radar', 'clothing', 'air-quality',
+        'wind', 'pressure', 'timeline', 'help'];
+
+    ['', '?theme=light', '?theme=eink'].forEach((search) => {
+        const config = parseDashboardConfig(search);
+        optIn.forEach((id) => {
+            assert.equal(isWidgetEnabled(config, id), false, `${search} ${id}`);
+        });
+    });
+});
+
+test('help returns when it is named', () => {
+    assert.equal(isWidgetEnabled(parseDashboardConfig('?widgets=help'), 'help'), true);
+});
+
+test('unknown-only widget selection disables every widget', () => {
     const documentHolder = createDocumentHolder();
     const config = parseDashboardConfig('?widgets=nope');
 
@@ -129,7 +175,9 @@ test('unknown-only widget selection disables every widget and help', () => {
 
     applyDashboardConfig(documentHolder, config);
 
-    assert.equal(documentHolder.hosts.get('help-section').hidden, true);
+    EXPECTED_WIDGET_CATALOG.forEach(({ host }) => {
+        assert.equal(documentHolder.hosts.get(host).hidden, true);
+    });
 });
 
 test('valid widgets survive unknown and repeated names', () => {
@@ -184,13 +232,11 @@ function createDocumentHolder() {
         setAttribute(name, value) { this.attributes.set(name, value); }
     };
     const hosts = new Map(
-        [...EXPECTED_WIDGET_CATALOG.map(({ host }) => host), 'help-section'].map(
-            (host) => [host, {
-                hidden: false,
-                attributes: new Map(),
-                setAttribute(name, value) { this.attributes.set(name, value); }
-            }]
-        )
+        EXPECTED_WIDGET_CATALOG.map(({ host }) => [host, {
+            hidden: false,
+            attributes: new Map(),
+            setAttribute(name, value) { this.attributes.set(name, value); }
+        }])
     );
     return {
         body,
@@ -210,19 +256,18 @@ test('applies selected widget visibility and theme to every host', () => {
         assert.equal(documentHolder.hosts.get(host).hidden, !config.enabledWidgets[id]);
         assert.equal(documentHolder.hosts.get(host).attributes.get('data-theme'), 'light');
     });
-    assert.equal(documentHolder.hosts.get('help-section').hidden, true);
-    assert.equal(
-        documentHolder.hosts.get('help-section').attributes.get('data-theme'),
-        'light'
-    );
 });
 
-test('empty widget selection leaves widgets and help visible', () => {
+test('the default page shows the glanceable widgets and hides the rest', () => {
     const documentHolder = createDocumentHolder();
-    applyDashboardConfig(documentHolder, parseDashboardConfig('?widgets='));
+    applyDashboardConfig(documentHolder, parseDashboardConfig(''));
 
-    assert.equal(
-        [...documentHolder.hosts.values()].every(({ hidden }) => hidden === false),
-        true
-    );
+    ['current-weather', 'weather-alerts', 'weather-insights', 'hourly-forecast',
+        'solar-progress', 'moon-phase', 'daily-forecast'].forEach((host) => {
+        assert.equal(documentHolder.hosts.get(host).hidden, false, host);
+    });
+    ['precipitation-radar', 'pressure-trends', 'hourly-timeline', 'help-section']
+        .forEach((host) => {
+            assert.equal(documentHolder.hosts.get(host).hidden, true, host);
+        });
 });
