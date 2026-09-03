@@ -125,8 +125,40 @@ function calculateHourlyChartPoints(temperatures, width, height, padding) {
     });
 }
 
+// Daily chart markers inset the plot by their own radius so no circle is
+// clipped by the chart edge.
+const MARKER_RADIUS = 4;
+
+function calculateDailyChartPoints(days, width, height, padding) {
+    if (!days.length || width <= 0 || height <= 0) return [];
+
+    const plotHeight = Math.max(height - padding * 2, 0);
+    const temperatures = days.flatMap(({ h, l }) => [h, l]);
+    const maxTemp = Math.max(...temperatures);
+    const minTemp = Math.min(...temperatures);
+    const tempRange = maxTemp - minTemp;
+    const columnWidth = width / days.length;
+
+    // Padding is the marker radius, so the hottest high and coldest low still
+    // paint as whole circles instead of half-circles on the chart edge.
+    const plot = temperature => {
+        const ratio = tempRange === 0 ? 0.5 : (maxTemp - temperature) / tempRange;
+        return padding + ratio * plotHeight;
+    };
+
+    return days.map(({ h, l }, index) => ({
+        x: columnWidth * (index + 0.5),
+        highY: plot(h),
+        lowY: plot(l)
+    }));
+}
+
 if (typeof module !== 'undefined' && module.exports) {
-    module.exports = { formatDailyTemperatureRange, calculateHourlyChartPoints };
+    module.exports = {
+        formatDailyTemperatureRange,
+        calculateHourlyChartPoints,
+        calculateDailyChartPoints
+    };
 }
 
 // Helper function to determine if an hour is day/night/twilight
@@ -714,6 +746,27 @@ if (typeof module !== 'undefined' && module.exports) {
 
 // Daily Forecast Component
 class DailyForecastWidget extends WeatherWidget {
+    connectedCallback() {
+        super.connectedCallback();
+
+        const svg = this.shadowRoot.getElementById('daily-chart');
+        if (!svg) return;
+
+        // Chart geometry is in pixels, and weather data only refreshes every
+        // ten minutes. Without this the chart keeps the width it was drawn at
+        // and drifts off its labels for the rest of that interval.
+        this.chartResizeObserver = new ResizeObserver(() => {
+            if (this.data) this.drawDailyChart(this.data.daily);
+        });
+        this.chartResizeObserver.observe(svg);
+    }
+
+    disconnectedCallback() {
+        if (this.chartResizeObserver) {
+            this.chartResizeObserver.disconnect();
+        }
+    }
+
     render() {
         if (this.config.daily === false) return;
         this.shadowRoot.innerHTML = `
@@ -775,25 +828,27 @@ class DailyForecastWidget extends WeatherWidget {
     drawDailyChart(dailyData) {
         const svg = this.shadowRoot.getElementById('daily-chart');
         const rect = svg.getBoundingClientRect();
-        const width = rect.width;
-        const height = rect.height;
 
         svg.innerHTML = '';
 
-        if (width === 0 || height === 0) return;
+        // The grid drops to four columns on narrow screens, so plot the days
+        // it actually shows. Reading the rendered cells keeps the breakpoint
+        // in the stylesheet instead of copying it into JavaScript.
+        const cells = [...this.shadowRoot.querySelectorAll('.day-forecast')];
+        const visibleDays = dailyData.filter(
+            (day, index) => cells[index] && getComputedStyle(cells[index]).display !== 'none'
+        );
 
-        const highs = dailyData.map(d => d.h);
-        const lows = dailyData.map(d => d.l);
-        const allTemps = [...highs, ...lows];
-        const maxTemp = Math.max(...allTemps);
-        const minTemp = Math.min(...allTemps);
-        const tempRange = maxTemp - minTemp || 1;
+        // The chart spans the same box as those labels, so each point lands on
+        // the centre of the label it annotates.
+        const points = calculateDailyChartPoints(
+            visibleDays,
+            rect.width,
+            rect.height,
+            MARKER_RADIUS
+        );
 
-        dailyData.forEach((day, index) => {
-            const x = (index / (dailyData.length - 1)) * width;
-            const highY = height - ((day.h - minTemp) / tempRange) * height;
-            const lowY = height - ((day.l - minTemp) / tempRange) * height;
-
+        points.forEach(({ x, highY, lowY }) => {
             // Temperature range line
             const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
             line.setAttribute('x1', x);
@@ -808,7 +863,7 @@ class DailyForecastWidget extends WeatherWidget {
             const highCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             highCircle.setAttribute('cx', x);
             highCircle.setAttribute('cy', highY);
-            highCircle.setAttribute('r', '4');
+            highCircle.setAttribute('r', MARKER_RADIUS);
             highCircle.setAttribute('fill', '#f59e0b');
             svg.appendChild(highCircle);
 
@@ -816,7 +871,7 @@ class DailyForecastWidget extends WeatherWidget {
             const lowCircle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
             lowCircle.setAttribute('cx', x);
             lowCircle.setAttribute('cy', lowY);
-            lowCircle.setAttribute('r', '4');
+            lowCircle.setAttribute('r', MARKER_RADIUS);
             lowCircle.setAttribute('fill', '#3b82f6');
             svg.appendChild(lowCircle);
         });

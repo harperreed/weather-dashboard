@@ -11,6 +11,7 @@ import pytest
     'test_name',
     [
         'current-weather-range.test.js',
+        'daily-forecast-layout.test.js',
         'dashboard-config.test.js',
         'help-section.test.js',
         'hourly-forecast-layout.test.js',
