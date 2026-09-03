@@ -22,6 +22,13 @@ ALMANAC_CHICAGO_MOONSET = '2026-09-02T12:31:00-05:00'
 NO_MOONRISE_DATE = datetime(2026, 9, 5, 12, tzinfo=timezone.utc)
 # Tromso holds the moon above the horizon all day: no rise and no set.
 HIGH_LATITUDE_DATE = datetime(2026, 9, 2, 12, tzinfo=timezone.utc)
+# Days that fall back run twenty-five hours and repeat an hour of wall clock.
+# Both crossings below sit in the repeated hour's second pass, bisected from a
+# one-minute scan of the true local day.
+BERLIN_FALL_BACK = datetime(2028, 10, 29, 12, tzinfo=timezone.utc)
+BERLIN_FALL_BACK_MOONSET = '2028-10-29T02:39:00+01:00'
+SANTIAGO_FALL_BACK = datetime(2021, 4, 3, 15, tzinfo=timezone.utc)
+SANTIAGO_FALL_BACK_MOONRISE = '2021-04-03T23:24:00-04:00'
 
 # A synodic month is ~29.53 days, so the next new or full moon is always
 # less than 30 days out.
@@ -385,6 +392,24 @@ class TestLunarDataProvider:
 
         assert moonrise is None
         assert moonset is not None
+
+    def test_moonset_in_a_repeated_hour_is_not_cut_short(self) -> None:
+        """A fall-back day repeats an hour; the set lands in its second pass"""
+        _, moonset = self.provider.calculate_moon_times(
+            BERLIN_FALL_BACK, 52.52, 13.405, 'Europe/Berlin'
+        )
+
+        assert moonset is not None
+        assert self._minutes_from(moonset, BERLIN_FALL_BACK_MOONSET) <= TOLERANCE
+
+    def test_moonrise_in_a_repeated_hour_is_not_cut_short(self) -> None:
+        """The same trap on the rising edge, in the southern hemisphere"""
+        moonrise, _ = self.provider.calculate_moon_times(
+            SANTIAGO_FALL_BACK, -33.4489, -70.6693, 'America/Santiago'
+        )
+
+        assert moonrise is not None
+        assert self._minutes_from(moonrise, SANTIAGO_FALL_BACK_MOONRISE) <= TOLERANCE
 
     def test_high_latitude_day_without_a_crossing(self) -> None:
         """Tromso can go days with the moon always up or always down"""

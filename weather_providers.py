@@ -4,7 +4,7 @@
 import math
 import time
 from abc import ABC, abstractmethod
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, tzinfo
 from typing import Any
 
 
@@ -2823,11 +2823,12 @@ class LunarDataProvider(WeatherProvider):
 
     def _refine_crossing(
         self,
-        local_midnight: datetime,
+        start_utc: datetime,
         hour: int,
         lat: float,
         lon: float,
         rising: bool,
+        local_zone: tzinfo,
     ) -> str:
         """Bisect one straddling hour down to the crossing minute"""
         low = float(hour)
@@ -2836,7 +2837,7 @@ class LunarDataProvider(WeatherProvider):
         for _ in range(self.CROSSING_BISECTIONS):
             middle = (low + high) / 2
             altitude = (
-                self._moon_altitude(local_midnight + timedelta(hours=middle), lat, lon)
+                self._moon_altitude(start_utc + timedelta(hours=middle), lat, lon)
                 - self.MOON_HORIZON_DEGREES
             )
             if (altitude >= 0) == rising:
@@ -2844,8 +2845,12 @@ class LunarDataProvider(WeatherProvider):
             else:
                 low = middle
 
-        crossing = local_midnight + timedelta(hours=(low + high) / 2)
-        return crossing.replace(second=0, microsecond=0).isoformat()
+        # Half a minute before truncating rounds to the nearest minute instead
+        # of always reporting the crossing early.
+        crossing = start_utc + timedelta(hours=(low + high) / 2, seconds=30)
+        return (
+            crossing.astimezone(local_zone).replace(second=0, microsecond=0).isoformat()
+        )
 
     def calculate_moon_times(
         self,
@@ -2869,23 +2874,31 @@ class LunarDataProvider(WeatherProvider):
         local_midnight = moment_utc.astimezone(local_zone).replace(
             hour=0, minute=0, second=0, microsecond=0
         )
+        # Walk the day in UTC. Adding hours to a local datetime moves the wall
+        # clock, so on a day that falls back the repeated hour is sampled once
+        # and one bracket covers two real hours, while the bisection inside it
+        # reaches only the first pass. A day is 23, 24 or 25 real hours long.
+        start_utc = local_midnight.astimezone(timezone.utc)
+        end_utc = (local_midnight + timedelta(days=1)).astimezone(timezone.utc)
+        span_hours = round((end_utc - start_utc).total_seconds() / 3600)
+
         altitudes = [
-            self._moon_altitude(local_midnight + timedelta(hours=hour), lat, lon)
+            self._moon_altitude(start_utc + timedelta(hours=hour), lat, lon)
             - self.MOON_HORIZON_DEGREES
-            for hour in range(25)
+            for hour in range(span_hours + 1)
         ]
 
         moonrise = None
         moonset = None
-        for hour in range(24):
+        for hour in range(span_hours):
             below, above = altitudes[hour], altitudes[hour + 1]
             if below < 0 <= above and moonrise is None:
                 moonrise = self._refine_crossing(
-                    local_midnight, hour, lat, lon, rising=True
+                    start_utc, hour, lat, lon, rising=True, local_zone=local_zone
                 )
             elif below >= 0 > above and moonset is None:
                 moonset = self._refine_crossing(
-                    local_midnight, hour, lat, lon, rising=False
+                    start_utc, hour, lat, lon, rising=False, local_zone=local_zone
                 )
 
         return moonrise, moonset
