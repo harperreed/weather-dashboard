@@ -71,10 +71,6 @@
 }
 
 /* Current Weather Widget */
-.current-widget {
-    margin-bottom: 1.5rem;
-}
-
 .current-temperature {
     margin-bottom: 1rem;
 }
@@ -165,10 +161,6 @@
 }
 
 /* Hourly Forecast Widget */
-.hourly-widget {
-    margin-bottom: 1.5rem;
-}
-
 .chart-container {
     position: relative;
     height: clamp(8rem, 25vw, 11rem);
@@ -228,10 +220,6 @@
 }
 
 /* Daily Forecast Widget */
-.daily-widget {
-    margin-bottom: 1.5rem;
-}
-
 .daily-chart-container {
     position: relative;
     height: 5rem;
@@ -277,10 +265,6 @@
 }
 
 /* Hourly Timeline Widget */
-.timeline-widget {
-    margin-bottom: 1.5rem;
-}
-
 .timeline-container {
     display: flex;
     flex-direction: column;
@@ -469,10 +453,6 @@
     .sm\:text-lg { font-size: 1.125rem; }
     .sm\:text-xl { font-size: 1.25rem; }
 
-    .current-widget {
-        margin-bottom: 2rem;
-    }
-
     .temp-display {
         gap: 1rem;
     }
@@ -494,14 +474,6 @@
         font-size: 0.875rem;
     }
 
-    .hourly-widget {
-        margin-bottom: 2rem;
-    }
-
-    .daily-widget {
-        margin-bottom: 2rem;
-    }
-
     .daily-chart-container {
         height: 7rem;
     }
@@ -517,10 +489,6 @@
 
     .day-high {
         font-size: 0.875rem;
-    }
-
-    .timeline-widget {
-        margin-bottom: 2rem;
     }
 
     .timeline-container {

@@ -2387,35 +2387,8 @@ class WeatherAlertsWidget extends WeatherWidget {
 
     render() {
         if (!this.alertsData) {
-            this.shadowRoot.innerHTML = `
-                <style>
-                    ${this.getBaseStyles()}
-                    .loading {
-                        display: flex;
-                        align-items: center;
-                        gap: 0.5rem;
-                        color: var(--text-muted);
-                        font-size: 0.9rem;
-                        padding: 0.75rem;
-                    }
-                    .loading-spinner {
-                        width: 16px;
-                        height: 16px;
-                        border: 2px solid var(--border-color);
-                        border-top: 2px solid var(--primary-color);
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                    }
-                    @keyframes spin {
-                        0% { transform: rotate(0deg); }
-                        100% { transform: rotate(360deg); }
-                    }
-                </style>
-                <div class="loading">
-                    <div class="loading-spinner"></div>
-                    Loading weather alerts...
-                </div>
-            `;
+            this.style.display = 'none';
+            this.shadowRoot.innerHTML = '';
             return;
         }
 

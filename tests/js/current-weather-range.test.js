@@ -282,3 +282,102 @@ test('eInk summary owns one compact gap before the detail cards', () => {
         /:host\(\[data-theme="eink"\]\) \.summary\s*\{/
     );
 });
+
+test('the container owns vertical rhythm as a flex column', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+    const containerRule = template.match(/\.weather-container\s*\{[^}]*\}/s)?.[0] || '';
+
+    assert.match(containerRule, /display:\s*flex;/);
+    assert.match(containerRule, /flex-direction:\s*column;/);
+    assert.match(containerRule, /gap:\s*1\.75rem;/);
+});
+
+test('the stat band collapses in blue and becomes a card in eInk', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    assert.match(template, /\.stat-band\s*\{[^}]*display:\s*contents;/s);
+    assert.match(
+        template,
+        /\[data-theme="eink"\] \.stat-band\s*\{[^}]*display:\s*flex;[^}]*border:\s*2px solid #000;/s
+    );
+});
+
+test('the sky pair is a grid in every theme', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    assert.match(template, /\.sky-pair\s*\{[^}]*display:\s*grid;/s);
+    assert.doesNotMatch(template, /\.sky-pair\s*\{[^}]*display:\s*contents;/s);
+});
+
+test('the page orders the phone sequence and the eInk sequence', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    assert.match(template, /current-weather\s*\{\s*order:\s*1;\s*\}/);
+    assert.match(template, /weather-alerts\s*\{\s*order:\s*2;\s*\}/);
+    assert.match(template, /weather-insights\s*\{\s*order:\s*3;\s*\}/);
+    assert.match(template, /hourly-forecast\s*\{\s*order:\s*4;\s*\}/);
+    assert.match(template, /\.sky-pair\s*\{[^}]*order:\s*5;/s);
+    assert.match(template, /daily-forecast\s*\{\s*order:\s*6;\s*\}/);
+    assert.match(
+        template,
+        /\[data-theme="eink"\] weather-insights\s*\{[^}]*order:\s*4;/s
+    );
+});
+
+test('canonical themes define the insight surface token', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    [':root', '[data-theme="light"]', '[data-theme="eink"]'].forEach((selector) => {
+        const escapedSelector = selector.replace(/[\[\]]/g, '\\$&');
+        const block = template.match(
+            new RegExp(`${escapedSelector}\\s*\\{[^}]*\\}`, 's')
+        )?.[0] || '';
+        assert.match(block, /--insight-surface:/, `${selector} is missing the token`);
+    });
+});
+
+test('widget wrappers no longer carry their own bottom margin', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    ['.current-widget', '.hourly-widget', '.daily-widget', '.timeline-widget']
+        .forEach((selector) => {
+            const rule = styles.match(
+                new RegExp(`\\${selector}\\s*\\{[^}]*\\}`, 's')
+            )?.[0] || '';
+            assert.doesNotMatch(rule, /margin-bottom:/, selector);
+        });
+});
+
+test('alerts stay out of the layout until their data arrives', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const alertsSource = components.slice(
+        components.indexOf('class WeatherAlertsWidget'),
+        components.indexOf('// Precipitation Radar Widget')
+    );
+
+    assert.match(
+        alertsSource,
+        /if \(!this\.alertsData\) \{\s*this\.style\.display = 'none';\s*this\.shadowRoot\.innerHTML = '';\s*return;\s*\}/
+    );
+});
