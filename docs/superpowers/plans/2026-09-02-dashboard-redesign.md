@@ -400,8 +400,8 @@ test('a missing low drops the overnight rule', () => {
     assert.deepEqual(insightFacts(data, []), []);
 });
 
-test('wet bulb stays close to air temperature in dry heat', () => {
-    assert.equal(calculateWetbulbTemp(90, 20), 65);
+test('dry air drops the wet bulb far below the air temperature', () => {
+    assert.equal(calculateWetbulbTemp(90, 20), 63);
     assert.equal(calculateWetbulbTemp(70, 100), 70);
 });
 ```
@@ -585,16 +585,24 @@ Expected: PASS
 
 - [ ] **Step 5: Delete the old wet-bulb helper and read the module**
 
-In `static/js/weather-components.js`, delete the whole `calculateWetbulbTemp` function and its comment at lines 178-196. It has exactly one caller, `CurrentWeatherWidget.update`, which Task 5 rewrites. Until then, keep that call working by reading it through the global. Replace the deleted block with:
+In `static/js/weather-components.js`, delete the whole `calculateWetbulbTemp` function and its comment at lines 178-196. Its one caller, `CurrentWeatherWidget.update`, keeps working because the shim below binds the same name. Replace the deleted block with:
 
 ```js
 // Insight rules and wet-bulb math live in weather-insights.js.
-const { calculateWetbulbTemp } = (
-    typeof window !== 'undefined' && window.WeatherInsights
-) || require('./weather-insights.js');
+const {
+    calculateWetbulbTemp,
+    insightFacts,
+    insightSentence,
+    precipitationWindow,
+    wetBulbClause,
+    wetBulbPosition
+} = (typeof window !== 'undefined' && window.WeatherInsights)
+    || require('./weather-insights.js');
 ```
 
 `require` is unreachable in the browser and used by the Node tests, which load `weather-components.js` without a `window`. If `global.window` is defined in a test file without `WeatherInsights`, the `||` falls through to `require`.
+
+This shim is the only place the components reach for the module. Tasks 4, 5 and 6 call these functions by their bare names — never `window.WeatherInsights.x` inside a render path, which would throw in the four Node test files that define no `global.window`.
 
 - [ ] **Step 6: Load the module before the components**
 
@@ -942,7 +950,7 @@ Renders the insight card in blue and light and the three-fact footer strip in eI
 - Test: `tests/js/weather-insights.test.js`
 
 **Interfaces:**
-- Consumes: `window.WeatherInsights.insightSentence` and `insightFacts` from Task 2; the `insights` catalog entry from Task 1.
+- Consumes: `insightSentence` and `insightFacts`, through the Task 2 import shim at the top of `weather-components.js`; the `insights` catalog entry from Task 1.
 - Produces: `WeatherInsightsWidget`, registered as `weather-insights` and exported on `module.exports`. It reads `weather-data-updated` and never fetches.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1086,11 +1094,10 @@ class WeatherInsightsWidget extends WeatherWidget {
     update() {
         if (!this.data || this.config.insights === false) return;
 
-        const insights = window.WeatherInsights;
         const hours = (this.data.hourly || []).slice(0, HOURLY_CHART_HOURS);
         const card = this.shadowRoot.getElementById('insight-card');
         const factStrip = this.shadowRoot.getElementById('insight-facts');
-        const facts = insights.insightFacts(this.data, hours);
+        const facts = insightFacts(this.data, hours);
         const isEink = this.getAttribute('data-theme') === 'eink';
 
         this.hidden = facts.length === 0;
@@ -1108,7 +1115,7 @@ class WeatherInsightsWidget extends WeatherWidget {
             return;
         }
 
-        card.textContent = insights.insightSentence(this.data, hours);
+        card.textContent = insightSentence(this.data, hours);
         card.hidden = false;
     }
 }
@@ -1188,7 +1195,7 @@ The type-led temperature block for phone and desktop, and the same DOM composed 
 - Test: `tests/js/current-weather-range.test.js`, `tests/js/hourly-forecast-layout.test.js`
 
 **Interfaces:**
-- Consumes: `window.WeatherInsights.calculateWetbulbTemp`, `wetBulbPosition` and `wetBulbClause` from Task 2; `--insight-surface` and the band from Task 3.
+- Consumes: `calculateWetbulbTemp`, `wetBulbPosition` and `wetBulbClause`, through the Task 2 import shim; `--insight-surface` and the band from Task 3.
 - Produces: `CurrentWeatherWidget` with element ids `location`, `local-time`, `temp`, `summary`, `daily-range`, `daily-high`, `daily-low`, `feels-value`, `wet-value`, `air-value`, `scale-fill`, `scale-dot-wet`, `three-temps-note`, and the eInk bar ids `bar-air`, `bar-wet`, `bar-feels`. The daily-range contract is unchanged.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1437,11 +1444,10 @@ Replace `CurrentWeatherWidget.update()`:
     update() {
         if (!this.data || this.config.current === false) return;
 
-        const insights = window.WeatherInsights;
         const current = this.data.current;
         const air = current.temperature;
         const feels = current.feels_like;
-        const wetBulb = insights.calculateWetbulbTemp(air, current.humidity);
+        const wetBulb = calculateWetbulbTemp(air, current.humidity);
 
         this.shadowRoot.getElementById('temp').textContent = `${air}°`;
         this.shadowRoot.getElementById('location').textContent =
@@ -1476,13 +1482,13 @@ Replace `CurrentWeatherWidget.update()`:
         this.shadowRoot.getElementById('wet-value').textContent = `${wetBulb}°`;
         this.shadowRoot.getElementById('air-value').textContent = `${air}°`;
 
-        const wetPercent = insights.wetBulbPosition(feels, wetBulb, air) ?? 100;
+        const wetPercent = wetBulbPosition(feels, wetBulb, air) ?? 100;
         this.shadowRoot.getElementById('scale-fill').style.width = `${wetPercent}%`;
         this.shadowRoot.getElementById('scale-dot-wet').style.left = `${wetPercent}%`;
 
         this.updateBars(air, feels, wetBulb);
 
-        const clause = insights.wetBulbClause(wetBulb);
+        const clause = wetBulbClause(wetBulb);
         this.shadowRoot.getElementById('three-temps-note').textContent =
             `Wet bulb ${wetBulb}°${clause ? ` — ${clause}` : ''}`;
 
@@ -1837,7 +1843,7 @@ One aligned chart: precipitation bars behind a temperature line, the hour grid b
 - Test: `tests/js/hourly-forecast-layout.test.js`
 
 **Interfaces:**
-- Consumes: `window.WeatherInsights.precipitationWindow` from Task 2; `HOURLY_CHART_HOURS` from Task 4.
+- Consumes: `precipitationWindow`, through the Task 2 import shim; `HOURLY_CHART_HOURS` from Task 4.
 - Produces: `calculateHourlyChartPoints(temperatures, width, height, padding)` — a fourth required argument replacing the old asymmetric 16/8 constants. `HourlyForecastWidget` renders into ids `hourly-caption-hours`, `hourly-caption-precip`, `precip-bars`, `chart-line`, `chart-marker`, `hourly-temps`, `legend-precip`. `setupChartResizeObserver` and the widget's `disconnectedCallback` are deleted.
 
 - [ ] **Step 1: Write the failing tests**
@@ -1892,12 +1898,35 @@ const hourAt = (index, temp, rain) => ({
     t: `${index + 1}pm`, temp, rain, icon: 'rain'
 });
 
+// renderHours builds cells with createElement and fills the labels with
+// textContent, so the hour grid is asserted against the constructed
+// elements rather than an innerHTML string.
+const makeElement = () => {
+    let markup = '';
+    const element = {
+        children: [],
+        textContent: '',
+        className: '',
+        style: {},
+        appendChild(child) { this.children.push(child); }
+    };
+    // Assigning innerHTML drops existing children, the way a real node does.
+    Object.defineProperty(element, 'innerHTML', {
+        get() { return markup; },
+        set(value) { markup = value; element.children = []; }
+    });
+    return element;
+};
+
 function hourlyWidget(hours, theme = 'blue') {
+    global.document.createElement = makeElement;
+
     const holders = {};
     const holder = () => ({ innerHTML: '', textContent: '', style: {}, hidden: true });
     ['hourly-caption-hours', 'hourly-caption-precip', 'precip-bars', 'chart-line',
-        'chart-marker', 'hourly-temps', 'legend-precip', 'hourly-chart']
+        'chart-marker', 'legend-precip', 'hourly-chart']
         .forEach((id) => { holders[id] = holder(); });
+    holders['hourly-temps'] = makeElement();
     holders['chart-line'].setAttribute = (name, value) => {
         holders['chart-line'][name] = value;
     };
@@ -1915,6 +1944,9 @@ function hourlyWidget(hours, theme = 'blue') {
     return { widget, holders };
 }
 
+const cellText = (cell, className) =>
+    cell.children.find((child) => child.className === className)?.textContent ?? '';
+
 test('the caption counts the hours actually rendered', () => {
     const { widget, holders } = hourlyWidget([
         hourAt(0, 50, 10), hourAt(1, 52, 20), hourAt(2, 54, 30)
@@ -1924,7 +1956,7 @@ test('the caption counts the hours actually rendered', () => {
 
     assert.equal(holders['hourly-caption-hours'].textContent, 'Next 3 hours');
     assert.equal((holders['precip-bars'].innerHTML.match(/precip-cell/g) || []).length, 3);
-    assert.equal((holders['hourly-temps'].innerHTML.match(/hour-temp"/g) || []).length, 3);
+    assert.equal(holders['hourly-temps'].children.length, 3);
 });
 
 test('twelve hours is the ceiling', () => {
@@ -1966,8 +1998,9 @@ test('precipitation labels appear at forty percent and above', () => {
 
     widget.update();
 
-    const labels = holders['hourly-temps'].innerHTML.match(/hour-precip">(\d+)%/g) || [];
-    assert.deepEqual(labels, ['hour-precip">40%', 'hour-precip">80%']);
+    const labels = holders['hourly-temps'].children
+        .map((cell) => cellText(cell, 'hour-precip'));
+    assert.deepEqual(labels, ['', '40%', '80%']);
 });
 
 test('the caption names the precipitation window and drops it when there is none', () => {
@@ -2105,14 +2138,14 @@ class HourlyForecastWidget extends WeatherWidget {
         if (!this.data || this.config.hourly === false) return;
 
         const hours = (this.data.hourly || []).slice(0, HOURLY_CHART_HOURS);
-        const window = window.WeatherInsights.precipitationWindow(hours);
+        const precipWindow = precipitationWindow(hours);
 
         this.shadowRoot.getElementById('hourly-caption-hours').textContent =
             `Next ${hours.length} hours`;
         this.shadowRoot.getElementById('hourly-caption-precip').textContent =
-            window ? `${window.noun} ${window.start}–${window.end}` : '';
+            precipWindow ? `${precipWindow.noun} ${precipWindow.start}–${precipWindow.end}` : '';
         this.shadowRoot.getElementById('legend-precip').textContent =
-            `${(window?.noun || 'Precipitation').toLowerCase()} chance`;
+            `${(precipWindow?.noun || 'Precipitation').toLowerCase()} chance`;
 
         this.renderBars(hours);
         this.renderHours(hours);
@@ -2182,14 +2215,6 @@ class HourlyForecastWidget extends WeatherWidget {
     }
 }
 ```
-
-`window` shadows the global inside `update`. Rename the local to `precipWindow` throughout that method to keep `window.WeatherInsights` reachable:
-
-```js
-        const precipWindow = window.WeatherInsights.precipitationWindow(hours);
-```
-
-and use `precipWindow` in the three lines below it.
 
 Since `render()` bakes the theme into the `viewBox`, and `observeTheme()` sets `data-theme` before `render()` in `connectedCallback`, the geometry is correct on first paint. A later theme change re-renders through `weather-config-changed`, which already calls `render()`.
 
@@ -2817,6 +2842,11 @@ Create `tests/js/sky-pair.test.js`:
 ```js
 // ABOUTME: Tests the Sun and Moon cards in their day, night, and missing-data states.
 // ABOUTME: Runs the production components with Node's dependency-free test runner.
+
+// The cards format times with toLocaleTimeString, which reads the machine's
+// zone. Pin it before the first Date is formatted so the assertions below
+// mean the same thing on every machine.
+process.env.TZ = 'America/Chicago';
 
 const assert = require('node:assert/strict');
 const test = require('node:test');
