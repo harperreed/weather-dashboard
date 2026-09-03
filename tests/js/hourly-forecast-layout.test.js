@@ -23,6 +23,19 @@ const {
     calculateHourlyChartPoints
 } = require('../../static/js/weather-components.js');
 
+function hourlyWidgetSource() {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const start = components.indexOf('class HourlyForecastWidget');
+    const end = components.indexOf('class WeatherInsightsWidget');
+    // A renamed marker gives indexOf -1 and a slice that matches nothing, so
+    // every assertion against it would pass without reading the widget at all.
+    assert.ok(start > 0 && end > start, `bad slice markers: ${start}, ${end}`);
+    return components.slice(start, end);
+}
+
 test('centers chart points in the same equal-width cells as hourly entries', () => {
     const points = calculateHourlyChartPoints([10, 20, 30], 1000, 150, 14);
 
@@ -143,7 +156,7 @@ test('the line lands on the exact bar centers', () => {
     assert.equal(holders['chart-line'].points, '250,136 750,14');
 });
 
-test('the marker sits on the first point without an SVG circle', () => {
+test('the marker sits on the first point', () => {
     const { widget, holders } = hourlyWidget([
         hourAt(0, 40, 10), hourAt(1, 60, 20)
     ]);
@@ -152,26 +165,25 @@ test('the marker sits on the first point without an SVG circle', () => {
 
     assert.equal(holders['chart-marker'].style.left, '25%');
     assert.equal(holders['chart-marker'].hidden, false);
-    assert.doesNotMatch(holders['hourly-chart'].innerHTML, /<circle/);
 });
 
 test('the hourly chart never measures itself', () => {
-    const components = fs.readFileSync(
-        path.join(__dirname, '../../static/js/weather-components.js'),
-        'utf8'
-    );
-    const start = components.indexOf('class HourlyForecastWidget');
-    const end = components.indexOf('class WeatherInsightsWidget');
-    // A renamed marker gives indexOf -1 and a slice that matches nothing, so
-    // the assertions below would pass without reading the widget at all.
-    assert.ok(start > 0 && end > start, `bad slice markers: ${start}, ${end}`);
-    const hourly = components.slice(start, end);
-
     // The chart is a fixed viewBox with preserveAspectRatio="none". A
     // measurement pass reintroduces the resize loop the fixed viewBox exists
     // to avoid.
+    const hourly = hourlyWidgetSource();
+
     assert.doesNotMatch(hourly, /ResizeObserver/);
     assert.doesNotMatch(hourly, /getBoundingClientRect/);
+});
+
+test('the hourly chart draws no circle', () => {
+    // The same fixed viewBox scales x and y by different factors, so a circle
+    // in that SVG paints as an ellipse. The current-hour marker is a
+    // positioned HTML element for exactly this reason.
+    const hourly = hourlyWidgetSource();
+
+    assert.doesNotMatch(hourly, /<circle/);
 });
 
 test('precipitation labels appear at forty percent and above', () => {

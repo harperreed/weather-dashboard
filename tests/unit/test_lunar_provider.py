@@ -1,7 +1,7 @@
 # ABOUTME: Unit tests for LunarDataProvider functionality
 # ABOUTME: Tests moon phase calculations, illumination, and astronomical data
 
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from weather_providers import LunarDataProvider
 
@@ -29,6 +29,16 @@ BERLIN_FALL_BACK = datetime(2028, 10, 29, 12, tzinfo=timezone.utc)
 BERLIN_FALL_BACK_MOONSET = '2028-10-29T02:39:00+01:00'
 SANTIAGO_FALL_BACK = datetime(2021, 4, 3, 15, tzinfo=timezone.utc)
 SANTIAGO_FALL_BACK_MOONRISE = '2021-04-03T23:24:00-04:00'
+
+# Australia/Lord_Howe shifts by half an hour, so its transition days run 23.5
+# and 24.5 hours. The rise below sits in the last half hour of a 24.5-hour day.
+LORD_HOWE_SHORT_DAY = datetime(2035, 4, 1, 6, tzinfo=timezone.utc)
+LORD_HOWE_LATE_MOONRISE = '2035-04-01T23:47:00+10:30'
+LORD_HOWE = (-31.5553, 159.0821)
+
+# A crossing in the local day's last half minute, where rounding to the nearest
+# minute would carry the reported time past midnight.
+CHICAGO_LATE_MOONRISE = datetime(2024, 6, 26, 18, tzinfo=timezone.utc)
 
 # A synodic month is ~29.53 days, so the next new or full moon is always
 # less than 30 days out.
@@ -411,6 +421,24 @@ class TestLunarDataProvider:
         assert moonrise is not None
         assert self._minutes_from(moonrise, SANTIAGO_FALL_BACK_MOONRISE) <= TOLERANCE
 
+    def test_a_crossing_in_a_half_hour_zones_last_minutes_is_found(self) -> None:
+        """A 24.5-hour day's final half hour is part of the day"""
+        moonrise, _ = self.provider.calculate_moon_times(
+            LORD_HOWE_SHORT_DAY, *LORD_HOWE, 'Australia/Lord_Howe'
+        )
+
+        assert moonrise is not None
+        assert self._minutes_from(moonrise, LORD_HOWE_LATE_MOONRISE) <= TOLERANCE
+
+    def test_a_crossing_never_carries_the_next_days_date(self) -> None:
+        """Rounding to the nearest minute must not move the day"""
+        moonrise, _ = self.provider.calculate_moon_times(
+            CHICAGO_LATE_MOONRISE, 41.8781, -87.6298, 'America/Chicago'
+        )
+
+        assert moonrise is not None
+        assert datetime.fromisoformat(moonrise).date() == date(2024, 6, 26)
+
     def test_high_latitude_day_without_a_crossing(self) -> None:
         """Tromso can go days with the moon always up or always down"""
         moonrise, moonset = self.provider.calculate_moon_times(
@@ -441,14 +469,19 @@ class TestLunarDataProvider:
 
         assert result is not None
         current_phase = result['lunar_data']['current_phase']
-        moonrise = current_phase['moonrise']
-        moonset = current_phase['moonset']
-        assert moonrise is not None
-        assert datetime.fromisoformat(moonrise).utcoffset() is not None
-        assert datetime.fromisoformat(moonrise).utcoffset() != timedelta(0)
-        assert moonset is not None
-        assert datetime.fromisoformat(moonset).utcoffset() is not None
-        assert datetime.fromisoformat(moonset).utcoffset() != timedelta(0)
+        crossings = (current_phase['moonrise'], current_phase['moonset'])
+
+        # This runs against today, and Chicago misses a moonrise on thirteen
+        # days a year and a moonset on twelve — but never both on one day, over
+        # six years scanned. Assert the pair, so the plumbing is still proved
+        # without the test going red on the calendar.
+        assert any(crossing is not None for crossing in crossings)
+        for crossing in crossings:
+            if crossing is None:
+                continue
+            offset = datetime.fromisoformat(crossing).utcoffset()
+            assert offset is not None
+            assert offset != timedelta(0)
 
     @staticmethod
     def _minutes_from(iso_time: str, expected: str) -> float:

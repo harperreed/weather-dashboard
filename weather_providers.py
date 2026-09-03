@@ -2823,31 +2823,32 @@ class LunarDataProvider(WeatherProvider):
 
     def _refine_crossing(
         self,
-        start_utc: datetime,
-        hour: int,
+        low_utc: datetime,
+        high_utc: datetime,
         lat: float,
         lon: float,
         rising: bool,
         local_zone: tzinfo,
+        day_end_utc: datetime,
     ) -> str:
-        """Bisect one straddling hour down to the crossing minute"""
-        low = float(hour)
-        high = hour + 1.0
+        """Bisect one straddling bracket down to the crossing minute"""
+        low, high = low_utc, high_utc
 
         for _ in range(self.CROSSING_BISECTIONS):
-            middle = (low + high) / 2
-            altitude = (
-                self._moon_altitude(start_utc + timedelta(hours=middle), lat, lon)
-                - self.MOON_HORIZON_DEGREES
-            )
+            middle = low + (high - low) / 2
+            altitude = self._moon_altitude(middle, lat, lon) - self.MOON_HORIZON_DEGREES
             if (altitude >= 0) == rising:
                 high = middle
             else:
                 low = middle
 
         # Half a minute before truncating rounds to the nearest minute instead
-        # of always reporting the crossing early.
-        crossing = start_utc + timedelta(hours=(low + high) / 2, seconds=30)
+        # of always reporting the crossing early. A crossing in the day's last
+        # half minute would round past midnight, and this answers for one day.
+        crossing = min(
+            low + (high - low) / 2 + timedelta(seconds=30),
+            day_end_utc - timedelta(seconds=1),
+        )
         return (
             crossing.astimezone(local_zone).replace(second=0, microsecond=0).isoformat()
         )
@@ -2877,28 +2878,45 @@ class LunarDataProvider(WeatherProvider):
         # Walk the day in UTC. Adding hours to a local datetime moves the wall
         # clock, so on a day that falls back the repeated hour is sampled once
         # and one bracket covers two real hours, while the bisection inside it
-        # reaches only the first pass. A day is 23, 24 or 25 real hours long.
+        # reaches only the first pass.
         start_utc = local_midnight.astimezone(timezone.utc)
         end_utc = (local_midnight + timedelta(days=1)).astimezone(timezone.utc)
-        span_hours = round((end_utc - start_utc).total_seconds() / 3600)
+
+        # Sample each whole hour and close on the day's true end. Most days run
+        # 23, 24 or 25 hours, but Australia/Lord_Howe shifts by half an hour and
+        # runs 23.5 and 24.5, so the last bracket is short rather than dropped.
+        samples = [start_utc]
+        while samples[-1] + timedelta(hours=1) < end_utc:
+            samples.append(samples[-1] + timedelta(hours=1))
+        samples.append(end_utc)
 
         altitudes = [
-            self._moon_altitude(start_utc + timedelta(hours=hour), lat, lon)
-            - self.MOON_HORIZON_DEGREES
-            for hour in range(span_hours + 1)
+            self._moon_altitude(sample, lat, lon) - self.MOON_HORIZON_DEGREES
+            for sample in samples
         ]
 
         moonrise = None
         moonset = None
-        for hour in range(span_hours):
-            below, above = altitudes[hour], altitudes[hour + 1]
+        for index in range(len(samples) - 1):
+            below, above = altitudes[index], altitudes[index + 1]
+            bracket = (samples[index], samples[index + 1])
             if below < 0 <= above and moonrise is None:
                 moonrise = self._refine_crossing(
-                    start_utc, hour, lat, lon, rising=True, local_zone=local_zone
+                    *bracket,
+                    lat,
+                    lon,
+                    rising=True,
+                    local_zone=local_zone,
+                    day_end_utc=end_utc,
                 )
             elif below >= 0 > above and moonset is None:
                 moonset = self._refine_crossing(
-                    start_utc, hour, lat, lon, rising=False, local_zone=local_zone
+                    *bracket,
+                    lat,
+                    lon,
+                    rising=False,
+                    local_zone=local_zone,
+                    day_end_utc=end_utc,
                 )
 
         return moonrise, moonset
