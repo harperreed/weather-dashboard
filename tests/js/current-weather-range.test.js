@@ -337,7 +337,7 @@ test('solar widget uses a block host so its card cannot widen the page', () => {
     );
     const solarSource = components.slice(
         components.indexOf('class SolarProgressWidget'),
-        components.indexOf('// Enhanced Temperature Trends Widget')
+        components.indexOf('// Enhanced Temperature Trends Component')
     );
 
     assert.match(solarSource, /:host\s*\{\s*display:\s*block;/s);
@@ -790,4 +790,19 @@ test('the wet bulb dot travels between the dot centers, not the track edges', ()
         ...components.matchAll(/setProperty\('--wet-position', wetPercent \/ 100\)/g)
     ].length;
     assert.equal(wired, 1, 'the widget sets --wet-position once from wetPercent');
+});
+
+test('the service worker precaches every shipped asset under one cache version', () => {
+    const worker = fs.readFileSync(
+        path.join(__dirname, '../../static/sw.js'),
+        'utf8'
+    );
+    const cacheVersions = [...worker.matchAll(/weather-dashboard[\w-]*-?v(\d+)/g)]
+        .map(([, version]) => version);
+
+    assert.equal(new Set(cacheVersions).size, 1);
+    assert.match(worker, /'\/static\/js\/weather-insights\.js'/);
+    assert.match(worker, /'\/static\/js\/dashboard-config\.js'/);
+    assert.match(worker, /'\/static\/js\/weather-components\.js'/);
+    assert.match(worker, /'\/static\/css\/weather-components\.css'/);
 });
