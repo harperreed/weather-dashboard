@@ -21,10 +21,13 @@ const {
     SolarProgressWidget
 } = require('../../static/js/weather-components.js');
 
-// Every CurrentWeatherWidget starts a 60s clock interval in render(). Track
-// each instance this file constructs so a single after() hook can clear all
-// of them — otherwise a live interval pins the process and node --test never
-// exits, no matter how the tests themselves score.
+// Always build a CurrentWeatherWidget through this factory, never with
+// `new CurrentWeatherWidget()` directly. render() starts a 60s clock
+// interval, and a widget built outside this factory never gets it cleared —
+// that leaves a live interval pinning the process, so node --test hangs the
+// whole file instead of exiting, no matter how the tests themselves score.
+// The factory tracks every instance this file constructs so a single
+// after() hook below can clear all of them.
 const createdCurrentWidgets = [];
 function createCurrentWidget() {
     const widget = new CurrentWeatherWidget();

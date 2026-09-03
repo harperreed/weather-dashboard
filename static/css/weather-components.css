@@ -671,16 +671,8 @@
         gap: 1rem;
     }
 
-    .temperature {
-        font-size: 3rem;
-    }
-
     .feels-like {
         font-size: 1rem;
-    }
-
-    .summary {
-        font-size: 1.25rem;
     }
 
     .detail-card {
@@ -773,10 +765,6 @@
 }
 
 @media (min-width: 1024px) {
-    .temperature {
-        font-size: 4rem;
-    }
-
     .weather-details {
         grid-template-columns: repeat(4, 1fr);
     }
@@ -852,13 +840,6 @@
     height: 20rem !important;
     min-width: 20rem;
     min-height: 20rem;
-}
-
-/* Make temperature bigger to match large icon */
-:host([data-theme="eink"]) .temperature {
-    font-size: 6rem;
-    font-weight: 900;
-    line-height: 1;
 }
 
 :host([data-theme="eink"]) .feels-like {
