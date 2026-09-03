@@ -344,13 +344,20 @@ test('every widget in the container has an explicit flex order', () => {
     const container = template.match(
         /<div class="weather-container">([\s\S]*?)\n    <\/div>/
     )?.[1] ?? '';
+    // .sky-pair is a grid; its children are grid items, not flex items of
+    // the container, so they take no part in this ordering.
+    const flexItems = container.replace(
+        /<div class="sky-pair">[\s\S]*?<\/div>/,
+        ''
+    );
     const tags = [...new Set(
-        [...container.matchAll(/<([a-z]+(?:-[a-z]+)+)>/g)].map(([, tag]) => tag)
+        [...flexItems.matchAll(/<([a-z]+(?:-[a-z]+)+)>/g)].map(([, tag]) => tag)
     )];
 
     // A child with no order falls to the flex default of 0 and jumps the hero.
+    const css = template.replace(/\/\*[\s\S]*?\*\//g, '');
     const ordered = new Set();
-    for (const [, selectors] of template.matchAll(
+    for (const [, selectors] of css.matchAll(
         /([^{}]+)\{[^}]*(?:^|[\s;{])order:[^}]*\}/g
     )) {
         selectors.split(',').forEach((selector) => {
@@ -358,7 +365,7 @@ test('every widget in the container has an explicit flex order', () => {
         });
     }
 
-    assert.ok(tags.length >= 13, `found only ${tags.length} container tags`);
+    assert.ok(tags.length >= 11, `found only ${tags.length} container tags`);
     tags.forEach((tag) => {
         assert.ok(ordered.has(tag), `${tag} has no explicit flex order`);
     });
