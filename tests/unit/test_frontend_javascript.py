@@ -14,6 +14,7 @@ import pytest
         'dashboard-config.test.js',
         'help-section.test.js',
         'hourly-forecast-layout.test.js',
+        'page-script-scope.test.js',
         'weather-insights.test.js',
     ],
 )
