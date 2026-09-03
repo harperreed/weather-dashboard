@@ -131,7 +131,7 @@ test('the sun card renders its heading, track, and detail', () => {
 
     widget.renderSolarData(SOLAR);
 
-    assert.match(content.innerHTML, /class="sky-card sky-card-sun"/);
+    assert.match(content.innerHTML, /class="sky-card"/);
     assert.match(content.innerHTML, /class="sky-track-fill"/);
     assert.doesNotMatch(content.innerHTML, /progress-arc/);
 });
@@ -148,6 +148,7 @@ test('the moon card names the phase, illumination, and moonrise', () => {
 
     const html = widget.moonCard();
 
+    assert.match(html, /class="sky-card"/);
     assert.match(html, /Waxing Gibbous/);
     assert.match(html, /72% lit · rises 3:12pm/);
 });

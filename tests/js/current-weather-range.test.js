@@ -47,7 +47,7 @@ function currentWidgetWithData(current, theme = 'blue') {
         return { textContent: '', style, innerHTML: '' };
     };
     const ids = ['temp', 'location', 'local-time', 'summary', 'feels-value',
-        'wet-value', 'air-value', 'temp-scale', 'scale-fill', 'scale-dot-wet',
+        'wet-value', 'air-value', 'temp-scale',
         'three-temps-note', 'bar-air', 'bar-wet', 'bar-feels', 'daily-high',
         'daily-low'];
     const elements = Object.fromEntries(ids.map((id) => [id, styleHolder()]));
@@ -78,7 +78,7 @@ test('renders the header, temperature block, and three-temperature module', () =
     assert.match(html, /<div class="current-text">/);
     assert.match(html, /id="daily-range" hidden/);
     assert.match(html, /id="feels-value"[\s\S]*?id="wet-value"[\s\S]*?id="air-value"/);
-    assert.match(html, /id="scale-fill"[\s\S]*?id="scale-dot-wet"/);
+    assert.match(html, /class="scale-fill"[\s\S]*?class="scale-dot scale-dot-wet"/);
     assert.match(html, /id="three-temps-note"/);
 });
 
@@ -99,8 +99,6 @@ test('shows a complete daily range and clears it when later data is missing', ()
         'wet-value': styleHolder(),
         'air-value': styleHolder(),
         'temp-scale': styleHolder(),
-        'scale-fill': styleHolder(),
-        'scale-dot-wet': styleHolder(),
         'three-temps-note': styleHolder(),
         'bar-air': styleHolder(),
         'bar-wet': styleHolder(),

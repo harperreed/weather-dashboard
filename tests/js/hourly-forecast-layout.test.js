@@ -152,7 +152,24 @@ test('the marker sits on the first point without an SVG circle', () => {
 
     assert.equal(holders['chart-marker'].style.left, '25%');
     assert.equal(holders['chart-marker'].hidden, false);
-    assert.doesNotMatch(holders['precip-bars'].innerHTML, /<circle/);
+    assert.doesNotMatch(holders['hourly-chart'].innerHTML, /<circle/);
+});
+
+test('the hourly chart never measures itself', () => {
+    const components = fs.readFileSync(
+        path.join(__dirname, '../../static/js/weather-components.js'),
+        'utf8'
+    );
+    const hourly = components.slice(
+        components.indexOf('class HourlyForecastWidget'),
+        components.indexOf('class WeatherInsightsWidget')
+    );
+
+    // The chart is a fixed viewBox with preserveAspectRatio="none". A
+    // measurement pass reintroduces the resize loop the fixed viewBox exists
+    // to avoid.
+    assert.doesNotMatch(hourly, /ResizeObserver/);
+    assert.doesNotMatch(hourly, /getBoundingClientRect/);
 });
 
 test('precipitation labels appear at forty percent and above', () => {

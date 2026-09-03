@@ -392,9 +392,9 @@ class CurrentWeatherWidget extends WeatherWidget {
                     </div>
                     <div class="three-temps-scale" id="temp-scale">
                         <div class="scale-track"></div>
-                        <div class="scale-fill" id="scale-fill"></div>
+                        <div class="scale-fill"></div>
                         <div class="scale-dot scale-dot-feels"></div>
-                        <div class="scale-dot scale-dot-wet" id="scale-dot-wet"></div>
+                        <div class="scale-dot scale-dot-wet"></div>
                         <div class="scale-dot scale-dot-air"></div>
                     </div>
                     <div class="three-temps-note" id="three-temps-note"></div>
@@ -3534,7 +3534,7 @@ class SolarProgressWidget extends HTMLElement {
         const state = this.sunHeading(solarData, this.sunMap, new Date());
 
         content.innerHTML = `
-            <div class="sky-card sky-card-sun">
+            <div class="sky-card">
                 <div class="sky-caption">Sun</div>
                 <div class="sky-heading">${state.heading}</div>
                 <div class="sky-track">
@@ -4276,7 +4276,7 @@ class MoonPhaseWidget extends HTMLElement {
             : '';
 
         return `
-            <div class="sky-card sky-card-moon">
+            <div class="sky-card">
                 <div class="sky-caption">Moon</div>
                 <div class="sky-heading">${phase.name || ''}</div>
                 <div class="moon-disc" style="background: linear-gradient(90deg,

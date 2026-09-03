@@ -416,8 +416,14 @@ class TestLunarDataProvider:
 
         assert result is not None
         current_phase = result['lunar_data']['current_phase']
-        assert 'moonrise' in current_phase
-        assert 'moonset' in current_phase
+        moonrise = current_phase['moonrise']
+        moonset = current_phase['moonset']
+        assert moonrise is not None
+        assert datetime.fromisoformat(moonrise).utcoffset() is not None
+        assert datetime.fromisoformat(moonrise).utcoffset() != timedelta(0)
+        assert moonset is not None
+        assert datetime.fromisoformat(moonset).utcoffset() is not None
+        assert datetime.fromisoformat(moonset).utcoffset() != timedelta(0)
 
     @staticmethod
     def _minutes_from(iso_time: str, expected: str) -> float:
