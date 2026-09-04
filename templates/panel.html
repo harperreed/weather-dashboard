@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=680, initial-scale=1">
+    <title>Weather Panel</title>
+    <link rel="icon" type="image/svg+xml" href="/static/icons/app-icon.svg">
+    <style>
+        /* The panel is embedded at exactly 680x710 in a HADashboard iframe, so
+           the page is the panel: no scroll bars, no page chrome around it. */
+        html, body {
+            margin: 0;
+            padding: 0;
+            background: #eee;
+            overflow: hidden;
+        }
+    </style>
+</head>
+<body>
+    <eink-panel></eink-panel>
+
+    <script src="/static/js/eink-panel-model.js?v={{ git_hash }}"></script>
+    <script src="/static/js/eink-panel.js?v={{ git_hash }}"></script>
+</body>
+</html>

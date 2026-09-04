@@ -149,6 +149,19 @@ class TestFlaskRoutes:
         assert response.status_code == HTTP_OK
         assert b'weather.html' in response.data or b'html' in response.data
 
+    def test_panel_route(self, client: Any) -> None:
+        """The eInk panel serves its own page rather than the dashboard"""
+        response = client.get('/panel')
+
+        assert response.status_code == HTTP_OK
+        assert b'<eink-panel' in response.data
+
+    def test_panel_route_outranks_the_city_lookup(self, client: Any) -> None:
+        """The panel is a literal path, not a city that happens to be missing"""
+        response = client.get('/panel')
+
+        assert b'not found' not in response.data
+
     def test_weather_by_coords_route(self, client: Any) -> None:
         """Test weather by coordinates route"""
         # Test coordinate parsing in city route

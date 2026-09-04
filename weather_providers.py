@@ -16,6 +16,34 @@ except ImportError:
 import requests
 
 
+def calculate_wet_bulb(
+    temperature_f: float | None, relative_humidity: float | None
+) -> float | None:
+    """Wet-bulb temperature in Fahrenheit from air temperature and humidity"""
+    # Stull (2011), "Wet-Bulb Temperature from Relative Humidity and Air
+    # Temperature". The fit is stated for humidity of 5-99% and air between
+    # -20 and 50 C; outside that it drifts by a degree or so, which a panel
+    # reading whole degrees can carry.
+    if temperature_f is None or relative_humidity is None:
+        return None
+
+    air_f = float(temperature_f)
+    celsius = (air_f - 32) * 5 / 9
+    humidity = max(1.0, min(100.0, float(relative_humidity)))
+
+    wet_bulb_c = (
+        celsius * math.atan(0.151977 * math.sqrt(humidity + 8.313659))
+        + math.atan(celsius + humidity)
+        - math.atan(humidity - 1.676331)
+        + 0.00391838 * math.pow(humidity, 1.5) * math.atan(0.023101 * humidity)
+        - 4.686035
+    )
+
+    # Near saturation the polynomial overshoots by a few hundredths of a
+    # degree. Evaporation only ever cools, so the air temperature is the cap.
+    return min(air_f, wet_bulb_c * 9 / 5 + 32)
+
+
 class WeatherProvider(ABC):
     """Abstract base class for weather providers"""
 
@@ -98,7 +126,7 @@ class OpenMeteoProvider(WeatherProvider):
                 'hourly': (
                     'temperature_2m,precipitation_probability,precipitation,'
                     'rain,showers,snowfall,weather_code,cloud_cover,wind_speed_10m,'
-                    'pressure_msl'
+                    'wind_gusts_10m,uv_index,pressure_msl'
                 ),
                 'daily': (
                     'weather_code,temperature_2m_max,temperature_2m_min,'
@@ -153,6 +181,10 @@ class OpenMeteoProvider(WeatherProvider):
                 print(f'🌍 Using timezone from API: {tz_name}')
 
             # Process current weather with enhanced real-time data
+            wet_bulb_f = calculate_wet_bulb(
+                current.get('temperature_2m'), current.get('relative_humidity_2m')
+            )
+            wet_bulb = round(wet_bulb_f) if wet_bulb_f is not None else None
             current_weather = {
                 'temperature': round(current.get('temperature_2m', 0)),
                 'feels_like': round(current.get('apparent_temperature', 0)),
@@ -163,6 +195,7 @@ class OpenMeteoProvider(WeatherProvider):
                 'uv_index': current.get('uv_index', 0),
                 'pressure': round(current.get('pressure_msl', 0), 2),
                 'dew_point': round(current.get('dew_point_2m', 0)),
+                'wet_bulb': wet_bulb,
                 'precipitation_rate': current.get('precipitation', 0),
                 'rain_rate': current.get('rain', 0),
                 'shower_rate': current.get('showers', 0),
@@ -227,6 +260,13 @@ class OpenMeteoProvider(WeatherProvider):
                             hourly['weather_code'][i]
                         ),
                         'pressure': round(pressure_value, 1),
+                        'gust': round(self._hourly_value(hourly, 'wind_gusts_10m', i)),
+                        'uv': round(self._hourly_value(hourly, 'uv_index', i)),
+                        'precip_type': self._determine_precipitation_type(
+                            self._hourly_value(hourly, 'rain', i),
+                            self._hourly_value(hourly, 'showers', i),
+                            self._hourly_value(hourly, 'snowfall', i),
+                        ),
                     }
                     hourly_forecast.append(hour_data)
                     pressure_history.append(
@@ -372,6 +412,15 @@ class OpenMeteoProvider(WeatherProvider):
             99: 'Thunderstorm with heavy hail',
         }
         return descriptions.get(weather_code, 'Unknown')
+
+    def _hourly_value(self, hourly: dict[str, Any], field: str, index: int) -> float:
+        """One hour of an optional Open-Meteo series, zero where it is absent"""
+        # Providers drop series they have no data for, and a short series is
+        # shorter than the hour list it is indexed against.
+        series = hourly.get(field) or []
+        if index >= len(series):
+            return 0.0
+        return float(series[index] or 0)
 
     def _determine_precipitation_type(
         self, rain: float, showers: float, snow: float
