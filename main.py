@@ -478,6 +478,12 @@ def index() -> str:
     return str(render_template('weather.html', git_hash=get_git_hash()))
 
 
+@app.route('/panel')
+def eink_panel() -> str:
+    """Standalone eInk weather panel, sized for the bedroom display"""
+    return str(render_template('panel.html', git_hash=get_git_hash()))
+
+
 @app.route('/<city>')
 def weather_by_city(city: str) -> str | Response:
     """Weather page for common cities"""

@@ -145,3 +145,24 @@ Spacing: 5, 6, 8, 10, 12, 14, 16, 18, 20.
 ## Files
 - `Weather Dashboard Redesign.dc.html` — reference (badges 5a–5d, 1a are final).
 - `support.js` — runtime for the reference only.
+
+## 9. Where the reference and this document disagree
+Three places where §4's prose does not describe what the 5a–5d scenes render.
+The scenes are the pixel target, so each is resolved in the scenes' favour and
+recorded here rather than left for the next reader to rediscover.
+
+1. **Footer cell 3, morning.** §4 gates the `Sunrise {t} · Sunset {t}` string on
+   "before sunrise". Scene 5c reads 7:20am against its own 7:04am sunrise and
+   still shows it. The case is the morning, not the dark before it: the panel
+   keeps that string until an hour past sunrise, then falls through to
+   `Sunset · Moon`. All four scenes match.
+2. **Footer cell 2, after sunset.** §4 offers `{low}° by morning` for the hours
+   after sunset. Scene 5d is 9:05pm and shows `-11° tonight`. No scene ever
+   renders the `by morning` form, so the panel does not build it — the overnight
+   low is always `{low}° tonight`.
+3. **Reading values, right edge.** The reference gives its AIR value span
+   `width: 64px` and its WET BULB and FEELS spans no width at all. In an `auto`
+   grid column sized by the widest cell, that leaves AIR's number 3px short of
+   the other two — visible in `5b.png` as `94°` ending at x=647 where `82°` and
+   `106°` end at x=650. The panel right-aligns all three to one edge. This is
+   the only place it renders something other than what the reference renders.
