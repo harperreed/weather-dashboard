@@ -187,6 +187,12 @@ function applyDashboardConfig(documentRoot, config) {
     const body = documentRoot.getElementById('app-body');
     if (body) body.setAttribute('data-theme', config.theme);
 
+    // rem resolves against the root element. The eInk panel sets its type
+    // scale with a root font-size rule, so the theme has to reach <html> as
+    // well or that rule never selects.
+    const root = documentRoot.documentElement;
+    if (root) root.setAttribute('data-theme', config.theme);
+
     WIDGET_CATALOG.forEach(({ id, host }) => {
         const element = documentRoot.querySelector(host);
         if (!element) return;

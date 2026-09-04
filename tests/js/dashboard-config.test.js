@@ -275,10 +275,17 @@ function createDocumentHolder() {
         hidden: false,
         children: [hosts.get('solar-progress'), hosts.get('moon-phase')]
     };
+    // rem resolves against the root element, never against body, so the
+    // theme has to reach <html> for a root font-size rule to select.
+    const documentElement = {
+        attributes: new Map(),
+        setAttribute(name, value) { this.attributes.set(name, value); }
+    };
     return {
         body,
         hosts,
         skyPair,
+        documentElement,
         getElementById(id) { return id === 'app-body' ? body : null; },
         querySelector(selector) {
             if (selector === '.sky-pair') return skyPair;
@@ -297,6 +304,17 @@ test('applies selected widget visibility and theme to every host', () => {
         assert.equal(documentHolder.hosts.get(host).hidden, !config.enabledWidgets[id]);
         assert.equal(documentHolder.hosts.get(host).attributes.get('data-theme'), 'light');
     });
+});
+
+test('the theme reaches the root element, not only the body', () => {
+    const documentHolder = createDocumentHolder();
+    applyDashboardConfig(documentHolder, parseDashboardConfig('?theme=eink'));
+
+    // The eInk type scale is a root font-size rule, and every size on that
+    // panel is a rem. Set on body alone, the selector never matches and the
+    // whole panel silently keeps the browser's default 16px.
+    assert.equal(documentHolder.documentElement.attributes.get('data-theme'), 'eink');
+    assert.equal(documentHolder.body.attributes.get('data-theme'), 'eink');
 });
 
 test('the default page shows the glanceable widgets and hides the rest', () => {

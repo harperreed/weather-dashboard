@@ -1,7 +1,7 @@
 // ABOUTME: Caches the weather dashboard application shell and weather icons for offline use.
 // ABOUTME: Serves cached assets, refreshes API data, and handles PWA background events.
-const CACHE_NAME = 'weather-dashboard-v7';
-const STATIC_CACHE_NAME = 'weather-dashboard-static-v7';
+const CACHE_NAME = 'weather-dashboard-v8';
+const STATIC_CACHE_NAME = 'weather-dashboard-static-v8';
 
 // Files to cache for offline functionality
 const STATIC_FILES = [
