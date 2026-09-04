@@ -152,6 +152,61 @@ test('a missing low drops the overnight rule', () => {
     assert.deepEqual(insightFacts(data, []), []);
 });
 
+test('the humidity rule follows the dew point comfort scale', () => {
+    const at = (dew) => insightSentence({ current: { dew_point: dew }, daily: [] }, []);
+
+    // Sixty-five is where the NWS comfort scale turns from noticeable to
+    // humid, so it is the first dew point worth a fact of its own.
+    assert.equal(at(71), 'Humid at a 71° dew point.');
+    assert.equal(at(65), 'Humid at a 65° dew point.');
+    assert.equal(at(64), '');
+});
+
+test('gusts report only when they run ahead of the steady wind', () => {
+    const at = (speed, gust) => insightSentence(
+        { current: { wind_speed: speed, wind_gust: gust }, daily: [] }, []
+    );
+
+    assert.equal(at(6, 14), 'Wind gusting to 14.');
+    assert.equal(at(6, 13), '');
+    // A gust reading level with the steady wind is not a gust.
+    assert.equal(at(20, 20), '');
+    // A gust without a wind to measure it against says nothing.
+    assert.equal(at(undefined, 30), '');
+});
+
+test('the UV rule follows the high band', () => {
+    const at = (uv) => insightSentence({ current: { uv_index: uv }, daily: [] }, []);
+
+    // The WHO exposure scale opens its "high" band at 6.
+    assert.equal(at(8), 'UV index 8 — cover up.');
+    assert.equal(at(6), 'UV index 6 — cover up.');
+    assert.equal(at(5), '');
+    // Zero is a reading, not a missing value, and it stays quiet.
+    assert.equal(at(0), '');
+    // The provider sends fractions; the fact reads as a whole number.
+    assert.equal(at(7.6), 'UV index 8 — cover up.');
+});
+
+test('the reading rules carry short forms for the eInk strip', () => {
+    const data = {
+        current: { dew_point: 71, wind_speed: 6, wind_gust: 14, uv_index: 8 },
+        daily: []
+    };
+
+    assert.deepEqual(insightFacts(data, []), [
+        'Humid, dew point 71°',
+        'Gusts to 14',
+        'UV 8'
+    ]);
+});
+
+test('a missing reading drops its rule rather than printing a blank', () => {
+    const data = { current: { dew_point: null, uv_index: undefined }, daily: [] };
+
+    assert.deepEqual(insightFacts(data, []), []);
+});
+
 test('dry air drops the wet bulb far below the air temperature', () => {
     assert.equal(calculateWetbulbTemp(90, 20), 63);
     assert.equal(calculateWetbulbTemp(70, 100), 70);

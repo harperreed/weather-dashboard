@@ -43,6 +43,13 @@ const EXPECTED_WIDGET_CATALOG = [
         defaultThemes: ['blue', 'light', 'eink']
     },
     {
+        id: 'narrative',
+        host: 'forecast-narrative',
+        aliases: ['forecast'],
+        parameters: [],
+        defaultThemes: ['eink']
+    },
+    {
         id: 'daily',
         host: 'daily-forecast',
         aliases: ['week', 'days'],
@@ -152,6 +159,20 @@ test('the seven-day strip is on for phone and desktop and off for eInk', () => {
     assert.equal(isWidgetEnabled(parseDashboardConfig(''), 'daily'), true);
     assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=light'), 'daily'), true);
     assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=eink'), 'daily'), false);
+});
+
+test('the written forecast is on for eInk and off for phone and desktop', () => {
+    // The prose fills a panel that has height to spare. The phone and desktop
+    // layouts scroll, so they have no such gap to fill.
+    assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=eink'), 'narrative'), true);
+    assert.equal(isWidgetEnabled(parseDashboardConfig(''), 'narrative'), false);
+    assert.equal(isWidgetEnabled(parseDashboardConfig('?theme=light'), 'narrative'), false);
+});
+
+test('an explicit selection brings the written forecast to the phone', () => {
+    const config = parseDashboardConfig('?widgets=forecast');
+
+    assert.equal(isWidgetEnabled(config, 'narrative'), true);
 });
 
 test('an explicit selection brings the seven-day strip back on eInk', () => {

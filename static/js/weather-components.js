@@ -753,6 +753,62 @@ class WeatherInsightsWidget extends WeatherWidget {
 
 customElements.define('weather-insights', WeatherInsightsWidget);
 
+/**
+ * Forecast Narrative Widget - the National Weather Service's written forecast
+ * for the period the panel is standing in.
+ */
+class ForecastNarrativeWidget extends WeatherWidget {
+    constructor() {
+        super();
+        this.forecast = null;
+    }
+
+    render() {
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+
+            <div class="narrative-card">
+                <div class="narrative-caption" id="narrative-caption"></div>
+                <p class="narrative-body" id="narrative-body"></p>
+            </div>
+        `;
+    }
+
+    setupEventListeners() {
+        super.setupEventListeners();
+
+        // The app fetches the alerts endpoint once and broadcasts the whole
+        // answer. Reading it here rather than fetching again keeps one
+        // request per refresh and frees this block from the alerts widget,
+        // which the reader can switch off.
+        document.addEventListener('weather-alerts-updated', (e) => {
+            this.forecast = e.detail?.forecast || null;
+            this.update();
+        });
+    }
+
+    update() {
+        if (this.config.narrative === false) return;
+
+        const period = this.forecast?.periods?.[0];
+        const prose = period?.detailed_forecast;
+
+        // The service is the US National Weather Service. A location it does
+        // not cover answers with no periods, and the block steps aside.
+        this.hidden = !prose;
+        if (this.hidden) return;
+
+        this.shadowRoot.getElementById('narrative-caption').textContent = period.name;
+        this.shadowRoot.getElementById('narrative-body').textContent = prose;
+    }
+}
+
+customElements.define('forecast-narrative', ForecastNarrativeWidget);
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.ForecastNarrativeWidget = ForecastNarrativeWidget;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
     module.exports.WeatherInsightsWidget = WeatherInsightsWidget;
 }
@@ -1751,12 +1807,14 @@ class WeatherApp {
         }
 
         await this.fetchWeatherData();
+        this.fetchAlertsData();
 
         // Create connection status indicator
         this.createConnectionStatus();
 
         // Refresh weather data every 10 minutes (fallback if real-time fails)
         setInterval(() => this.fetchWeatherData(), 600000);
+        setInterval(() => this.fetchAlertsData(), 600000);
     }
 
     createConnectionStatus() {
@@ -1850,6 +1908,35 @@ class WeatherApp {
         }
     }
 
+    // The alerts endpoint answers with both the active alerts and the National
+    // Weather Service's written forecast. One request serves every block that
+    // reads either, so it lives here rather than inside a widget.
+    async fetchAlertsData() {
+        try {
+            const { lat, lon, location } = this.parseLocationParams();
+            const params = new URLSearchParams();
+            if (lat && lon) {
+                params.append('lat', lat);
+                params.append('lon', lon);
+            }
+            if (location) {
+                params.append('location', location);
+            }
+
+            const response = await fetch(`/api/weather/alerts?${params}`);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            this.broadcastEvent('weather-alerts-updated', await response.json());
+        } catch (error) {
+            // A panel that repaints slowly and is read at a glance is better
+            // off holding a stale forecast than blanking on a network blip,
+            // so a failure broadcasts nothing and the last answer stands.
+            console.error('Failed to load weather alerts:', error);
+        }
+    }
+
     parseLocationParams() {
         let lat, lon, location, timezone;
 
@@ -1933,6 +2020,10 @@ class WeatherApp {
         const event = new CustomEvent(eventName, { detail: data });
         document.dispatchEvent(event);
     }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.WeatherApp = WeatherApp;
 }
 
 // Help Section Component
@@ -2478,46 +2569,17 @@ class WeatherAlertsWidget extends WeatherWidget {
     connectedCallback() {
         if (!this.isEnabled('alerts')) return;
         super.connectedCallback();
-        this.loadAlerts();
+    }
 
-        // Listen for weather updates to refresh alerts
-        this.addEventListener('weather-data-updated', () => {
-            this.loadAlerts();
+    setupEventListeners() {
+        super.setupEventListeners();
+
+        // The app makes this request on the weather refresh cadence and
+        // broadcasts the answer, which the forecast narrative reads too.
+        document.addEventListener('weather-alerts-updated', (e) => {
+            this.alertsData = e.detail;
+            this.render();
         });
-    }
-
-    async loadAlerts() {
-        try {
-            // Get location from URL parameters or weather app
-            const params = this.getLocationParams();
-            const alertsUrl = `/api/weather/alerts?lat=${params.lat}&lon=${params.lon}&location=${params.location}`;
-
-            console.log('🚨 Loading weather alerts from:', alertsUrl);
-
-            const response = await fetch(alertsUrl);
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
-            }
-
-            this.alertsData = await response.json();
-            this.render();
-
-        } catch (error) {
-            console.error('❌ Failed to load weather alerts:', error);
-            this.alertsData = {
-                alerts: { active_count: 0, alerts: [], has_warnings: false }
-            };
-            this.render();
-        }
-    }
-
-    getLocationParams() {
-        const urlParams = new URLSearchParams(window.location.search);
-        return {
-            lat: urlParams.get('lat') || '41.8781',
-            lon: urlParams.get('lon') || '-87.6298',
-            location: urlParams.get('location') || 'Chicago'
-        };
     }
 
     toggleExpanded() {

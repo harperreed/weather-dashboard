@@ -133,6 +133,7 @@
         weather-insights { order: 3; }
         hourly-forecast { order: 4; }
         daily-forecast { order: 6; }
+        forecast-narrative { order: 7; }
 
         /* Opt-in widgets sit after the hero sequence, in source order. */
         enhanced-temperature-trends,
@@ -204,6 +205,7 @@
         [data-theme="eink"] weather-alerts { order: 1; }
         [data-theme="eink"] hourly-forecast { order: 3; flex: 1; }
         [data-theme="eink"] weather-insights { order: 4; }
+        [data-theme="eink"] forecast-narrative { order: 5; }
 
         [data-theme="eink"] current-weather {
             order: 0;
@@ -263,6 +265,7 @@
         </div>
         <weather-insights></weather-insights>
         <hourly-forecast></hourly-forecast>
+        <forecast-narrative></forecast-narrative>
         <daily-forecast></daily-forecast>
 
         <!-- Opt-in widgets, unchanged order -->

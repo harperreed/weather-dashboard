@@ -508,6 +508,15 @@ test('the page orders the phone sequence and the eInk sequence', () => {
         template,
         /\[data-theme="eink"\] weather-insights\s*\{[^}]*order:\s*4;/s
     );
+
+    // The written forecast is the panel's long block, so it reads last on
+    // eInk: chart, then the one-line strip, then the paragraph. On the phone
+    // it is opt-in and joins the widgets that follow the hero sequence.
+    assert.match(template, /forecast-narrative\s*\{\s*order:\s*7;\s*\}/);
+    assert.match(
+        template,
+        /\[data-theme="eink"\] forecast-narrative\s*\{[^}]*order:\s*5;/s
+    );
 });
 
 test('the eInk stat band leads with temperature, then text, then the bars', () => {
@@ -549,7 +558,7 @@ test('every widget in the container has an explicit flex order', () => {
         });
     }
 
-    assert.ok(tags.length >= 13, `found only ${tags.length} container tags`);
+    assert.ok(tags.length >= 14, `found only ${tags.length} container tags`);
     tags.forEach((tag) => {
         assert.ok(ordered.has(tag), `${tag} has no explicit flex order`);
     });

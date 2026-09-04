@@ -14,6 +14,7 @@ import pytest
         'current-weather-range.test.js',
         'daily-forecast-layout.test.js',
         'dashboard-config.test.js',
+        'forecast-narrative.test.js',
         'help-section.test.js',
         'hourly-forecast-layout.test.js',
         'page-script-scope.test.js',

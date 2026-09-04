@@ -403,6 +403,42 @@
     color: #ffffff;
 }
 
+/* Forecast Narrative Widget */
+.narrative-card {
+    font-size: 0.9375rem;
+    line-height: 1.45;
+    padding: 0.875rem 1rem;
+    border-radius: 0.875rem;
+    background: var(--insight-surface);
+    border: 1px solid var(--card-border);
+}
+
+.narrative-caption {
+    font-size: 0.75rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    margin-bottom: 0.25rem;
+}
+
+.narrative-body {
+    margin: 0;
+}
+
+:host([data-theme="eink"]) .narrative-card {
+    background: #ffffff;
+    border: 2px solid #000000;
+    border-radius: 0;
+    box-sizing: border-box;
+    padding: 0.5rem 0.875rem 0.625rem;
+    font-size: 0.875rem;
+    line-height: 1.35;
+}
+
+:host([data-theme="eink"]) .narrative-caption {
+    opacity: 1;
+}
+
 /* Hourly Forecast Widget */
 .hourly-widget {
     display: flex;

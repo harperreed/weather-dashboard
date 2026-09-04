@@ -12,6 +12,13 @@
     const DANGEROUS_WET_BULB = 80;
     const HARD_EXERTION_WET_BULB = 70;
     const COMFORTABLE_WET_BULB = 50;
+    // The NWS comfort scale turns from "noticeable" to "humid" at a 65°
+    // dew point, and the WHO exposure scale opens its "high" band at 6.
+    const HUMID_DEW_POINT = 65;
+    const HIGH_UV = 6;
+    // No standard sets this one. Eight miles an hour over the steady wind is
+    // the gap where a gust starts slamming a door rather than moving a leaf.
+    const GUST_GAP = 8;
 
     const PRECIPITATION_NOUNS = new Map([
         ['snow', 'Snow'],
@@ -133,11 +140,50 @@
         };
     }
 
+    function humidityFragment(current) {
+        const dewPoint = current?.dew_point;
+        if (!Number.isFinite(dewPoint) || dewPoint < HUMID_DEW_POINT) return null;
+
+        return {
+            long: `Humid at a ${dewPoint}° dew point.`,
+            short: `Humid, dew point ${dewPoint}°`
+        };
+    }
+
+    function gustFragment(current) {
+        const wind = current?.wind_speed;
+        const gust = current?.wind_gust;
+        if (!Number.isFinite(wind) || !Number.isFinite(gust)) return null;
+        if (gust - wind < GUST_GAP) return null;
+
+        return {
+            long: `Wind gusting to ${gust}.`,
+            short: `Gusts to ${gust}`
+        };
+    }
+
+    function ultravioletFragment(current) {
+        const index = current?.uv_index;
+        if (!Number.isFinite(index) || index < HIGH_UV) return null;
+
+        // The provider sends fractions. The band is judged on the reading and
+        // printed as a whole number, the way a forecast says it out loud.
+        const reading = Math.round(index);
+
+        return {
+            long: `UV index ${reading} — cover up.`,
+            short: `UV ${reading}`
+        };
+    }
+
     function insightFragments(data, hours) {
         return [
             windChillFragment(data?.current),
             precipitationFragment(precipitationWindow(hours)),
-            overnightFragment(data?.daily)
+            overnightFragment(data?.daily),
+            humidityFragment(data?.current),
+            gustFragment(data?.current),
+            ultravioletFragment(data?.current)
         ].filter(Boolean);
     }
 

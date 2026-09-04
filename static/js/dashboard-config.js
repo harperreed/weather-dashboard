@@ -31,6 +31,13 @@ const WIDGET_CATALOG = Object.freeze([
         defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
+        id: 'narrative',
+        host: 'forecast-narrative',
+        aliases: Object.freeze(['forecast']),
+        parameters: Object.freeze([]),
+        defaultThemes: Object.freeze(['eink'])
+    }),
+    Object.freeze({
         id: 'daily',
         host: 'daily-forecast',
         aliases: Object.freeze(['week', 'days']),
