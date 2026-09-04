@@ -7,7 +7,14 @@ import pytest
 from flask.testing import FlaskClient
 
 import main
-from main import app, get_weather_from_open_meteo, weather_cache
+from main import (
+    alerts_cache,
+    app,
+    clothing_cache,
+    get_weather_from_open_meteo,
+    radar_cache,
+    weather_cache,
+)
 
 
 # Test constants
@@ -587,8 +594,6 @@ class TestWeatherAlertsAPIIntegration:
 
     def setup_method(self) -> None:
         """Clear alerts cache before each test"""
-        from main import alerts_cache
-
         alerts_cache.clear()
 
     def test_weather_alerts_api_success(self, client: FlaskClient) -> None:
@@ -799,8 +804,6 @@ class TestRadarAPIIntegration:
 
     def setup_method(self) -> None:
         """Clear radar cache before each test"""
-        from main import radar_cache
-
         radar_cache.clear()
 
     def test_radar_api_success(self, client: FlaskClient) -> None:
@@ -1064,8 +1067,6 @@ class TestClothingAPIIntegration:
 
     def setup_method(self) -> None:
         """Clear clothing cache before each test"""
-        from main import clothing_cache
-
         clothing_cache.clear()
 
     def test_clothing_api_success(self, client: FlaskClient) -> None:

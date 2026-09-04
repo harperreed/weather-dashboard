@@ -134,7 +134,7 @@ class TestPressureTrends:
         """Test that pressure history is truncated to 12 hours"""
         # Create 20 hours of data
         history = [
-            {'time': f'2024-01-01T{15-i:02d}:00:00Z', 'pressure': 1013.0 + i * 0.1}
+            {'time': f'2024-01-01T{15 - i:02d}:00:00Z', 'pressure': 1013.0 + i * 0.1}
             for i in range(20)
         ]
 
@@ -173,7 +173,7 @@ class TestPressureTrends:
         # Create 24 hours of gradually rising pressure (current is highest)
         history = [
             {
-                'time': f'2024-01-01T{15-i:02d}:00:00Z',
+                'time': f'2024-01-01T{15 - i:02d}:00:00Z',
                 'pressure': CURRENT_PRESSURE_TEST - i * 0.25,
             }
             for i in range(24)

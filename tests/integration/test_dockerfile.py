@@ -47,8 +47,7 @@ def test_dockerfile_uses_locked_version_independent_virtual_environment() -> Non
     create_venv = 'RUN python -m venv /opt/venv'
     activate_venv = 'ENV VIRTUAL_ENV=/opt/venv'
     sync_dependencies = (
-        'RUN uv sync --active --locked --no-dev --no-install-project '
-        '--compile-bytecode'
+        'RUN uv sync --active --locked --no-dev --no-install-project --compile-bytecode'
     )
 
     assert 'COPY pyproject.toml uv.lock ./' in builder_stage

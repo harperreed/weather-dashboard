@@ -1,5 +1,7 @@
+import sys
 from datetime import datetime
 from typing import Any
+from unittest.mock import patch
 
 import pytest
 
@@ -297,3 +299,28 @@ class TestSolarDataProvider:
         # Both should have valid data but different timezones
         assert result_chicago['solar']['location']['timezone'] == 'America/Chicago'
         assert result_utc['solar']['location']['timezone'] == 'UTC'
+
+    def test_timezone_survives_a_missing_stdlib_zoneinfo(
+        self,
+        solar_provider: SolarDataProvider,
+    ) -> None:
+        """The module-level backports fallback must not be shadowed locally"""
+
+        request = {
+            'lat': CHICAGO_LAT,
+            'lon': CHICAGO_LON,
+            'date': '2025-07-23',
+        }
+
+        # weather_providers resolves zoneinfo once at import time, falling back
+        # to backports.zoneinfo where the stdlib module is absent. Blocking a
+        # fresh `import zoneinfo` is what that older interpreter looks like:
+        # the already-bound module-level name still works, a local re-import
+        # does not.
+        with patch.dict(sys.modules, {'zoneinfo': None}):
+            result = solar_provider.process_weather_data(
+                request, 'Chicago', 'America/Chicago'
+            )
+
+        assert result is not None
+        assert result['solar']['location']['timezone'] == 'America/Chicago'

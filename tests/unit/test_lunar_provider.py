@@ -1,6 +1,7 @@
 # ABOUTME: Unit tests for LunarDataProvider functionality
 # ABOUTME: Tests moon phase calculations, illumination, and astronomical data
 
+import time
 from datetime import date, datetime, timedelta, timezone
 
 from weather_providers import LunarDataProvider
@@ -187,9 +188,9 @@ class TestLunarDataProvider:
         for lunar_age, expected_phase in test_cases:
             illumination = self.provider._calculate_illumination(lunar_age)
             phase_name = self.provider._get_phase_name(lunar_age, illumination)
-            assert (
-                phase_name == expected_phase
-            ), f'Age {lunar_age} should be {expected_phase}, got {phase_name}'
+            assert phase_name == expected_phase, (
+                f'Age {lunar_age} should be {expected_phase}, got {phase_name}'
+            )
 
     def test_next_moon_calculations(self) -> None:
         """Test next new moon and full moon calculations"""
@@ -583,8 +584,6 @@ class TestLunarDataProviderIntegration:
 
     def test_performance_characteristics(self) -> None:
         """Test that lunar calculations are performant"""
-        import time
-
         start_time = time.time()
 
         # Run multiple calculations
@@ -596,6 +595,6 @@ class TestLunarDataProviderIntegration:
         average_time = (end_time - start_time) / 10
 
         # Should complete in reasonable time (less than 100ms per calculation)
-        assert (
-            average_time < MAX_AVERAGE_CALCULATION_SECONDS
-        ), f'Lunar calculation took {average_time:.3f}s on average'
+        assert average_time < MAX_AVERAGE_CALCULATION_SECONDS, (
+            f'Lunar calculation took {average_time:.3f}s on average'
+        )

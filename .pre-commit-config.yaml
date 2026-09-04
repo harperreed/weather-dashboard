@@ -17,7 +17,7 @@ repos:
 
     # Ruff - Modern Python linter and formatter
     - repo: https://github.com/astral-sh/ruff-pre-commit
-      rev: v0.6.4
+      rev: v0.16.6
       hooks:
           # Run the linter (matches workflow: ruff check)
           - id: ruff
@@ -36,7 +36,7 @@ repos:
       rev: v1.11.2
       hooks:
           - id: mypy
-            additional_dependencies: [types-requests, types-cachetools]
+            additional_dependencies: [types-requests, types-cachetools, types-PyYAML]
             args: [--ignore-missing-imports]
 
     # Test coverage check (matches workflow requirement)
