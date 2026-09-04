@@ -58,6 +58,27 @@ test('symmetric padding puts the hottest hour at the top pad', () => {
     assert.equal(points[0].y, 164);
 });
 
+test('a one-degree spread does not fill the chart', () => {
+    // The main bedroom panel forecast: twelve hours of 76 with a single 75.
+    // Ranging the axis to the data alone drew that dip as a full-height cliff.
+    const overnight = [76, 76, 76, 76, 75, 76, 76, 76, 76, 76, 76, 76];
+
+    const ys = calculateHourlyChartPoints(overnight, 1000, 180, 16).map(({ y }) => y);
+
+    // The plot is 148 tall and the axis never spans less than ten degrees, so
+    // one degree is a tenth of it.
+    const spread = Math.max(...ys) - Math.min(...ys);
+    assert.ok(Math.abs(spread - 14.8) < 0.001, `one degree drew ${spread}px of swing`);
+});
+
+test('a spread at the floor still fills the chart', () => {
+    // Ten degrees is the floor, not a margin added to it.
+    const points = calculateHourlyChartPoints([60, 70], 1000, 180, 16);
+
+    assert.equal(points[1].y, 16);
+    assert.equal(points[0].y, 164);
+});
+
 test('the bar grid divides the chart into gapless columns', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),

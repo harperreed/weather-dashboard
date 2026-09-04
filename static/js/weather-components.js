@@ -107,22 +107,32 @@ function formatCardTime(isoString) {
         .toLowerCase();
 }
 
+// A forecast can hold within a degree of itself for twelve hours. Ranging the
+// axis to the data alone draws that as a full-height cliff, which reads as a
+// temperature crash rather than a still night, so the scale never spans less
+// than this. Centring the data in the wider band also covers a flat forecast,
+// where the data's own span is zero.
+const MIN_TEMPERATURE_SPAN = 10;
+
+function temperatureScale(temperatures) {
+    const maxTemp = Math.max(...temperatures);
+    const minTemp = Math.min(...temperatures);
+    const span = Math.max(maxTemp - minTemp, MIN_TEMPERATURE_SPAN);
+
+    return { top: (maxTemp + minTemp) / 2 + span / 2, span };
+}
+
 function calculateHourlyChartPoints(temperatures, width, height, padding) {
     if (!temperatures.length || width <= 0 || height <= 0) return [];
 
     const plotHeight = Math.max(height - padding * 2, 0);
-    const maxTemp = Math.max(...temperatures);
-    const minTemp = Math.min(...temperatures);
-    const tempRange = maxTemp - minTemp;
+    const { top, span } = temperatureScale(temperatures);
     const columnWidth = width / temperatures.length;
 
-    return temperatures.map((temperature, index) => {
-        const ratio = tempRange === 0 ? 0.5 : (maxTemp - temperature) / tempRange;
-        return {
-            x: columnWidth * (index + 0.5),
-            y: padding + ratio * plotHeight
-        };
-    });
+    return temperatures.map((temperature, index) => ({
+        x: columnWidth * (index + 0.5),
+        y: padding + ((top - temperature) / span) * plotHeight
+    }));
 }
 
 // Daily chart markers inset the plot by their own radius so no circle is
@@ -133,18 +143,12 @@ function calculateDailyChartPoints(days, width, height, padding) {
     if (!days.length || width <= 0 || height <= 0) return [];
 
     const plotHeight = Math.max(height - padding * 2, 0);
-    const temperatures = days.flatMap(({ h, l }) => [h, l]);
-    const maxTemp = Math.max(...temperatures);
-    const minTemp = Math.min(...temperatures);
-    const tempRange = maxTemp - minTemp;
+    const { top, span } = temperatureScale(days.flatMap(({ h, l }) => [h, l]));
     const columnWidth = width / days.length;
 
     // Padding is the marker radius, so the hottest high and coldest low still
     // paint as whole circles instead of half-circles on the chart edge.
-    const plot = temperature => {
-        const ratio = tempRange === 0 ? 0.5 : (maxTemp - temperature) / tempRange;
-        return padding + ratio * plotHeight;
-    };
+    const plot = temperature => padding + ((top - temperature) / span) * plotHeight;
 
     return days.map(({ h, l }, index) => ({
         x: columnWidth * (index + 0.5),

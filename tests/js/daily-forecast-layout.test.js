@@ -90,3 +90,15 @@ test('the day label grid divides the chart into gapless columns', () => {
     assert.match(grid, /display:\s*grid;/);
     assert.match(grid, /gap:\s*0;/);
 });
+
+test('a nearly flat week does not amplify into a full-height swing', () => {
+    const days = [{ h: 76, l: 75 }, { h: 76, l: 75 }, { h: 75, l: 75 }];
+
+    const ys = calculateDailyChartPoints(days, 300, 100, 4)
+        .flatMap(({ highY, lowY }) => [highY, lowY]);
+
+    // Both charts share one temperature scale, so the ten-degree floor puts
+    // this one-degree week across a tenth of the 92px plot.
+    const spread = Math.max(...ys) - Math.min(...ys);
+    assert.ok(Math.abs(spread - 9.2) < 0.001, `one degree drew ${spread}px of swing`);
+});
