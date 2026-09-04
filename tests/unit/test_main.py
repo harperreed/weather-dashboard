@@ -416,6 +416,94 @@ class TestWeatherAPIEndpoint:
         mock_cache.__setitem__.assert_called_once()
 
 
+class TestSkyAPIEndpoints:
+    """The sun and moon endpoints resolve their coordinates like the rest"""
+
+    @patch('main.solar_cache')
+    @patch('main.solar_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_solar_api_defaults_to_chicago(
+        self,
+        mock_get_weather: MagicMock,
+        mock_solar: MagicMock,
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """A request with no coordinates gets Chicago, as everywhere else"""
+        mock_cache.__contains__.return_value = False
+        mock_get_weather.return_value = {'timezone': 'America/Chicago'}
+        mock_solar.return_value = {'sunrise': '06:30'}
+
+        response = client.get('/api/solar')
+        assert response.status_code == HTTP_OK
+
+        lat, lon = mock_get_weather.call_args.args[:2]
+        assert (lat, lon) == (CHICAGO_LAT, CHICAGO_LON)
+
+    @patch('main.solar_cache')
+    @patch('main.solar_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_solar_api_serves_the_origin(
+        self,
+        mock_get_weather: MagicMock,
+        mock_solar: MagicMock,
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """(0, 0) is a point in the Gulf of Guinea, not a missing argument"""
+        mock_cache.__contains__.return_value = False
+        mock_get_weather.return_value = {'timezone': 'UTC'}
+        mock_solar.return_value = {'sunrise': '06:30'}
+
+        response = client.get('/api/solar?lat=0&lon=0&location=Null%20Island')
+        assert response.status_code == HTTP_OK
+
+        lat, lon = mock_get_weather.call_args.args[:2]
+        assert (lat, lon) == (0.0, 0.0)
+
+    @patch('main.lunar_cache')
+    @patch('main.lunar_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_lunar_api_defaults_to_chicago(
+        self,
+        mock_get_weather: MagicMock,
+        mock_lunar: MagicMock,
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """A request with no coordinates gets Chicago, as everywhere else"""
+        mock_cache.__contains__.return_value = False
+        mock_get_weather.return_value = {'timezone': 'America/Chicago'}
+        mock_lunar.return_value = {'current_phase': {}}
+
+        response = client.get('/api/lunar')
+        assert response.status_code == HTTP_OK
+
+        lat, lon = mock_get_weather.call_args.args[:2]
+        assert (lat, lon) == (CHICAGO_LAT, CHICAGO_LON)
+
+    @patch('main.lunar_cache')
+    @patch('main.lunar_provider.process_weather_data')
+    @patch('main.weather_manager.get_weather')
+    def test_lunar_api_serves_the_origin(
+        self,
+        mock_get_weather: MagicMock,
+        mock_lunar: MagicMock,
+        mock_cache: MagicMock,
+        client: Any,
+    ) -> None:
+        """(0, 0) is a point in the Gulf of Guinea, not a missing argument"""
+        mock_cache.__contains__.return_value = False
+        mock_get_weather.return_value = {'timezone': 'UTC'}
+        mock_lunar.return_value = {'current_phase': {}}
+
+        response = client.get('/api/lunar?lat=0&lon=0&location=Null%20Island')
+        assert response.status_code == HTTP_OK
+
+        lat, lon = mock_get_weather.call_args.args[:2]
+        assert (lat, lon) == (0.0, 0.0)
+
+
 class TestCityCoords:
     """Test city coordinates constant"""
 
