@@ -285,16 +285,42 @@ time 13px weight 800, precipitation label 12px weight 800 at 40% or above.
 
 A grid of one column per available fact, gap 8px, each 16px weight 800, padding
 10px 14px. The first cell is inverted, `#000` background and `#fff` text. The
-facts are the short forms of the wind-chill, precipitation-window, and
-overnight rules, in that order. The strip hides when no fact applies.
+facts are the short forms of the wind-chill, precipitation-window, overnight,
+humidity, gust, and ultraviolet rules, in that order. The strip hides when no
+fact applies.
+
+### Written forecast
+
+The eInk panel is specified at 800x480 and runs at 680x710 inside HADashboard.
+`hourly-forecast` is the only `flex: 1` child of the container and
+`.chart-container` the only one inside it, so the extra 230px landed in the
+chart twice over and left a void under the bars. The written forecast fills it.
+
+The block renders the National Weather Service's prose for the period the panel
+is standing in: the caption is `periods[0].name`, the body its
+`detailed_forecast`, inserted as text. It reads last on eInk, after the footer
+facts, at `order: 5`; on the phone and desktop it is opt-in and joins the
+widgets at `order: 7`.
+
+The service covers the United States only. A location it does not cover answers
+with no periods and the block hides itself, which returns the void — an honest
+gap in preference to an invented paragraph. The prose runs 50 to 60-odd words
+and takes the height it needs; the chart, holding the container's only `flex`,
+gives up the difference.
+
+`WeatherApp` fetches `/api/weather/alerts` on the weather refresh cadence and
+broadcasts the whole answer as `weather-alerts-updated`. Both the alerts strip
+and this block read that one broadcast, so the written forecast survives
+`?widgets=hourly,forecast` with the alerts strip switched off.
 
 ## Chart geometry
 
 Both themes share one chart, differing only in stroke, fill, and padding.
 
 Layer 1 is an N-column grid of precipitation bars, where N is the number of
-rendered hours, height `precip% * 0.9` of the chart, radius 3px 3px 0 0 in
-blue and square in eInk.
+rendered hours, occupying the bottom third of the chart: a bar is `precip% / 3`
+of the chart's height, with a 4px floor so a small chance still paints. Radius
+3px 3px 0 0 in blue, square in eInk.
 
 The columns carry **no grid gap**. The visual gap (3px blue, 6px eInk) is
 inset padding on a wrapper cell, with the bar itself as an inner element at
@@ -339,6 +365,9 @@ independently, inapplicable ones are omitted, and the rest join with spaces.
 | Wind chill | `temp - feels_like >= 10` | `Wind makes {temp}° feel like {feels}°.` | `Feels like {feels}° in the wind` |
 | Precipitation window | the first run of contiguous hours at 60% or above | `{Noun} likely {start}–{end}, heaviest around {peak}.` | `{Noun} {start}–{end}` |
 | Overnight | always, when a low exists | `Falling to {low}° overnight{clause}.` | `{low}° overnight` |
+| Humidity | `dew_point >= 65` | `Humid at a {dew}° dew point.` | `Humid, dew point {dew}°` |
+| Gust | `wind_gust - wind_speed >= 8` | `Wind gusting to {gust}.` | `Gusts to {gust}` |
+| Ultraviolet | `uv_index >= 6` | `UV index {uv} — cover up.` | `UV {uv}` |
 
 The overnight clause is ` — layers and a hat` below 20°F, ` — bring a jacket`
 from 20°F to 45°F, and absent above 45°F.
@@ -353,6 +382,13 @@ snow from `snow`, `heavy-snow`, `light-snow`; sleet from `sleet`; rain from
 `rain`, `heavy-rain`, `light-rain`; `Precipitation` when the window mixes types
 or matches none. The caption form is uppercase, the footer form is sentence
 case.
+
+The humidity threshold is the NWS comfort scale's turn from "noticeable" to
+"humid"; the ultraviolet threshold opens the WHO's "high" band, and the reading
+prints rounded to a whole number. No standard sets the gust gap: 8 mph over the
+steady wind is where a gust starts slamming a door rather than moving a leaf.
+A rule whose reading is missing or non-numeric is dropped rather than printed
+blank.
 
 The wet-bulb explainer clause is `dangerous for exertion` at 80°F or above,
 `limit hard exertion` from 70°F to 79°F, and
