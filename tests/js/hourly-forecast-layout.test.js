@@ -174,7 +174,7 @@ test('the line lands on the exact bar centers', () => {
 
     widget.update();
 
-    assert.equal(holders['chart-line'].points, '250,136 750,14');
+    assert.equal(holders['chart-line'].points, '250,86 750,14');
 });
 
 test('the marker sits on the first point', () => {
@@ -240,7 +240,7 @@ test('the eInk chart uses its own height and padding', () => {
     widget.update();
 
     assert.equal(holders['hourly-chart'].viewBox, '0 0 1000 180');
-    assert.equal(holders['chart-line'].points, '250,164 750,16');
+    assert.equal(holders['chart-line'].points, '250,104 750,16');
 });
 
 test('renders time inside each hourly cell without a second time row', () => {
@@ -381,4 +381,70 @@ test('uses one gapless auto-column grid with no hourly scrolling', () => {
     assert.match(styles, /\.hourly-temps\s*\{[^}]*overflow-x:\s*visible;/s);
     assert.doesNotMatch(styles, /\.hourly-times\s*\{/);
     assert.match(styles, /\.chart-container\s*\{[^}]*height:\s*9\.375rem;/s);
+});
+
+// The line and the bars are two layers over one box. Overlaid and each scaled
+// to the whole of it, a wet hour's bar covers the line it is drawn across, so
+// the box is split: the line plots into the top share, a certain hour fills
+// the rest, and neither reaches the other's zone.
+const PRECIPITATION_BAND = 1 / 3;
+
+const barHeights = (markup) =>
+    [...markup.matchAll(/class="precip-bar"[^>]*height:\s*([\d.]+)%/g)]
+        .map(([, percent]) => Number(percent));
+
+test('the temperature line keeps clear of the precipitation band', () => {
+    // Forty and sixty is a twenty-degree spread, wider than the ten-degree
+    // floor, so the line runs the full height of the room it is given.
+    const { widget, holders } = hourlyWidget([hourAt(0, 40, 0), hourAt(1, 60, 0)]);
+
+    widget.update();
+
+    const deepest = Math.max(
+        ...holders['chart-line'].points.split(' ').map((point) => Number(point.split(',')[1]))
+    );
+    const bandTop = 150 * (1 - PRECIPITATION_BAND);
+    assert.ok(deepest <= bandTop, `the line reached ${deepest}, inside the bars' band`);
+    // Clearing the band is half the contract. A line that stops well short of
+    // it has quietly given the bars two thirds of the chart.
+    assert.ok(deepest > bandTop - 20, `the line only reached ${deepest} of ${bandTop}`);
+});
+
+test('a certain hour fills the precipitation band and no more', () => {
+    const { widget, holders } = hourlyWidget([hourAt(0, 50, 100)]);
+
+    widget.update();
+
+    const [height] = barHeights(holders['precip-bars'].innerHTML);
+    assert.ok(
+        Math.abs(height - PRECIPITATION_BAND * 100) < 0.01,
+        `a certain hour drew ${height}% of the chart`
+    );
+});
+
+test('a dry hour draws no bar at all', () => {
+    // The floor below would otherwise give a zero chance a visible stub.
+    const { widget, holders } = hourlyWidget([hourAt(0, 50, 0), hourAt(1, 52, 30)]);
+
+    widget.update();
+
+    const markup = holders['precip-bars'].innerHTML;
+    assert.equal((markup.match(/precip-cell/g) || []).length, 2, 'both cells hold their column');
+    assert.equal(barHeights(markup).length, 1, 'a dry hour drew a bar');
+});
+
+test('a slight chance still draws something visible', () => {
+    // The overnight forecast this panel shows runs 1-10% for hours at a time.
+    // Scaled honestly into a band a third of a short chart, that is under a
+    // pixel — which reads as a dry night rather than a slight chance. The
+    // floor is a paint minimum in pixels, so it holds in both chart heights
+    // and leaves the shape above it alone.
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+
+    const floor = styles.match(/\.precip-bar\s*\{[^}]*min-height:\s*(\d+)px;/s);
+    assert.ok(floor, 'no min-height floor on .precip-bar');
+    assert.ok(Number(floor[1]) >= 3, `a ${floor[1]}px bar is not a visible mark`);
 });

@@ -445,6 +445,11 @@
 
 .precip-bar {
     width: 100%;
+    /* Scaled honestly into a third of a short chart, an overnight 1% chance
+       is a fraction of a pixel and paints as a dry night. The floor is a
+       paint minimum rather than a data one: it holds at either chart height
+       and leaves every bar above it at its true size. */
+    min-height: 4px;
     background: rgba(219, 234, 254, 0.35);
     border-radius: 3px 3px 0 0;
 }

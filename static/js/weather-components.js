@@ -553,7 +553,11 @@ const CHART_GEOMETRY = {
 };
 const CHART_WIDTH = 1000;
 const PRECIPITATION_LABEL_FLOOR = 40;
-const PRECIPITATION_BAR_SCALE = 0.9;
+// The line and the bars are two layers over one box. Scaled to the whole of
+// it, a wet hour's bar paints straight over the line it crosses. The bars own
+// this share of the chart from the bottom and the line plots into the rest, so
+// a certain hour and a cold front can be read at the same time.
+const PRECIPITATION_BAND = 1 / 3;
 const HOURLY_CHART_HOURS = 12;
 
 class HourlyForecastWidget extends WeatherWidget {
@@ -626,12 +630,13 @@ class HourlyForecastWidget extends WeatherWidget {
     renderBars(hours) {
         this.shadowRoot.getElementById('precip-bars').innerHTML = hours.map((hour) => {
             const chance = Number.isFinite(hour.rain) ? hour.rain : 0;
-            return `
-                <div class="precip-cell">
-                    <div class="precip-bar"
-                         style="height: ${chance * PRECIPITATION_BAR_SCALE}%"></div>
-                </div>
-            `;
+            // A dry hour draws nothing. The bar carries a paint floor so a
+            // slight chance stays visible, and that floor would turn a zero
+            // into a mark of its own.
+            const bar = chance > 0
+                ? `<div class="precip-bar" style="height: ${chance * PRECIPITATION_BAND}%"></div>`
+                : '';
+            return `<div class="precip-cell">${bar}</div>`;
         }).join('');
     }
 
@@ -664,8 +669,12 @@ class HourlyForecastWidget extends WeatherWidget {
 
     drawTemperatureChart(hours) {
         const { height, padding } = this.geometry();
+        // A third of the viewBox is not exact in binary, and the remainder
+        // lands in the points attribute as 86.00000000000001. The boundary
+        // between the two zones is a whole viewBox unit.
+        const band = Math.round(height * PRECIPITATION_BAND);
         const points = calculateHourlyChartPoints(
-            hours.map(({ temp }) => temp), CHART_WIDTH, height, padding
+            hours.map(({ temp }) => temp), CHART_WIDTH, height - band, padding
         );
         const chart = this.shadowRoot.getElementById('hourly-chart');
         const line = this.shadowRoot.getElementById('chart-line');
