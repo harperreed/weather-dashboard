@@ -186,6 +186,16 @@ function applyDashboardConfig(documentRoot, config) {
         element.hidden = !isWidgetEnabled(config, id);
         element.setAttribute('data-theme', config.theme);
     });
+
+    // A group wrapped around hidden widgets still takes its share of the row.
+    // With the sun and moon both switched off, the sky pair went on reserving
+    // a column at zero height, squeezing the conditions beside it until the
+    // time and summary wrapped. The cards own the visibility decision; the
+    // group follows them.
+    const skyPair = documentRoot.querySelector('.sky-pair');
+    if (skyPair) {
+        skyPair.hidden = Array.from(skyPair.children).every((card) => card.hidden);
+    }
 }
 
 const DashboardConfig = {

@@ -262,6 +262,7 @@
     border-left: 2px solid #000000;
     padding-left: 1.125rem;
     min-width: 0;
+    flex: 1 1 0;
     order: 2;
 }
 
@@ -299,10 +300,11 @@
     margin-top: 0;
     border-left: 2px solid #000000;
     padding-left: 1.125rem;
+    flex: 1 1 0;
 }
 
 :host([data-theme="eink"]) .three-temps-grid {
-    grid-template-columns: auto 7.5rem auto;
+    grid-template-columns: auto minmax(3rem, 1fr) auto;
     gap: 0.25rem 0.625rem;
     align-items: center;
     align-content: center;

@@ -2,6 +2,8 @@
 // ABOUTME: Runs the production configuration module with Node's test runner.
 
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
 const test = require('node:test');
 
 const {
@@ -246,11 +248,21 @@ function createDocumentHolder() {
             setAttribute(name, value) { this.attributes.set(name, value); }
         }])
     );
+    // The template wraps the sun and moon cards in one group, so the group
+    // holds the same two hosts the catalog loop switches on and off.
+    const skyPair = {
+        hidden: false,
+        children: [hosts.get('solar-progress'), hosts.get('moon-phase')]
+    };
     return {
         body,
         hosts,
+        skyPair,
         getElementById(id) { return id === 'app-body' ? body : null; },
-        querySelector(selector) { return hosts.get(selector) ?? null; }
+        querySelector(selector) {
+            if (selector === '.sky-pair') return skyPair;
+            return hosts.get(selector) ?? null;
+        }
     };
 }
 
@@ -278,4 +290,50 @@ test('the default page shows the glanceable widgets and hides the rest', () => {
         .forEach((host) => {
             assert.equal(documentHolder.hosts.get(host).hidden, true, host);
         });
+});
+
+test('the sky pair hides when both its cards are switched off', () => {
+    const documentHolder = createDocumentHolder();
+
+    // The eInk panel asks for the hours chart alone. Both cards go hidden,
+    // and a group left visible around them still takes its share of the
+    // band's width at zero height, starving the conditions beside it.
+    applyDashboardConfig(documentHolder, parseDashboardConfig('?widgets=hourly&current'));
+
+    assert.equal(documentHolder.hosts.get('solar-progress').hidden, true);
+    assert.equal(documentHolder.hosts.get('moon-phase').hidden, true);
+    assert.equal(documentHolder.skyPair.hidden, true);
+});
+
+test('the sky pair stays visible while either card is on', () => {
+    const documentHolder = createDocumentHolder();
+
+    applyDashboardConfig(documentHolder, parseDashboardConfig('?widgets=hourly,moon&current'));
+
+    assert.equal(documentHolder.hosts.get('solar-progress').hidden, true);
+    assert.equal(documentHolder.hosts.get('moon-phase').hidden, false);
+    assert.equal(documentHolder.skyPair.hidden, false);
+});
+
+test('hiding the sky pair actually hides it', () => {
+    // The group carries an explicit `display: grid`, in the base rules and
+    // again for eInk. Both outrank the browser's own `[hidden]` rule, so
+    // without an override the JS above sets an attribute that draws nothing.
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    const hiddenRule = template.search(/\.sky-pair\[hidden\]\s*\{[^}]*display:\s*none;/s);
+    assert.notEqual(hiddenRule, -1, 'no .sky-pair[hidden] rule sets display: none');
+
+    // Equal specificity means source order decides, so existing is not the
+    // same as winning: the override has to come last.
+    const displayRules = [...template.matchAll(/\.sky-pair\s*\{[^}]*?display:/gs)]
+        .map((match) => match.index);
+    assert.ok(displayRules.length > 0, 'no .sky-pair rule sets display at all');
+    assert.ok(
+        hiddenRule > Math.max(...displayRules),
+        'a .sky-pair display rule outranks the [hidden] override below it'
+    );
 });

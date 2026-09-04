@@ -636,7 +636,10 @@ test('the eInk three-temp bars grid centers itself', () => {
 
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*align-items:\s*center;/s);
     assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*align-content:\s*center;/s);
-    assert.match(styles, /:host\(\[data-theme="eink"\]\) \.three-temps-grid\s*\{[^}]*grid-template-columns:\s*auto 7\.5rem auto;/s);
+
+    // The track width is no longer pinned here. It has to flex so the text
+    // column beside it stops paying for the whole shortfall; that contract
+    // lives in "the eInk bar track can flex...".
 });
 
 test('the eInk sky card carries no corner radius', () => {
@@ -809,4 +812,26 @@ test('the service worker precaches every shipped asset under one cache version',
     assert.match(worker, /'\/static\/js\/dashboard-config\.js'/);
     assert.match(worker, /'\/static\/js\/weather-components\.js'/);
     assert.match(worker, /'\/static\/css\/weather-components\.css'/);
+});
+
+test('the eInk bar track can flex so one column never absorbs the whole squeeze', () => {
+    const styles = fs.readFileSync(
+        path.join(__dirname, '../../static/css/weather-components.css'),
+        'utf8'
+    );
+    const grid = styles.match(
+        /:host\(\[data-theme="eink"\]\)\s*\.three-temps-grid\s*\{[^}]*\}/s
+    )?.[0] || '';
+
+    assert.notEqual(grid, '', 'no eInk .three-temps-grid rule found');
+
+    // A fixed bar track gives the grid a hard min-content floor. The band
+    // then takes every missing pixel out of the text column beside it, which
+    // is what wrapped the time onto three lines and pushed the high and low
+    // across the divider.
+    assert.match(
+        grid,
+        /grid-template-columns:[^;]*fr/,
+        'a fixed bar track forces the whole shortfall onto the text column'
+    );
 });
