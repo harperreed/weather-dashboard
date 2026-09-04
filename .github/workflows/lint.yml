@@ -25,10 +25,13 @@ jobs:
       - name: Set up Python 3.10
         run: uv python install 3.10
 
+      # ruff and mypy are pinned in the dev dependency group. Adding them
+      # here instead would resolve whatever is newest at run time, enforcing
+      # a ruleset no local hook ever runs.
       - name: Install dependencies with linting tools
         run: |
           uv sync --all-extras --dev
-          uv add --dev ruff mypy bandit
+          uv add --dev bandit
 
       - name: Run Ruff linter
         run: |

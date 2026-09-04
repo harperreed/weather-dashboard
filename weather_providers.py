@@ -271,8 +271,9 @@ class OpenMeteoProvider(WeatherProvider):
                 raw_data.get('minutely_15', {}), tz_name
             )
 
-            # Calculate pressure trends
-            from main import calculate_pressure_trend
+            # Deferred: main imports this module at its top, so a module-level
+            # import here would close the cycle and neither module would load.
+            from main import calculate_pressure_trend  # noqa: PLC0415
 
             pressure_trend = calculate_pressure_trend(pressure_history)
 
@@ -544,8 +545,6 @@ class PirateWeatherProvider(WeatherProvider):
 
     def _calculate_data_age(self, timestamp: int) -> int:
         """Calculate how old the data is in minutes"""
-        import time
-
         current_time = int(time.time())
         return max(0, (current_time - timestamp) // 60)
 
@@ -1000,8 +999,6 @@ class RadarProvider(WeatherProvider):
 
     def _lat_lon_to_tile(self, lat: float, lon: float, zoom: int) -> tuple[int, int]:
         """Convert latitude/longitude to tile coordinates at given zoom level"""
-        import math
-
         lat_rad = math.radians(lat)
         n = 2.0**zoom
         tile_x = int((lon + 180.0) / 360.0 * n)
@@ -1080,7 +1077,7 @@ class RadarProvider(WeatherProvider):
 
             print(
                 f'🌦️  Processed radar: {total_frames} frames, '
-                f'{historical_frames}h history + {forecast_frames/6:.1f}h forecast'
+                f'{historical_frames}h history + {forecast_frames / 6:.1f}h forecast'
             )
 
         except Exception as e:
@@ -1185,6 +1182,7 @@ class ClothingRecommendationProvider(WeatherProvider):
 
     def _generate_clothing_recommendations(  # noqa: PLR0915
         self,
+        *,
         current_temp: float,
         feels_like: float,
         temp_high: float,
@@ -1465,10 +1463,11 @@ class SolarDataProvider(WeatherProvider):
             # Use provided timezone or default to UTC
             if tz_name:
                 try:
-                    import zoneinfo
-
+                    # zoneinfo is resolved once at import time, with a
+                    # backports fallback. A local re-import would shadow that
+                    # binding and fail on the very interpreters it exists for.
                     timezone_obj = zoneinfo.ZoneInfo(tz_name)
-                except (ImportError, Exception):
+                except Exception:
                     timezone_obj = timezone.utc  # type: ignore[assignment]
             else:
                 timezone_obj = timezone.utc  # type: ignore[assignment]
@@ -1506,8 +1505,6 @@ class SolarDataProvider(WeatherProvider):
 
     def _calculate_solar_times(self, lat: float, lon: float, date: datetime) -> dict:
         """Calculate sunrise, sunset, and related solar data"""
-        import math
-
         # Convert to UTC for calculations
         utc_date = (
             date.astimezone(timezone.utc)
@@ -1549,24 +1546,57 @@ class SolarDataProvider(WeatherProvider):
 
         # Calculate civil, nautical, and astronomical twilight
         civil_twilight_dawn = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -6
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-6,
         )
         civil_twilight_dusk = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -6, is_dawn=False
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-6,
+            is_dawn=False,
         )
 
         nautical_twilight_dawn = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -12
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-12,
         )
         nautical_twilight_dusk = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -12, is_dawn=False
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-12,
+            is_dawn=False,
         )
 
         astronomical_twilight_dawn = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -18
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-18,
         )
         astronomical_twilight_dusk = self._calculate_twilight(
-            lat, lon, solar_declination, equation_of_time, utc_date, -18, is_dawn=False
+            lat,
+            lon,
+            solar_declination=solar_declination,
+            equation_of_time=equation_of_time,
+            date=utc_date,
+            sun_angle=-18,
+            is_dawn=False,
         )
 
         # Calculate current solar elevation
@@ -1656,8 +1686,6 @@ class SolarDataProvider(WeatherProvider):
 
     def _equation_of_time(self, day_of_year: int) -> float:
         """Calculate equation of time in minutes"""
-        import math
-
         b = 2 * math.pi * (day_of_year - 81) / 365
         return 9.87 * math.sin(2 * b) - 7.53 * math.cos(b) - 1.5 * math.sin(b)
 
@@ -1670,8 +1698,6 @@ class SolarDataProvider(WeatherProvider):
         date: datetime,
     ) -> tuple[datetime, datetime]:
         """Calculate sunrise and sunset times"""
-        import math
-
         # Calculate hour angle
         lat_rad = math.radians(lat)
         declination_rad = math.radians(solar_declination)
@@ -1700,6 +1726,7 @@ class SolarDataProvider(WeatherProvider):
         self,
         lat: float,
         lon: float,
+        *,
         solar_declination: float,
         equation_of_time: float,
         date: datetime,
@@ -1707,8 +1734,6 @@ class SolarDataProvider(WeatherProvider):
         is_dawn: bool = True,
     ) -> datetime | None:
         """Calculate twilight times (civil, nautical, astronomical)"""
-        import math
-
         lat_rad = math.radians(lat)
         declination_rad = math.radians(solar_declination)
         sun_angle_rad = math.radians(sun_angle)
@@ -1740,8 +1765,6 @@ class SolarDataProvider(WeatherProvider):
         self, lat: float, lon: float, date: datetime
     ) -> float:
         """Calculate current solar elevation angle"""
-        import math
-
         # Calculate solar declination for current date
         day_of_year = date.timetuple().tm_yday
         solar_declination = 23.45 * math.sin(
@@ -1888,8 +1911,7 @@ class NationalWeatherServiceProvider(WeatherProvider):
                         print('⚠️  NWS forecast API returned malformed data')
                 else:
                     print(
-                        f'⚠️  NWS forecast API returned '
-                        f'{forecast_response.status_code}'
+                        f'⚠️  NWS forecast API returned {forecast_response.status_code}'
                     )
             except (requests.RequestException, ValueError) as e:
                 print(f'⚠️  NWS forecast API error: {str(e)}')
@@ -3115,13 +3137,11 @@ class LunarDataProvider(WeatherProvider):
                 'The moon is fully illuminated, rising at sunset and setting at sunrise'
             ),
             'Waning Gibbous': (
-                f'More than half illuminated but decreasing '
-                f'({illumination_percent}%)'
+                f'More than half illuminated but decreasing ({illumination_percent}%)'
             ),
             'Third Quarter': 'Half illuminated, rising around midnight',
             'Waning Crescent': (
-                f'A thin crescent moon is fading '
-                f'({illumination_percent}% illuminated)'
+                f'A thin crescent moon is fading ({illumination_percent}% illuminated)'
             ),
         }
 
