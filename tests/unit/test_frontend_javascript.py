@@ -10,6 +10,7 @@ import pytest
 @pytest.mark.parametrize(
     'test_name',
     [
+        'connection-status-badge.test.js',
         'current-weather-range.test.js',
         'daily-forecast-layout.test.js',
         'dashboard-config.test.js',

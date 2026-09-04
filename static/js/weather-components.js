@@ -1760,41 +1760,48 @@ class WeatherApp {
         // Auto-hide after 3 seconds when connected
         let hideTimeout = null;
 
-        // Listen for connection status changes
-        this.broadcastEvent('connection-status', { connected: false, type: 'disconnected' });
-
-        document.addEventListener('connection-status', (e) => {
-            const status = e.detail;
+        const showStatus = (status) => {
             const statusEl = document.getElementById('connection-status');
+            if (!statusEl) return;
 
-            if (statusEl) {
-                statusEl.className = 'connection-status';
+            statusEl.className = 'connection-status';
 
-                if (status.connected) {
-                    if (status.type === 'websocket') {
-                        statusEl.classList.add('connected');
-                        statusEl.textContent = '🔗 Real-time';
-                    } else if (status.type === 'polling') {
-                        statusEl.classList.add('polling');
-                        statusEl.textContent = '📡 Polling';
-                    }
-
-                    // Auto-hide after 3 seconds
-                    if (hideTimeout) clearTimeout(hideTimeout);
-                    hideTimeout = setTimeout(() => {
-                        statusEl.style.opacity = '0';
-                        setTimeout(() => statusEl.style.display = 'none', 300);
-                    }, 3000);
-                } else {
-                    statusEl.classList.add('disconnected');
-                    statusEl.textContent = '❌ Disconnected';
-                    statusEl.style.opacity = '0.9';
-                    statusEl.style.display = 'block';
-
-                    if (hideTimeout) clearTimeout(hideTimeout);
+            if (status.connected) {
+                if (status.type === 'websocket') {
+                    statusEl.classList.add('connected');
+                    statusEl.textContent = '🔗 Real-time';
+                } else if (status.type === 'polling') {
+                    statusEl.classList.add('polling');
+                    statusEl.textContent = '📡 Polling';
                 }
+
+                // Auto-hide after 3 seconds
+                if (hideTimeout) clearTimeout(hideTimeout);
+                hideTimeout = setTimeout(() => {
+                    statusEl.style.opacity = '0';
+                    setTimeout(() => statusEl.style.display = 'none', 300);
+                }, 3000);
+            } else {
+                statusEl.classList.add('disconnected');
+                statusEl.textContent = '❌ Disconnected';
+                statusEl.style.opacity = '0.9';
+                statusEl.style.display = 'block';
+
+                if (hideTimeout) clearTimeout(hideTimeout);
             }
-        });
+        };
+
+        // Listen for connection status changes
+        document.addEventListener('connection-status', (e) => showStatus(e.detail));
+
+        // A connection event is an edge, and this badge is built after the
+        // first weather fetch returns, while the manager connects as soon as
+        // its script loads. On a fast link that edge is long gone, so read the
+        // live state rather than wait for one that already passed. A handshake
+        // still in flight also reports not-connected, and calling that failure
+        // would be a lie, so only a live connection speaks here.
+        const status = window.realTimeWeather && window.realTimeWeather.getConnectionStatus();
+        if (status && status.connected) showStatus(status);
     }
 
     async fetchWeatherData() {
