@@ -333,6 +333,25 @@ class TestWeatherAPIEndpoint:
 
     @patch('main.weather_cache')  # Mock cache to avoid hits
     @patch('main.weather_manager.get_weather')
+    def test_weather_api_keeps_a_zero_coordinate(
+        self,
+        mock_get_weather: MagicMock,
+        mock_cache: MagicMock,
+        client: Any,
+        mock_weather_data: dict[str, Any],
+    ) -> None:
+        """A coordinate on the prime meridian is a place, not a missing value"""
+        mock_cache.__contains__.return_value = False
+        mock_get_weather.return_value = mock_weather_data
+
+        response = client.get('/api/weather?lat=51.4779&lon=0&location=Greenwich')
+        assert response.status_code == HTTP_OK
+
+        lat, lon = mock_get_weather.call_args.args[:2]
+        assert (lat, lon) == (51.4779, 0.0)
+
+    @patch('main.weather_cache')  # Mock cache to avoid hits
+    @patch('main.weather_manager.get_weather')
     def test_weather_api_failure(
         self, mock_get_weather: MagicMock, mock_cache: MagicMock, client: Any
     ) -> None:

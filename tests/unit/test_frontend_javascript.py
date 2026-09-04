@@ -16,6 +16,7 @@ import pytest
         'dashboard-config.test.js',
         'eink-panel-markup.test.js',
         'eink-panel-model.test.js',
+        'eink-panel-place.test.js',
         'eink-panel-reading.test.js',
         'forecast-narrative.test.js',
         'help-section.test.js',

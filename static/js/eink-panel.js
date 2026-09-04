@@ -141,8 +141,24 @@
         </div>`;
     }
 
+    // A coordinate pair travels together: half a pair points at open water, so
+    // an unreadable half sends both back to the default. Zero is a real
+    // coordinate — the prime meridian and the equator both run through one.
+    function panelPlace(search) {
+        const params = new URLSearchParams(search);
+        const lat = Number.parseFloat(params.get('lat'));
+        const lon = Number.parseFloat(params.get('lon'));
+        const place = Number.isFinite(lat) && Number.isFinite(lon) ? { lat, lon } : CHICAGO;
+
+        return {
+            lat: place.lat,
+            lon: place.lon,
+            name: params.get('location') || CHICAGO.name
+        };
+    }
+
     if (typeof module !== 'undefined' && module.exports) {
-        module.exports = { panelMarkup };
+        module.exports = { panelMarkup, panelPlace };
         return;
     }
 
@@ -158,12 +174,7 @@
         }
 
         place() {
-            const params = new URLSearchParams(window.location.search);
-            return {
-                lat: Number(params.get('lat')) || CHICAGO.lat,
-                lon: Number(params.get('lon')) || CHICAGO.lon,
-                name: params.get('location') || CHICAGO.name
-            };
+            return panelPlace(window.location.search);
         }
 
         async load() {

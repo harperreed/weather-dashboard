@@ -557,8 +557,10 @@ def weather_api() -> Response:
     location_name = request.args.get('location', 'Chicago')
     timezone_name = request.args.get('timezone')  # Optional override
 
-    # Default to Chicago if no coordinates provided
-    if not lat or not lon:
+    # Default to Chicago if no coordinates provided. Zero is a coordinate --
+    # the equator and the prime meridian both run through one -- so a falsy
+    # test here silently moves Greenwich to Chicago.
+    if lat is None or lon is None:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
 
@@ -603,8 +605,10 @@ def weather_alerts_api() -> Response:
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Chicago')
 
-    # Default to Chicago if no coordinates provided
-    if not lat or not lon:
+    # Default to Chicago if no coordinates provided. Zero is a coordinate --
+    # the equator and the prime meridian both run through one -- so a falsy
+    # test here silently moves Greenwich to Chicago.
+    if lat is None or lon is None:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
 
@@ -674,8 +678,10 @@ def radar_api() -> Response:
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Chicago')
 
-    # Default to Chicago if no coordinates provided
-    if not lat or not lon:
+    # Default to Chicago if no coordinates provided. Zero is a coordinate --
+    # the equator and the prime meridian both run through one -- so a falsy
+    # test here silently moves Greenwich to Chicago.
+    if lat is None or lon is None:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
 
@@ -734,8 +740,10 @@ def clothing_recommendations_api() -> Response:
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Chicago')
 
-    # Default to Chicago if no coordinates provided
-    if not lat or not lon:
+    # Default to Chicago if no coordinates provided. Zero is a coordinate --
+    # the equator and the prime meridian both run through one -- so a falsy
+    # test here silently moves Greenwich to Chicago.
+    if lat is None or lon is None:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
 
@@ -1175,8 +1183,10 @@ def air_quality_api() -> Response:
     lon = request.args.get('lon', type=float)
     location_name = request.args.get('location', 'Unknown Location')
 
-    # Default to Chicago if no coordinates provided
-    if not lat or not lon:
+    # Default to Chicago if no coordinates provided. Zero is a coordinate --
+    # the equator and the prime meridian both run through one -- so a falsy
+    # test here silently moves Greenwich to Chicago.
+    if lat is None or lon is None:
         lat = CHICAGO_LAT
         lon = CHICAGO_LON
 
