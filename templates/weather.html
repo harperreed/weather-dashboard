@@ -202,6 +202,14 @@
             order: 2;
         }
 
+        /* Every size on this panel is a rem, so the root drives the whole type
+           scale. 17px is the measured ceiling: at 18px the conditions column
+           falls under its wrapping width and the band takes 59px out of the
+           hours chart in one step. */
+        html[data-theme="eink"] {
+            font-size: 17px;
+        }
+
         [data-theme="eink"] weather-alerts { order: 1; }
         [data-theme="eink"] hourly-forecast { order: 3; flex: 1; }
         [data-theme="eink"] weather-insights { order: 4; }

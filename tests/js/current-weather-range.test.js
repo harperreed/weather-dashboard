@@ -519,6 +519,18 @@ test('the page orders the phone sequence and the eInk sequence', () => {
     );
 });
 
+test('the eInk panel scales its type from the root element', () => {
+    const template = fs.readFileSync(
+        path.join(__dirname, '../../templates/weather.html'),
+        'utf8'
+    );
+
+    // Every font on this panel is a rem, so one root size moves all of them.
+    // 17px is the measured ceiling: at 18px the conditions column is squeezed
+    // under its wrapping width and the band takes 59px out of the chart.
+    assert.match(template, /html\[data-theme="eink"\]\s*\{[^}]*font-size:\s*17px;/s);
+});
+
 test('the eInk stat band leads with temperature, then text, then the bars', () => {
     const styles = fs.readFileSync(
         path.join(__dirname, '../../static/css/weather-components.css'),
