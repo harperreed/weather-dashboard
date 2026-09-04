@@ -822,13 +822,13 @@ def clothing_recommendations_api() -> Response:
 def solar_data_api() -> Response:
     """Solar data API endpoint for sunrise, sunset, and solar progress"""
     try:
-        lat = float(request.args.get('lat', 0))
-        lon = float(request.args.get('lon', 0))
+        # Absent coordinates fall back to Chicago like every other endpoint.
+        # One that is present but unreadable still earns its 400 below, and zero
+        # is neither: the equator and the prime meridian both run through it.
+        lat = float(request.args.get('lat', CHICAGO_LAT))
+        lon = float(request.args.get('lon', CHICAGO_LON))
         location_name = request.args.get('location', 'Unknown')
         date_str = request.args.get('date')  # Optional specific date
-
-        if lat == 0 and lon == 0:
-            return jsonify({'error': 'Valid latitude and longitude required'}), 400
 
         # Create cache key
         cache_key = f'solar_{lat}_{lon}_{date_str or "today"}'
@@ -917,12 +917,12 @@ def solar_data_api() -> Response:
 def lunar_data_api() -> Response:
     """Lunar data API endpoint for moon phase, illumination, and astronomical data"""
     try:
-        lat = float(request.args.get('lat', 0))
-        lon = float(request.args.get('lon', 0))
+        # Absent coordinates fall back to Chicago like every other endpoint.
+        # One that is present but unreadable still earns its 400 below, and zero
+        # is neither: the equator and the prime meridian both run through it.
+        lat = float(request.args.get('lat', CHICAGO_LAT))
+        lon = float(request.args.get('lon', CHICAGO_LON))
         location_name = request.args.get('location', 'Unknown')
-
-        if lat == 0 and lon == 0:
-            return jsonify({'error': 'Valid latitude and longitude required'}), 400
 
         # Create cache key (per-location so one city's rise doesn't leak to another)
         current_hour = int(time.time() // 3600)  # Round to nearest hour for caching
