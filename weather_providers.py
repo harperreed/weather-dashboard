@@ -228,9 +228,7 @@ class OpenMeteoProvider(WeatherProvider):
                 # Find the starting index (current hour or next hour)
                 start_index = 0
                 for i, time_str in enumerate(hourly['time']):
-                    hour_time = datetime.fromisoformat(
-                        time_str.replace('Z', '+00:00')
-                    ).astimezone(tz)
+                    hour_time = self._forecast_time(time_str, tz)
                     if hour_time >= current_time.replace(
                         minute=0, second=0, microsecond=0
                     ):
@@ -249,10 +247,7 @@ class OpenMeteoProvider(WeatherProvider):
                         'rain': hourly['precipitation_probability'][i]
                         if i < len(hourly.get('precipitation_probability', []))
                         else 0,
-                        't': datetime.fromisoformat(
-                            hourly['time'][i].replace('Z', '+00:00')
-                        )
-                        .astimezone(tz)
+                        't': self._forecast_time(hourly['time'][i], tz)
                         .strftime('%I%p')
                         .lower()
                         .lstrip('0'),
@@ -284,11 +279,7 @@ class OpenMeteoProvider(WeatherProvider):
                         'h': round(daily['temperature_2m_max'][i]),
                         'l': round(daily['temperature_2m_min'][i]),
                         'icon': self._map_weather_code(daily['weather_code'][i]),
-                        'd': (
-                            datetime.fromisoformat(daily['time'][i])
-                            .astimezone(tz)
-                            .strftime('%a')
-                        ),
+                        'd': self._forecast_time(daily['time'][i], tz).strftime('%a'),
                     }
                     daily_forecast.append(day_data)
 
@@ -443,6 +434,20 @@ class OpenMeteoProvider(WeatherProvider):
 
         return None
 
+    def _forecast_time(self, time_str: str, tz: tzinfo) -> datetime:
+        """Read an Open-Meteo timestamp as a time in the forecast's own zone.
+
+        Under timezone=auto the API returns wall-clock stamps carrying no
+        offset. Stamping one with the forecast zone keeps the hour the API
+        meant. Converting it instead reads it against whatever clock the
+        server keeps -- UTC in production -- and slides every reading by that
+        offset while the label still reads plausibly.
+        """
+        parsed = datetime.fromisoformat(time_str.replace('Z', '+00:00'))
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=tz)
+        return parsed.astimezone(tz)
+
     def _process_minutely_data(self, minutely: dict, tz_name: str | None) -> list[dict]:
         """Process 15-minutely data for real-time precipitation tracking"""
         minutely_data: list[dict] = []
@@ -457,13 +462,24 @@ class OpenMeteoProvider(WeatherProvider):
                 else zoneinfo.ZoneInfo('America/Chicago')
             )
 
+            # The API returns every quarter-hour of the forecast starting at
+            # midnight, so a nowcast has to seek the slot holding the current
+            # time. Reading from the top of the list reports last midnight.
+            now = datetime.now(tz)
+            current_slot = now.replace(
+                minute=now.minute // 15 * 15, second=0, microsecond=0
+            )
+            start_index = len(minutely['time'])
+            for i, time_str in enumerate(minutely['time']):
+                if self._forecast_time(time_str, tz) >= current_slot:
+                    start_index = i
+                    break
+
             # Get next 2 hours of 15-minute data (8 intervals)
-            for i in range(min(8, len(minutely['time']))):
+            for i in range(start_index, min(start_index + 8, len(minutely['time']))):
                 time_str = minutely['time'][i]
                 minute_data = {
-                    'time': datetime.fromisoformat(time_str.replace('Z', '+00:00'))
-                    .astimezone(tz)
-                    .strftime('%H:%M'),
+                    'time': self._forecast_time(time_str, tz).strftime('%H:%M'),
                     'temp': round(minutely.get('temperature_2m', [0])[i]),
                     'precipitation': minutely.get('precipitation', [0])[i],
                     'rain': minutely.get('rain', [0])[i],
