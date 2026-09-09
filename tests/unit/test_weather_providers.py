@@ -1,4 +1,9 @@
-from datetime import datetime, timezone
+import os
+import time
+import zoneinfo
+from collections.abc import Iterator
+from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from typing import Any
 from unittest.mock import MagicMock, patch
 
@@ -22,6 +27,102 @@ MOCK_UV_INDEX = 6
 PROVIDER_TIMEOUT = 10
 CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
+CHICAGO_TZ = 'America/Chicago'
+MINUTELY_INTERVALS = 8
+QUARTER_HOURS_PER_DAY = 96
+
+
+@contextmanager
+def server_clock(tz_name: str) -> Iterator[None]:
+    """Run a block with the process clock set the way a server keeps it.
+
+    Production runs on UTC while it reads a forecast written in local time. A
+    machine already set to the forecast's zone cancels an offset mistake out,
+    so these checks only mean something with the clock moved off it.
+    """
+    previous = os.environ.get('TZ')
+    os.environ['TZ'] = tz_name
+    time.tzset()
+    try:
+        yield
+    finally:
+        if previous is None:
+            os.environ.pop('TZ', None)
+        else:
+            os.environ['TZ'] = previous
+        time.tzset()
+
+
+def hour_label(hour: int) -> str:
+    """Format an hour the way the hourly strip labels it."""
+    return (
+        datetime(2026, 1, 1, hour, tzinfo=timezone.utc)
+        .strftime('%I%p')
+        .lower()
+        .lstrip('0')
+    )
+
+
+def quarter_hour_label(slot: int) -> str:
+    """Format a quarter-hour slot index the way the nowcast labels it."""
+    return f'{slot // 4:02d}:{slot % 4 * 15:02d}'
+
+
+def openmeteo_two_day_response() -> dict[str, Any]:
+    """Two days of Open-Meteo data in the shape timezone=auto really returns.
+
+    The live API sends wall-clock stamps with no offset, unlike the older
+    fixtures here which carry a Z. Each reading is numbered with the slot it
+    came from, so a label can be checked against the data behind it.
+    """
+    tz = zoneinfo.ZoneInfo(CHICAGO_TZ)
+    today = datetime.now(tz).date()
+    tomorrow = today + timedelta(days=1)
+    days = [today.isoformat(), tomorrow.isoformat()]
+
+    hours = [f'{day}T{hour:02d}:00' for day in days for hour in range(24)]
+    quarters = [
+        f'{day}T{slot // 4:02d}:{slot % 4 * 15:02d}'
+        for day in days
+        for slot in range(QUARTER_HOURS_PER_DAY)
+    ]
+
+    return {
+        'timezone': CHICAGO_TZ,
+        'current': {
+            'temperature_2m': 72.0,
+            'apparent_temperature': 75.0,
+            'relative_humidity_2m': 65,
+            'wind_speed_10m': 8.0,
+            'uv_index': 6,
+            'precipitation': 0.0,
+            'weather_code': 0,
+        },
+        'hourly': {
+            'time': hours,
+            # The reading names its own hour of the day.
+            'temperature_2m': [float(i % 24) for i in range(len(hours))],
+            'weather_code': [0] * len(hours),
+            'precipitation_probability': [0] * len(hours),
+        },
+        'minutely_15': {
+            'time': quarters,
+            # The reading names its own quarter-hour slot of the day.
+            'temperature_2m': [
+                float(i % QUARTER_HOURS_PER_DAY) for i in range(len(quarters))
+            ],
+            'precipitation': [0.0] * len(quarters),
+            'rain': [0.0] * len(quarters),
+            'snowfall': [0.0] * len(quarters),
+            'weather_code': [0] * len(quarters),
+        },
+        'daily': {
+            'time': days,
+            'temperature_2m_max': [77.0, 75.0],
+            'temperature_2m_min': [65.0, 63.0],
+            'weather_code': [0, 2],
+        },
+    }
 
 
 class TestWeatherProvider:
@@ -475,3 +576,90 @@ class TestWeatherProviderManager:
 
         assert result is False
         assert manager.primary_provider == provider1.name
+
+
+class TestOpenMeteoLocalTimestamps:
+    """Open-Meteo returns wall-clock stamps in the forecast's own zone.
+
+    Every test here runs the process clock on UTC, the way production does.
+    On a machine already set to the forecast's zone an offset mistake cancels
+    itself out and the readings look right, so a test that trusts the local
+    clock cannot see this class of bug at all.
+    """
+
+    def test_hour_label_matches_the_reading_it_carries(self) -> None:
+        """Each hour must be labeled with the hour its numbers came from."""
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        assert result is not None
+        assert result['hourly']
+        for hour in result['hourly']:
+            source_hour = int(hour['temp'])
+            assert hour['t'] == hour_label(source_hour), (
+                f'hour labeled {hour["t"]} carries {source_hour}:00 readings'
+            )
+
+    def test_hourly_starts_at_the_current_hour(self) -> None:
+        """The strip opens on the hour we are standing in, not hours later."""
+        now = datetime.now(zoneinfo.ZoneInfo(CHICAGO_TZ))
+
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        assert result is not None
+        assert result['hourly'][0]['t'] == hour_label(now.hour)
+
+    def test_day_label_matches_its_date(self) -> None:
+        """A day column names its own weekday, not the one before it."""
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        tz = zoneinfo.ZoneInfo(CHICAGO_TZ)
+        today = datetime.now(tz).date()
+        expected = [
+            today.strftime('%a'),
+            (today + timedelta(days=1)).strftime('%a'),
+        ]
+
+        assert result is not None
+        assert [day['d'] for day in result['daily']] == expected
+
+    def test_minutely_reads_from_now_not_midnight(self) -> None:
+        """The nowcast covers the next two hours, not the small hours of today."""
+        tz = zoneinfo.ZoneInfo(CHICAGO_TZ)
+        now = datetime.now(tz)
+        slots_elapsed = now.hour * 4 + now.minute // 15
+
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        assert result is not None
+        minutely = result['minutely']
+        assert len(minutely) == MINUTELY_INTERVALS
+        # A quarter-hour may tick over mid-test; either side of the boundary
+        # is correct, both are far from midnight.
+        assert minutely[0]['temp'] in (slots_elapsed, slots_elapsed + 1)
+
+    def test_minutely_label_matches_the_reading_it_carries(self) -> None:
+        """A nowcast row is labeled with the quarter-hour it was read from."""
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        assert result is not None
+        assert result['minutely']
+        for slot in result['minutely']:
+            index = int(slot['temp'])
+            assert slot['time'] == quarter_hour_label(index), (
+                f'slot labeled {slot["time"]} carries slot {index}'
+            )
