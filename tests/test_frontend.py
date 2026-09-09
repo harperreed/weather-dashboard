@@ -33,8 +33,8 @@ class TestFrontendIntegration:
         static_files = source.split('const STATIC_FILES = [', 1)[1].split('];', 1)[0]
 
         assert "'/static/js/dashboard-config.js'" in static_files
-        assert "const CACHE_NAME = 'weather-dashboard-v9';" in source
-        assert "const STATIC_CACHE_NAME = 'weather-dashboard-static-v9';" in source
+        assert "const CACHE_NAME = 'weather-dashboard-v10';" in source
+        assert "const STATIC_CACHE_NAME = 'weather-dashboard-static-v10';" in source
         assert 'weather-dashboard-v8' not in source
         assert 'weather-dashboard-static-v8' not in source
 

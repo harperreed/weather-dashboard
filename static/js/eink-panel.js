@@ -131,10 +131,22 @@
         </div>`;
     }
 
+    function rainBand(model) {
+        if (!model.rainBand) return '';
+
+        const { headline, detail } = model.rainBand;
+        return `
+        <div class="rain-band">
+            <div class="rain-band-line">${escapeHtml(headline)}</div>
+            <div class="rain-band-detail">${escapeHtml(detail)}</div>
+        </div>`;
+    }
+
     function panelMarkup(model) {
         return `
         <link rel="stylesheet" href="/static/css/eink-panel.css">
         <div class="panel">
+            ${rainBand(model)}
             ${statCard(model)}
             ${hoursCard(model)}
             ${footer(model)}
