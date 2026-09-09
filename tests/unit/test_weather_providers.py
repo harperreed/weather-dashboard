@@ -29,6 +29,7 @@ CHICAGO_LAT = 41.8781
 CHICAGO_LON = -87.6298
 CHICAGO_TZ = 'America/Chicago'
 MINUTELY_INTERVALS = 8
+CURRENT_PRECIP_PROB = 60
 QUARTER_HOURS_PER_DAY = 96
 
 
@@ -96,6 +97,7 @@ def openmeteo_two_day_response() -> dict[str, Any]:
             'wind_speed_10m': 8.0,
             'uv_index': 6,
             'precipitation': 0.0,
+            'precipitation_probability': CURRENT_PRECIP_PROB,
             'weather_code': 0,
         },
         'hourly': {
@@ -112,6 +114,10 @@ def openmeteo_two_day_response() -> dict[str, Any]:
                 float(i % QUARTER_HOURS_PER_DAY) for i in range(len(quarters))
             ],
             'precipitation': [0.0] * len(quarters),
+            # The chance names its own quarter-hour slot of the day too.
+            'precipitation_probability': [
+                i % QUARTER_HOURS_PER_DAY for i in range(len(quarters))
+            ],
             'rain': [0.0] * len(quarters),
             'snowfall': [0.0] * len(quarters),
             'weather_code': [0] * len(quarters),
@@ -576,6 +582,48 @@ class TestWeatherProviderManager:
 
         assert result is False
         assert manager.primary_provider == provider1.name
+
+
+class TestOpenMeteoPrecipitationChance:
+    """The chance of rain has to come from the forecast, not from a constant.
+
+    Open-Meteo's current block does report precipitation_probability -- the
+    code carried a comment saying it does not, and served a hardcoded zero to
+    the clothing advice and the panel for as long as that comment stood.
+    """
+
+    def test_request_asks_for_the_current_chance_of_rain(self) -> None:
+        """A field we never request cannot be reported."""
+        with patch('weather_providers.requests.get') as fetch:
+            fetch.return_value.json.return_value = openmeteo_two_day_response()
+            fetch.return_value.raise_for_status.return_value = None
+            OpenMeteoProvider().fetch_weather_data(CHICAGO_LAT, CHICAGO_LON)
+
+        params = fetch.call_args.kwargs['params']
+        assert 'precipitation_probability' in params['current']
+        assert 'precipitation_probability' in params['minutely_15']
+
+    def test_current_reports_the_chance_the_forecast_gives(self) -> None:
+        """The current conditions carry the reported chance, not a constant."""
+        result = OpenMeteoProvider().process_weather_data(openmeteo_two_day_response())
+
+        assert result is not None
+        assert result['current']['precipitation_prob'] == CURRENT_PRECIP_PROB
+
+    def test_each_nowcast_slot_carries_its_own_chance(self) -> None:
+        """A nowcast bar is only honest if it draws its own slot's chance."""
+        with server_clock('UTC'):
+            result = OpenMeteoProvider().process_weather_data(
+                openmeteo_two_day_response()
+            )
+
+        assert result is not None
+        assert result['minutely']
+        for slot in result['minutely']:
+            assert slot['precipitation_prob'] == int(slot['temp']), (
+                f'slot {slot["time"]} carries chance '
+                f'{slot["precipitation_prob"]} against reading {slot["temp"]}'
+            )
 
 
 class TestOpenMeteoLocalTimestamps:

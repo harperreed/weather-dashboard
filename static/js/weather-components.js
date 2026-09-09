@@ -698,6 +698,91 @@ if (typeof module !== 'undefined' && module.exports) {
     module.exports.HourlyForecastWidget = HourlyForecastWidget;
 }
 
+// Precipitation Nowcast Component
+
+// Most days the next two hours hold nothing, and a row of eight empty cells
+// is a thing people stop reading -- and then stop seeing on the day it
+// matters. Below this chance the widget renders nothing at all.
+const NOWCAST_THRESHOLD = 15;
+const NOWCAST_SLOTS = 8;
+
+// Reads the quarter-hour forecast and answers one question: is anything
+// coming in the next two hours? Null means no, and the widget hides itself.
+function nowcastReading(minutely) {
+    const chance = (slot) => (
+        Number.isFinite(slot?.precipitation_prob) ? slot.precipitation_prob : 0
+    );
+    const slots = (Array.isArray(minutely) ? minutely : []).slice(0, NOWCAST_SLOTS);
+    const peak = slots.reduce((highest, slot) => Math.max(highest, chance(slot)), 0);
+
+    if (peak < NOWCAST_THRESHOLD) return null;
+
+    return {
+        peak,
+        noun: slots.some((slot) => slot?.snow > 0) ? 'Snow' : 'Rain',
+        slots: slots.map((slot, index) => ({
+            ...slot,
+            precipitation_prob: chance(slot),
+            // The API writes 09:15; a person reading a clock says 9:15. The
+            // slot you are standing in is called now, not by its time.
+            label: index === 0 ? 'now' : String(slot?.time ?? '').replace(/^0/, '')
+        }))
+    };
+}
+
+class PrecipitationNowcastWidget extends WeatherWidget {
+    render() {
+        if (this.config.nowcast === false) return;
+        this.shadowRoot.innerHTML = `
+            ${this.getSharedStyles()}
+
+            <div class="nowcast-widget widget-content">
+                <div class="hourly-caption">
+                    <span id="nowcast-caption">Rain in the next 2 hours</span>
+                    <span id="nowcast-peak"></span>
+                </div>
+
+                <div class="nowcast-bars" id="nowcast-bars"></div>
+                <div class="nowcast-labels" id="nowcast-labels"></div>
+            </div>
+        `;
+    }
+
+    update() {
+        if (!this.data || this.config.nowcast === false) return;
+
+        const reading = nowcastReading(this.data.minutely);
+        this.hidden = !reading;
+        if (!reading) return;
+
+        this.shadowRoot.getElementById('nowcast-caption').textContent =
+            `${reading.noun} in the next 2 hours`;
+        this.shadowRoot.getElementById('nowcast-peak').textContent =
+            `${reading.peak}% at peak`;
+
+        this.shadowRoot.getElementById('nowcast-bars').innerHTML =
+            reading.slots.map(({ precipitation_prob: chance }) => `
+                <div class="precip-cell">
+                    <div class="precip-bar" style="height: ${chance}%"></div>
+                </div>
+            `).join('');
+
+        this.shadowRoot.getElementById('nowcast-labels').innerHTML =
+            reading.slots.map(({ label, precipitation_prob: chance }) => `
+                <div class="nowcast-label">
+                    <span class="nowcast-chance">${chance}%</span>
+                    <span class="nowcast-time">${escapeText(label)}</span>
+                </div>
+            `).join('');
+    }
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+    module.exports.PrecipitationNowcastWidget = PrecipitationNowcastWidget;
+    module.exports.nowcastReading = nowcastReading;
+    module.exports.NOWCAST_THRESHOLD = NOWCAST_THRESHOLD;
+}
+
 // Weather Insights Component
 
 function escapeText(value) {
@@ -3280,6 +3365,7 @@ class PrecipitationRadarWidget extends WeatherWidget {
 customElements.define('weather-icon', WeatherIcon);
 customElements.define('current-weather', CurrentWeatherWidget);
 customElements.define('hourly-forecast', HourlyForecastWidget);
+customElements.define('precipitation-nowcast', PrecipitationNowcastWidget);
 customElements.define('daily-forecast', DailyForecastWidget);
 customElements.define('hourly-timeline', HourlyTimelineWidget);
 customElements.define('air-quality', AirQualityWidget);

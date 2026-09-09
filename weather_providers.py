@@ -116,12 +116,14 @@ class OpenMeteoProvider(WeatherProvider):
                 'longitude': lon,
                 'current': (
                     'temperature_2m,relative_humidity_2m,apparent_temperature,'
-                    'is_day,precipitation,rain,showers,snowfall,weather_code,'
+                    'is_day,precipitation,precipitation_probability,rain,'
+                    'showers,snowfall,weather_code,'
                     'cloud_cover,wind_speed_10m,wind_direction_10m,wind_gusts_10m,uv_index,'
                     'pressure_msl,surface_pressure,dew_point_2m'
                 ),
                 'minutely_15': (
-                    'temperature_2m,precipitation,rain,snowfall,weather_code'
+                    'temperature_2m,precipitation,precipitation_probability,'
+                    'rain,snowfall,weather_code'
                 ),
                 'hourly': (
                     'temperature_2m,precipitation_probability,precipitation,'
@@ -200,7 +202,7 @@ class OpenMeteoProvider(WeatherProvider):
                 'rain_rate': current.get('rain', 0),
                 'shower_rate': current.get('showers', 0),
                 'snow_rate': current.get('snowfall', 0),
-                'precipitation_prob': 0,  # Current doesn't have probability
+                'precipitation_prob': current.get('precipitation_probability', 0),
                 'precipitation_type': self._determine_precipitation_type(
                     current.get('rain', 0),
                     current.get('showers', 0),
@@ -482,6 +484,9 @@ class OpenMeteoProvider(WeatherProvider):
                     'time': self._forecast_time(time_str, tz).strftime('%H:%M'),
                     'temp': round(minutely.get('temperature_2m', [0])[i]),
                     'precipitation': minutely.get('precipitation', [0])[i],
+                    'precipitation_prob': minutely.get(
+                        'precipitation_probability', [0]
+                    )[i],
                     'rain': minutely.get('rain', [0])[i],
                     'snow': minutely.get('snowfall', [0])[i],
                     'weather_code': minutely.get('weather_code', [0])[i],

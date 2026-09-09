@@ -36,6 +36,13 @@ const EXPECTED_WIDGET_CATALOG = [
         defaultThemes: ['blue', 'light', 'eink']
     },
     {
+        id: 'nowcast',
+        host: 'precipitation-nowcast',
+        aliases: ['rain', 'minutely'],
+        parameters: ['minutely'],
+        defaultThemes: ['blue', 'light']
+    },
+    {
         id: 'hourly',
         host: 'hourly-forecast',
         aliases: ['hours'],
@@ -352,6 +359,31 @@ test('the sky pair stays visible while either card is on', () => {
     assert.equal(documentHolder.hosts.get('solar-progress').hidden, true);
     assert.equal(documentHolder.hosts.get('moon-phase').hidden, false);
     assert.equal(documentHolder.skyPair.hidden, false);
+});
+
+test('every widget host has a place in the page order', () => {
+    // .weather-container is a flexbox and every child is placed by an
+    // `order` rule, not by its position in the markup. A host with no rule
+    // takes the default 0 and renders above everything else on the page --
+    // correct in source, wrong on screen.
+    const template = fs
+        .readFileSync(path.join(__dirname, '../../templates/weather.html'), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '');
+
+    const ordered = new Set();
+    for (const [, selector] of template.matchAll(/(?:^|\})\s*([^{}]+?)\s*\{[^{}]*order:\s*\d+;/g)) {
+        selector.split(',').forEach((part) => ordered.add(part.trim()));
+    }
+
+    // The sun and moon cards are placed by the group that wraps them.
+    const skyPair = template.match(/<div class="sky-pair">([\s\S]*?)<\/div>/)[1];
+
+    EXPECTED_WIDGET_CATALOG.forEach(({ host }) => {
+        assert.ok(
+            ordered.has(host) || skyPair.includes(`<${host}>`),
+            `${host} has no order rule, so it renders at the top of the page`
+        );
+    });
 });
 
 test('hiding the sky pair actually hides it', () => {
