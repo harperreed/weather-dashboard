@@ -19,10 +19,30 @@
         { label: 'Feels', fill: 'feels', bar: 'feels', value: 'feels' }
     ];
 
+    const MOISTURE = [
+        { label: 'Humidity', value: 'humidity', unit: '%' },
+        { label: 'Dew point', value: 'dewPoint', unit: '°' }
+    ];
+
     const ESCAPES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 
     function escapeHtml(value) {
         return String(value).replace(/[&<>"']/g, (character) => ESCAPES[character]);
+    }
+
+    /**
+     * Humidity and the dew point are the same moisture in two units, and the
+     * provider can supply either without the other, so each cell stands alone.
+     */
+    function moisture(model) {
+        const cells = MOISTURE.filter(({ value }) => model[value] !== null)
+            .map(
+                ({ label, value, unit }) =>
+                    `<span><span class="value-label">${escapeHtml(label)}</span>${escapeHtml(model[value])}${unit}</span>`
+            )
+            .join('');
+
+        return cells ? `<div class="moisture">${cells}</div>` : '';
     }
 
     function statCard(model) {
@@ -45,9 +65,10 @@
                     <div class="location">${escapeHtml(model.locationLine)}</div>
                     <div class="summary">${escapeHtml(model.summary)}</div>
                     <div class="range">
-                        <span><span class="range-label">High</span>${escapeHtml(model.high)}°</span>
-                        <span><span class="range-label">Low</span>${escapeHtml(model.low)}°</span>
+                        <span><span class="value-label">High</span>${escapeHtml(model.high)}°</span>
+                        <span><span class="value-label">Low</span>${escapeHtml(model.low)}°</span>
                     </div>
+                    ${moisture(model)}
                 </div>
             </div>
             <div class="readings">${rows}</div>

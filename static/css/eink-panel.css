@@ -122,12 +122,31 @@
     white-space: nowrap;
 }
 
-.range-label {
+.value-label {
     font-size: 15px;
     font-weight: 800;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     margin-right: 6px;
+}
+
+/* Humidity and the dew point rank under the day's range, so they take the same
+   shape a size down. The label drops further: spelled out, "Dew point" is what
+   decides whether the pair clears the column, not the numbers beside it. */
+.moisture {
+    display: flex;
+    gap: 18px;
+    font-size: 20px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+
+.moisture > span {
+    white-space: nowrap;
+}
+
+.moisture .value-label {
+    font-size: 14px;
 }
 
 /* Temperature bars. The outer columns hold the widest label and value, so the

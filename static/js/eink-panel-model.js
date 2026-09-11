@@ -310,6 +310,8 @@
             temp: weather.current.temperature,
             feels: weather.current.feels_like,
             wetBulb: weather.current.wet_bulb,
+            humidity: weather.current.humidity,
+            dewPoint: weather.current.dew_point,
             high: weather.daily[0].h,
             low: weather.daily[0].l,
             hours,
@@ -418,6 +420,10 @@
             low: reading.low,
             wetBulb: reading.wetBulb,
             feels: reading.feels,
+            // Zero is a real humidity and a real dew point, so only an absent
+            // reading becomes the null the conditions column drops.
+            humidity: reading.humidity ?? null,
+            dewPoint: reading.dewPoint ?? null,
             bars: temperatureBars({
                 air: reading.temp,
                 wetBulb: reading.wetBulb,

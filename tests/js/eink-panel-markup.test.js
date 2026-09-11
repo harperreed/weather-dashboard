@@ -20,6 +20,7 @@ function scene(overrides = {}) {
         now: 'Thu 3:10pm',
         summary: 'Thunderstorms building',
         temp: 64, feels: 64, wetBulb: 58, high: 71, low: 44,
+        humidity: 58, dewPoint: 54,
         hours: times.map((t, i) => ({
             t, temp: temps[i], rain: rains[i], gust: 0, uv: 0, precipType: 'rain'
         })),
@@ -43,6 +44,26 @@ test('each reading bar carries its own width and fill', () => {
     assert.match(html, /class="bar bar--air" style="width: 100%"/);
     assert.match(html, /class="bar bar--wet-bulb" style="width: 91%"/);
     assert.match(html, /class="bar bar--feels" style="width: 100%"/);
+});
+
+test('the conditions column names the humidity and the dew point', () => {
+    const html = panelMarkup(scene());
+
+    assert.match(html, /Humidity<\/span>58%/);
+    assert.match(html, /Dew point<\/span>54°/);
+});
+
+test('a missing dew point costs its own cell, not the humidity beside it', () => {
+    const html = panelMarkup(scene({ dewPoint: null }));
+
+    assert.doesNotMatch(html, /Dew point/);
+    assert.match(html, /Humidity<\/span>58%/);
+});
+
+test('neither moisture reading means no line at all', () => {
+    const html = panelMarkup(scene({ humidity: null, dewPoint: null }));
+
+    assert.doesNotMatch(html, /class="moisture"/);
 });
 
 test('a missing wet bulb drops its whole row', () => {

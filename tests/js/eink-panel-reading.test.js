@@ -21,7 +21,9 @@ function weatherPayload() {
             feels_like: 90,
             wet_bulb: 77,
             precipitation_rate: 0.04,
-            precipitation_type: 'rain'
+            precipitation_type: 'rain',
+            humidity: 58,
+            dew_point: 54
         },
         daily: [{ d: 'Fri', h: 96, l: 73 }],
         hourly: Array.from({ length: 24 }, (_, i) => ({
@@ -159,4 +161,11 @@ test('a payload with no minutely block still makes a reading', () => {
     const reading = toReading(payload, 40, new Date(2026, 8, 4, 15, 10));
 
     assert.deepEqual(reading.minutely, []);
+});
+
+test('a reading carries the moisture the conditions column shows', () => {
+    const reading = toReading(weatherPayload(), 40, new Date(2026, 8, 4, 15, 10));
+
+    assert.equal(reading.humidity, 58);
+    assert.equal(reading.dewPoint, 54);
 });
