@@ -17,3 +17,6 @@ htmlcov/
 .coverage
 .pytest_cache/
 .scratch/
+
+# Superpowers scratch (brainstorm screens, SDD ledgers)
+.superpowers/

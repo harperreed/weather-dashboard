@@ -19,7 +19,11 @@ function weatherPayload() {
             summary: 'Clear sky',
             temperature: 80,
             feels_like: 90,
-            wet_bulb: 77
+            wet_bulb: 77,
+            precipitation_rate: 0.04,
+            precipitation_type: 'rain',
+            humidity: 58,
+            dew_point: 54
         },
         daily: [{ d: 'Fri', h: 96, l: 73 }],
         hourly: Array.from({ length: 24 }, (_, i) => ({
@@ -29,6 +33,12 @@ function weatherPayload() {
             gust: 7,
             uv: 3,
             precip_type: null
+        })),
+        minutely: Array.from({ length: 8 }, (_, i) => ({
+            time: `15:${String(i * 15 % 60).padStart(2, '0')}`,
+            precipitation_prob: 80 - i * 10,
+            snow: 0,
+            temp: 80
         })),
         sun: SUN
     };
@@ -132,4 +142,30 @@ test('a reading takes its range from the first forecast day', () => {
     assert.equal(reading.temp, 80);
     assert.equal(reading.wetBulb, 77);
     assert.equal(reading.moonPercent, 40);
+});
+
+test('a reading carries the minutely window the rain band reads', () => {
+    const reading = toReading(weatherPayload(), 40, new Date(2026, 8, 4, 15, 10));
+
+    assert.equal(reading.precipRate, 0.04);
+    assert.equal(reading.precipType, 'rain');
+    assert.equal(reading.minutely.length, 8);
+    assert.deepEqual(Object.keys(reading.minutely[0]).sort(), ['chance', 'snow', 'time']);
+    assert.equal(reading.minutely[0].chance, 80);
+});
+
+test('a payload with no minutely block still makes a reading', () => {
+    const payload = weatherPayload();
+    delete payload.minutely;
+
+    const reading = toReading(payload, 40, new Date(2026, 8, 4, 15, 10));
+
+    assert.deepEqual(reading.minutely, []);
+});
+
+test('a reading carries the moisture the conditions column shows', () => {
+    const reading = toReading(weatherPayload(), 40, new Date(2026, 8, 4, 15, 10));
+
+    assert.equal(reading.humidity, 58);
+    assert.equal(reading.dewPoint, 54);
 });

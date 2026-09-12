@@ -125,15 +125,16 @@
             display: grid;
             grid-template-columns: 1fr 1fr;
             gap: 0.625rem;
-            order: 5;
+            order: 6;
         }
 
         current-weather { order: 1; }
         weather-alerts { order: 2; }
         weather-insights { order: 3; }
-        hourly-forecast { order: 4; }
-        daily-forecast { order: 6; }
-        forecast-narrative { order: 7; }
+        precipitation-nowcast { order: 4; }
+        hourly-forecast { order: 5; }
+        daily-forecast { order: 7; }
+        forecast-narrative { order: 8; }
 
         /* Opt-in widgets sit after the hero sequence, in source order. */
         enhanced-temperature-trends,
@@ -143,7 +144,7 @@
         wind-direction,
         pressure-trends,
         hourly-timeline,
-        help-section { order: 7; }
+        help-section { order: 8; }
 
         @media (min-width: 640px) {
             .weather-container {
@@ -215,6 +216,11 @@
         [data-theme="eink"] weather-insights { order: 4; }
         [data-theme="eink"] forecast-narrative { order: 5; }
 
+        /* Off by default on this panel: it already stands within 8px of its
+           710px height. Opting in appends the nowcast rather than displacing
+           a card from the designed sequence. */
+        [data-theme="eink"] precipitation-nowcast { order: 6; }
+
         [data-theme="eink"] current-weather {
             order: 0;
             flex: 1;
@@ -272,6 +278,7 @@
             </div>
         </div>
         <weather-insights></weather-insights>
+        <precipitation-nowcast></precipitation-nowcast>
         <hourly-forecast></hourly-forecast>
         <forecast-narrative></forecast-narrative>
         <daily-forecast></daily-forecast>

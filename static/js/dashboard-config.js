@@ -24,6 +24,13 @@ const WIDGET_CATALOG = Object.freeze([
         defaultThemes: Object.freeze(['blue', 'light', 'eink'])
     }),
     Object.freeze({
+        id: 'nowcast',
+        host: 'precipitation-nowcast',
+        aliases: Object.freeze(['rain', 'minutely']),
+        parameters: Object.freeze(['minutely']),
+        defaultThemes: Object.freeze(['blue', 'light'])
+    }),
+    Object.freeze({
         id: 'hourly',
         host: 'hourly-forecast',
         aliases: Object.freeze(['hours']),

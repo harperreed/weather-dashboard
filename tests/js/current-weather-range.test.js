@@ -501,9 +501,10 @@ test('the page orders the phone sequence and the eInk sequence', () => {
     assert.match(template, /current-weather\s*\{\s*order:\s*1;\s*\}/);
     assert.match(template, /weather-alerts\s*\{\s*order:\s*2;\s*\}/);
     assert.match(template, /weather-insights\s*\{\s*order:\s*3;\s*\}/);
-    assert.match(template, /hourly-forecast\s*\{\s*order:\s*4;\s*\}/);
-    assert.match(template, /\.sky-pair\s*\{[^}]*order:\s*5;/s);
-    assert.match(template, /daily-forecast\s*\{\s*order:\s*6;\s*\}/);
+    assert.match(template, /precipitation-nowcast\s*\{\s*order:\s*4;\s*\}/);
+    assert.match(template, /hourly-forecast\s*\{\s*order:\s*5;\s*\}/);
+    assert.match(template, /\.sky-pair\s*\{[^}]*order:\s*6;/s);
+    assert.match(template, /daily-forecast\s*\{\s*order:\s*7;\s*\}/);
     assert.match(
         template,
         /\[data-theme="eink"\] weather-insights\s*\{[^}]*order:\s*4;/s
@@ -512,10 +513,18 @@ test('the page orders the phone sequence and the eInk sequence', () => {
     // The written forecast is the panel's long block, so it reads last on
     // eInk: chart, then the one-line strip, then the paragraph. On the phone
     // it is opt-in and joins the widgets that follow the hero sequence.
-    assert.match(template, /forecast-narrative\s*\{\s*order:\s*7;\s*\}/);
+    assert.match(template, /forecast-narrative\s*\{\s*order:\s*8;\s*\}/);
     assert.match(
         template,
         /\[data-theme="eink"\] forecast-narrative\s*\{[^}]*order:\s*5;/s
+    );
+
+    // The nowcast is off by default on the panel, which is already within
+    // 8px of its 710px height. Opting in adds it after the designed
+    // sequence rather than pushing a card out of it.
+    assert.match(
+        template,
+        /\[data-theme="eink"\] precipitation-nowcast\s*\{[^}]*order:\s*6;/s
     );
 });
 

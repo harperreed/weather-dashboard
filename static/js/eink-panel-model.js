@@ -34,6 +34,10 @@
     // How long after sunrise the day's whole arc is still the useful fact.
     const MORNING_MINUTES_PAST_SUNRISE = 60;
 
+    // Two hours of quarter-hour slots: the whole minutely window the API sends.
+    const BAND_SLOTS = 8;
+    const FALLING_VERB = { Rain: 'Raining', Snow: 'Snowing' };
+
     const EN_DASH = '–';
     const MIDDLE_DOT = '·';
 
@@ -306,10 +310,19 @@
             temp: weather.current.temperature,
             feels: weather.current.feels_like,
             wetBulb: weather.current.wet_bulb,
+            humidity: weather.current.humidity,
+            dewPoint: weather.current.dew_point,
             high: weather.daily[0].h,
             low: weather.daily[0].l,
             hours,
             darkHours: markDarkHours(hours, sun),
+            precipRate: weather.current.precipitation_rate,
+            precipType: weather.current.precipitation_type,
+            minutely: (weather.minutely || []).slice(0, BAND_SLOTS).map((slot) => ({
+                time: slot.time,
+                chance: slot.precipitation_prob,
+                snow: slot.snow
+            })),
             moonPercent,
             ...skyClock(sun, now)
         };
@@ -338,6 +351,61 @@
         return `${label} ${sunEvent.time} ${MIDDLE_DOT} Moon ${moonPercent}%`;
     }
 
+    /**
+     * The headline strip: precipitation on the ground, or a window of it close
+     * enough to change what you carry. Null the rest of the time, because a
+     * band that never goes quiet stops being a headline.
+     */
+    function rainBand(reading) {
+        const falling = reading.precipRate > 0;
+        const slots = (reading.minutely || []).slice(0, BAND_SLOTS);
+        const chances = slots.map((slot) => slot.chance || 0);
+        const likely = firstRun(chances, (chance) => chance >= PRECIP_LIKELY);
+
+        if (!falling && !likely) return null;
+
+        const snowing = reading.precipType === 'snow'
+            || slots.some((slot) => slot.snow > 0);
+        const noun = snowing ? 'Snow' : 'Rain';
+
+        return {
+            headline: falling
+                ? fallingSentence(noun, slots, chances)
+                : forecastSentence(noun, slots, likely),
+            detail: peakDetail(slots, chances)
+        };
+    }
+
+    /** What is falling, and the first quarter hour that lets up */
+    function fallingSentence(noun, slots, chances) {
+        const eases = chances.findIndex(
+            (chance, index) => index > 0 && chance < PRECIP_LIKELY
+        );
+        const verb = FALLING_VERB[noun];
+        return eases < 0
+            ? verb
+            : `${verb} — eases ${displayTime(slots[eases].time)}`;
+    }
+
+    /** A window ahead: where it ends if you are already in it, else where it starts */
+    function forecastSentence(noun, slots, [start, end]) {
+        if (start > 0) return `${noun} likely from ${displayTime(slots[start].time)}`;
+
+        const clears = slots[end + 1];
+        return clears
+            ? `${noun} likely until ${displayTime(clears.time)}`
+            : `${noun} likely`;
+    }
+
+    /** The worst chance in the window, tied to the clock so it cannot be misread */
+    function peakDetail(slots, chances) {
+        if (!chances.length) return '';
+
+        const peak = Math.max(...chances);
+        const at = chances.indexOf(peak);
+        return at === 0 ? `${peak}% now` : `${peak}% at ${displayTime(slots[at].time)}`;
+    }
+
     /** Everything the panel renders, derived once from one weather reading */
     function buildPanelModel(reading) {
         const hours = reading.hours.slice(0, HOUR_COUNT);
@@ -352,6 +420,10 @@
             low: reading.low,
             wetBulb: reading.wetBulb,
             feels: reading.feels,
+            // Zero is a real humidity and a real dew point, so only an absent
+            // reading becomes the null the conditions column drops.
+            humidity: reading.humidity ?? null,
+            dewPoint: reading.dewPoint ?? null,
             bars: temperatureBars({
                 air: reading.temp,
                 wetBulb: reading.wetBulb,
@@ -369,7 +441,8 @@
             })),
             chart: chartGeometry(hours.map((hour) => hour.temp)),
             darkBands: darkBands(darkHours),
-            footer: [feelsInsight(reading), headlineInsight(reading), skyInsight(reading)]
+            footer: [feelsInsight(reading), headlineInsight(reading), skyInsight(reading)],
+            rainBand: rainBand(reading)
         };
     }
 
@@ -386,6 +459,7 @@
         todaysSun,
         skyClock,
         toReading,
-        precipitationNoun
+        precipitationNoun,
+        rainBand
     };
 });
