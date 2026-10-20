@@ -2,7 +2,7 @@
 # ABOUTME: Simplified build process to avoid UV permission issues on Fly.io
 
 # Build stage
-FROM python:3.13-slim-bookworm AS builder
+FROM python:3.15-slim-bookworm AS builder
 
 # Set working directory
 WORKDIR /app
@@ -27,7 +27,7 @@ ENV VIRTUAL_ENV=/opt/venv
 RUN uv sync --active --locked --no-dev --no-install-project --compile-bytecode
 
 # Production stage
-FROM python:3.13-slim-bookworm
+FROM python:3.15-slim-bookworm
 
 # Install runtime dependencies
 RUN apt-get update && apt-get install -y \
